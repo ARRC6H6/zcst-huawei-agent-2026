@@ -80,7 +80,8 @@ DeepSeek 网页版没有固定的「系统提示词」入口，所以用法是�
 | `js/parser.js` | 👑 **队长** | 解析引擎（规则版 + AI 版） |
 | `js/storage.js` | 👑 **队长** | 本地存储（localStorage） |
 | `js/app.js` | 👑 **队长** | 入口，把上面几个接起来 |
-| `js/config.js` | 👑 **队长** | 配置（API 地址等），**不进 git** |
+| `js/config.js` | 👑 **队长** | 配置。**只放不敏感的默认值（会进 git）** |
+| `js/config.local.js` | 👑 **队长** | 密钥。**不进 git**，需要时才新建 |
 
 **加载顺序**（写在 `index.html` 的 `</body>` 前面，顺序不能乱）：
 
@@ -194,9 +195,17 @@ SS.ui.showParseResult(result)   // -> void      显示解析结果卡片
 SS.ui.setStatus(text)           // -> void      底部/顶部显示一行提示文字
 SS.ui.bindParse(handler)        // handler(rawText)  绑定「解析」按钮
 SS.ui.bindAdd(handler)          // handler()         绑定「加入待办」按钮
+SS.ui.bindView(handler)         // handler('all'|'today')  绑定「全部 / 今日」切换
+SS.ui.setAddEnabled(on)         // -> void      控制「加入待办」按钮能不能点
+SS.ui.bindManual(handler)       // handler()         绑定「手动录入」按钮（可选）
 ```
 
 `render(items)` 里每条要显示：**标题、时间、地点、是否完成**，并带「完成」「删除」两个按钮。
+
+> 📌 **脚手架已就位**：`src/` 里已经把上面这些函数名都摆好了。
+> `getInputText` / `setStatus` / `bindParse` / `bindAdd` / `bindView` / `setAddEnabled`
+> 已经写好当范例；**剩下 `render` / `showParseResult` / `bindManual` 三个是新手的作业**。
+> 队长那边的 `parser.parse` / `storage.*` / `schema.create` 也留了 TODO 和实现提示。
 
 ### 4.5 接线（👑 队长写在 `app.js`）
 
@@ -291,7 +300,7 @@ SS.ui.bindAdd(() => {
 | C4 | 一方跑得起来，另一方白屏 | 传文件漏了 `js/` 目录 | 传**整个文件夹**，不要单个文件 |
 | C5 | 昨天写好的功能今天不见了 | 一方用旧版本覆盖了新的 | 开工前先拉最新；收工前必须提交 |
 | C6 | 两个人对「完成」的定义不一样 | 没沟通就各自实现 | 有歧义先问，别自己猜 |
-| C7 | **API Key 被推到 GitHub 了** | 硬编码在 `config.js` 里 | `config.js` 加进 `.gitignore`；另给一个 `config.example.js` 模板 |
+| C7 | **API Key 被推到 GitHub 了** | 硬编码在 `config.js` 里 | 密钥只写 `js/config.local.js`（已在 `.gitignore` 里）；`config.js` 里永远只放不敏感的默认值 |
 | C8 | 没报错但就是不对 | 一方改了逻辑没通知另一方 | **收工前口头说一句「改了啥」** —— 这条最土也最有用 |
 
 ### D. 调大模型 API

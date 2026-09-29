@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>拾事 · 生活日志</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1 class="app-title">拾事</h1>
+    <p class="app-subtitle">粘一段文字，变成一条待办</p>
+  </header>
+
+  <main class="app-main">
+
+    <!-- ── 输入区 ───────────────────────────────────────── -->
+    <section class="panel">
+      <label class="panel-label" for="raw-input">把通知 / 短信 / 消息粘进来</label>
+      <textarea id="raw-input" class="raw-input" rows="4"
+        placeholder="例如：明天下午3点在三教201开班会"></textarea>
+
+      <div class="btn-row">
+        <button id="btn-parse" class="btn btn-primary" type="button">解析</button>
+        <button id="btn-add" class="btn" type="button" disabled>加入待办</button>
+        <button id="btn-manual" class="btn btn-ghost" type="button">手动录入</button>
+      </div>
+    </section>
+
+    <!-- ── 解析结果区（默认隐藏） ───────────────────────── -->
+    <section id="parse-result" class="panel result-panel" hidden></section>
+
+    <!-- ── 待办清单 ────────────────────────────────────── -->
+    <section class="panel">
+      <div class="list-head">
+        <h2 class="list-title">待办</h2>
+        <div class="filters">
+          <button id="btn-view-all" class="chip is-active" type="button">全部</button>
+          <button id="btn-view-today" class="chip" type="button">今日</button>
+        </div>
+      </div>
+
+      <ul id="todo-list" class="todo-list"></ul>
+      <p id="empty-state" class="empty-state">还没有待办，上面粘一段文字试试～</p>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <span id="status-bar" class="status-bar">准备就绪</span>
+  </footer>
+
+  <!-- ── 脚本加载顺序不能改（见 SKILL.md §3） ──────────────
+       接大模型时再加一行：<script src="js/config.local.js"></script>
+       位置放在 config.js 之后、parser.js 之前。        -->
+  <script src="js/schema.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

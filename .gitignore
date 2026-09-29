@@ -60,3 +60,8 @@ env/
 *.mp4
 *.mov
 *.psd
+
+# ---- 本地私有配置（API Key 等，绝不提交）----
+config.local.js
+src/js/config.local.js
+*.local.js
