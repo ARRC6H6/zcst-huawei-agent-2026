@@ -37,6 +37,9 @@ cd <仓库目录>
 │  ├─ 作品说明.md              # 作品用途 / 用户 / 核心功能 / 界面风格（待填）
 │  ├─ 提交清单.md              # 提交前的自检清单与命名规范
 │  └─ 码道开发记录.md          # 开发过程流水（待填）
+├─ skills/
+│  └─ pair-dev-contract/
+│     └─ SKILL.md            # ⭐ 双人协作规约 + 冻结的接口契约（给 DeepSeek / 码道用）
 ├─ .evidence/                 # ⚠️ 码道使用痕迹证明（提交必需）
 │  ├─ 01-ide-plugin-logs/     # IDE 插件使用日志与操作记录
 │  ├─ 02-ai-prompts/          # AI 交互对话与 Prompt 截图
