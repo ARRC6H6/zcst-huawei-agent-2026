@@ -1,52 +1,56 @@
 ---
-name: pair-dev-contract
+name: shishi-protocol
 description: >
-  珠科×华为云码道 Agent 创新赛「生活助手」项目的双人协作规约与接口契约。
-  当用户要求写这个项目的代码、修改代码、解释代码、排查报错、设计界面时，
-  必须严格遵守本文件的全部铁律与接口定义。任何与本文冲突的写法一律拒绝并提醒用户。
-version: 1.0.0
-updated: 2026-09-29
+  珠科×华为云码道 Agent 创新赛「拾事 Shishi」项目的**软件接口契约（唯一权威）**。
+  规定数据模型、数据源适配器接口、冲突判定规则、存储与 IPC 边界、蓝牙帧协议、设计 token
+  与命名铁律。凡是要写、改、查、解释这个项目的代码，必须先读本文件，并遵守其中全部铁律，
+  接口签名一律不许私自改。本文件是原 `pair-dev-contract` 的升级替代版（旧版已作废）。
+version: 2.0.0
+updated: 2026-08-28
+applies_to: 拾事 Shishi（Tauri v2 · Windows exe + Android APK）
 ---
 
-# 生活助手 · 双人协作规约（DeepSeek 工作手册）
+# 拾事 Shishi · 软件接口契约（v2）
 
-> 这份文件是**两个人的合约**。凡是写这个项目的代码，不管谁来问，都按这份文件办。
-> 目标是：**两个人各写各的，合起来一次就能跑。**
+> 这份文件是**所有人的共同语言**。不管谁来问代码，都按这份文件办。
+> 目标：**各写各的模块，合起来一次跑通，不用互相读对方的实现。**
+>
+> ⚠️ 旧版（v1 · 双人协作规约 · 原生 HTML/JS · TodoItem）**已作废**，不要再按旧版写代码。
+> 本文档只规定**技术协议**：数据结构、接口签名、边界、格式、规则。
+> 团队协作流程（对表、交接、痕迹归档）见 [`docs/工作须知.md`](../../docs/工作须知.md)。
 
 ---
 
 ## 0. 怎么用这份文件
 
-DeepSeek 网页版没有固定的「系统提示词」入口，所以用法是二选一：
+DeepSeek 网页版没有系统提示词入口，用法二选一：
 
 **方法 A（推荐）· 上传文件**
-把这份 `SKILL.md` 上传到 DeepSeek 对话里，然后发下面这段话「对表」：
-
-```
-请先完整阅读我上传的 SKILL.md，然后回答：
-1. 我负责哪些文件？队长负责哪些文件？
-2. 我要实现的 UI 层有哪几个函数？签名分别是什么？
-3. 你作为助手，绝对不能做的三件事是什么？
-4. 一条待办事项（TodoItem）有哪些字段？时间字段是什么格式？
-
-确认无误后我们再开始写代码。
-```
-
-**只有它答对了，才继续往下干。** 答错说明它没吃进去，重新贴一遍。
+把这份 `SKILL.md` 上传到 DeepSeek 对话，再发「对表」指令（见 `docs/工作须知.md` §2）。
 
 **方法 B · 直接粘贴**
-新建对话，第一条消息把本文件全文粘进去，然后发上面那段「对表」的话。
+新建对话，第一条消息把本文件全文粘进去，再发对表指令。
 
-**每个新对话都要重来一次**（DeepSeek 不记得上一个对话的事）。
+**每个新对话都要重来一次**（DeepSeek 不记得上一个对话）。
+**对表答错了，就重新贴一遍，不要将就着干活。**
 
 ---
 
-## 1. 项目一句话
+## 1. 作品一句话
 
-> **把散落在通知、短信、课表、车票、快递里的零碎信息，自动收拢成一份看得懂、会提醒你冲突的生活日志。**
+> **把散落在课表、快递、车票、短信通知里的零碎信息，自动收拢成一份看得懂、会提醒你冲突的生活日程。**
 
-形态：**一个网页**（电脑浏览器 + 手机浏览器都能开）。
-后续用 Capacitor 打包成安卓 APK。
+| 项目 | 内容 |
+| --- | --- |
+| 作品名 | 拾事 Shishi |
+| 形态 | Tauri v2 桌面 exe（Windows）+ 安卓 APK，双端**蓝牙互联** |
+| 前端 | React 19 + TypeScript + Vite |
+| 后端 | Rust（Tauri v2 `src-tauri`） |
+| 主数据源 | 教务课表、快递100、12306 车票、用户历史信息 |
+| 视觉参考 | 鲸鱼便签 Whale Notes（马卡龙 + 玻璃拟态），token 见 §3.9 |
+
+> 📌 **本期范围红线**：四个数据源**只冻结接口，不做真实接入**；蓝牙**只冻结协议，不做传输实现**。
+> 任何地方未实现，必须抛 `E_NOT_IMPLEMENTED` 或返回桩数据，**不许自己发明一套接口**。
 
 ---
 
@@ -54,305 +58,437 @@ DeepSeek 网页版没有固定的「系统提示词」入口，所以用法是�
 
 | # | 铁律 | 原因 |
 | --- | --- | --- |
-| 1 | **只用原生 HTML / CSS / JavaScript** | 不装环境、不学框架，零基础也能改 |
-| 2 | **禁止任何框架**（React/Vue/jQuery/Tailwind 一律不准） | 一上框架就要装 Node，零基础的人七天全耗在环境上 |
-| 3 | **禁止 `import` / `export`**（不用 ES Module） | `file://` 双击打开时模块会被浏览器拦住，页面直接白屏 |
-| 4 | **禁止用 `fetch` 读本地 json 文件** | `file://` 下会被 CORS 拦死 |
-| 5 | **禁止硬编码任何 API Key、密码、Token** | 一旦推到 GitHub 就泄露了，且删除记录也删不干净 |
-| 6 | **文件名一律小写英文**，不用中文文件名 | Windows 不区分大小写，换到别的系统会出问题 |
-| 7 | **不装 Node.js、不敲命令行** | 双击 `index.html` 就能跑，这是初版的硬要求 |
-| 8 | **页面必须能双击直接打开** | 评委复现成本必须是 0 |
-
-> ⚠️ 第 3、4 条最容易犯，而且后果最严重 —— **页面直接白屏**，零基础的人根本查不出原因。
-
----
-
-## 3. 文件归属（谁改哪个文件）
-
-**规则：只改自己名下的文件。要改别人的，先说一声。**
-
-| 文件 | 负责人 | 干什么 |
-| --- | --- | --- |
-| `index.html` | 🧑‍🎓 **新手** | 页面骨架，只放 `<div>` 和控件，逻辑一行都不写 |
-| `css/style.css` | 🧑‍🎓 **新手** | 全部样式 |
-| `js/ui.js` | 🧑‍🎓 **新手** | 界面层：渲染清单、显示结果、读输入框 |
-| `js/schema.js` | 👑 **队长** | 数据结构定义 + 校验 + 默认值 |
-| `js/parser.js` | 👑 **队长** | 解析引擎（规则版 + AI 版） |
-| `js/storage.js` | 👑 **队长** | 本地存储（localStorage） |
-| `js/app.js` | 👑 **队长** | 入口，把上面几个接起来 |
-| `js/config.js` | 👑 **队长** | 配置。**只放不敏感的默认值（会进 git）** |
-| `js/config.local.js` | 👑 **队长** | 密钥。**不进 git**，需要时才新建 |
-
-**加载顺序**（写在 `index.html` 的 `</body>` 前面，顺序不能乱）：
-
-```html
-<script src="js/schema.js"></script>
-<script src="js/config.js"></script>
-<script src="js/parser.js"></script>
-<script src="js/storage.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/app.js"></script>
-```
-
-> 每个文件开头统一写：`window.SS = window.SS || {};`
-> 全部挂到 `SS` 这个全局对象下，谁也别污染全局。
+| 1 | 前端只用 **React 19 + TypeScript + Vite**；Rust 只放 `src-tauri` | 与鲸鱼便签同版本系，环境经验可复用 |
+| 2 | **UI 层永远不许发网络请求**（不许 `fetch`/`axios`） | 密钥会泄露、安卓端 CORS 拦死；请求只许出现在适配器层内 |
+| 3 | 时间一律 **ISO8601 带 `+08:00`**，禁 `toISOString()`、禁 `Z` | 少 8 小时是经典 bug 源头 |
+| 4 | **禁硬编码任何 Key / Token / 密码**；只许放 `*.local.ts` / `*.local.json`（已在 `.gitignore`） | 推到 GitCode 就泄露，删记录也删不干净 |
+| 5 | 依赖必须**先登记**到 `docs/作品说明.md` 的「开源组件」表，再引 | 赛事硬性要求，漏登记是知识产权问题 |
+| 6 | 桌面端与安卓端**共用同一套 TS 源码**，差异只许走 `platform()` 判断 + 平台条件样式 | 复制两份 UI 必然走岔 |
+| 7 | 落盘只经 `db_save`；**UI 不许直接写文件** | 绕过原子写会把数据写坏 |
+| 8 | JSON 字段一律 **camelCase**（Rust 侧必须 `#[serde(rename_all = "camelCase")]`） | 不冻结就会出现 `startAt` / `start_at` 两套 |
+| 9 | **不许私自改动 §3 的任何签名、字段名、枚举值** | 接口是唯一能让多人并行不返工的东西 |
 
 ---
 
-## 4. 冻结的接口契约 ⭐
+## 3. 冻结的接口契约 ⭐
 
-> **这一节是整份文件的核心。签名一旦定下，两个人谁都不许私自改。**
-> 要改？先跟对方说，两边一起改，改完一起测。
+> 本节是全文核心。**签名一旦定下，谁都不许私自改。** 要改走 §6 的变更流程。
 
-### 4.1 数据结构：`TodoItem`
+### 3.1 核心实体 `ScheduleEvent`
 
-**这是全项目唯一的「货币」**，模块之间传的、存的、显示的都是它。
+**这是全项目唯一的「货币」**——模块之间传的、存的、显示的都是它。
 
-```js
-{
-  id:        "t_20261001_4f2a",            // string  必填，格式 t_<日期>_<4位随机>
-  title:     "开班会",                      // string  必填，不能为空
-  startAt:   "2026-10-02T15:00:00+08:00",  // string|null  ISO8601 带时区
-  endAt:     null,                          // string|null
-  location:  "三教201",                     // string|null
-  category:  "school",                      // "school"|"parcel"|"ticket"|"other"
-  source:    "paste",                       // "paste"|"manual"|"import"
-  rawText:   "明天下午3点在三教201开班会",   // string  原始输入，保留可追溯
-  done:      false,                         // boolean
-  createdAt: "2026-10-01T20:00:00+08:00",  // string
-  updatedAt: "2026-10-01T20:00:00+08:00",  // string
-  meta:      {}                             // object  分类专属字段
+```ts
+interface ScheduleEvent {
+  id: string;                 // evt_<yyyyMMdd>_<4位随机>，如 evt_20261002_4f2a
+  title: string;              // 必填，非空
+  kind: EventKind;            // 见下
+  source: SourceKind;         // 见下
+  startAt: string;            // ISO8601 带 +08:00，必填
+  endAt: string | null;       // 时刻型事项为 null
+  allDay: boolean;            // 快递到期这类整天事项为 true
+  location: string | null;
+  remindAt: string | null;    // 快递：arriveAt + 7 天
+  remindDaily: boolean;       // 快递倒计时期间每天提醒
+  status: EventStatus;        // todo | done | expired | canceled
+  meta: ParcelMeta | TicketMeta | CourseMeta | ExamMeta | Record<string, never>;
+  rawText: string;            // 原始输入，用于追溯，永不丢弃
+  deviceId: string;           // 产生这条记录的设备
+  rev: number;                // 整数自增，双端同步用
+  createdAt: string;          // ISO8601 带 +08:00
+  updatedAt: string;          // ISO8601 带 +08:00
+  conflicts?: ConflictHit[];  // 🔴 只读派生，永远不落盘
 }
+
+type EventKind   = 'course' | 'parcel' | 'ticket' | 'exam' | 'meeting' | 'custom';
+type SourceKind  = 'manual' | 'import' | 'exam_system' | 'kuaidi100' | 'rail12306' | 'history' | 'ble';
+type EventStatus = 'todo' | 'done' | 'expired' | 'canceled';
 ```
 
-`meta` 按 `category` 填：
+**字段规则：**
 
-| category | meta 里放什么 |
+| 字段 | 规则 |
 | --- | --- |
-| `parcel` 快递 | `{ carrier, pickupCode, station, arriveAt, expireAt }` |
-| `ticket` 车票 | `{ trainNo, seatNo, from, to }` |
-| `school` 校园 | `{ courseName, teacher }` |
-| `other` 其它 | `{}` |
+| `id` | 前缀 `evt_`。老网页版的 `t_` 前缀**不读取、不迁移**（v2 从空数据开始） |
+| `startAt` / `endAt` | 一律本地时间带偏移。跨天事项用 `startAt` 当天 + `endAt` 次日表示 |
+| `allDay` | `true` 时 `endAt` 可以为 null，表示「整天」；冲突判定跳过 allDay |
+| `rev` | 本机每次修改 +1；**桌面端为唯一真源**，合并规则见 §3.8 |
+| `conflicts` | 由 `detectConflicts()` 计算后**临时挂上**，`db_save` 时必须剥掉 |
 
-> 🔴 **快递 7 天倒计时的算法**：`expireAt = arriveAt + 7 天`（驿站保管 7 天，超期退回）。
-> 剩余天数 = `expireAt - 今天`，**永远实时算，不存"剩余几天"**。
+### 3.2 `meta` 按 `kind` 判别
 
-### 4.2 解析引擎 `SS.parser`
+| kind | meta 类型 | 字段 |
+| --- | --- | --- |
+| `parcel` 快递 | `ParcelMeta` | `carrier: string`、`trackingNo: string`、`pickupCode: string \| null`、`station: string \| null`、`arriveAt: string`、`expireAt: string` |
+| `ticket` 车票 | `TicketMeta` | `trainNo: string`、`seatNo: string \| null`、`from: string`、`to: string`、`departAt: string`、`arriveAt: string`、`ticketNo: string \| null` |
+| `course` 课表 | `CourseMeta` | `courseName: string`、`teacher: string \| null`、`semester: string`、`weekday: 1..7`、`period: string`（如 `3-4`）、`classroom: string \| null` |
+| `exam` 考试 | `ExamMeta` | `courseName: string`、`seatNo: string \| null`、`examType: string` |
+| 其它 | `{}` | 空对象，不许塞野字段 |
 
-```js
-/**
- * 把一段中文文本解析成待办
- * @param {string} rawText
- * @returns {Promise<ParseResult>}
- */
-SS.parser.parse(rawText)
-```
+> 🔴 **快递 7 天倒计时算法（冻结）**：
+> `expireAt = arriveAt + 7 天`，`remindAt = arriveAt`，`remindDaily = true`。
+> **剩余天数永远实时算**（`expireAt - today`），**不许把「剩余几天」存进任何字段**。
 
-```js
-// ParseResult
-{
-  ok:     true,                    // boolean
-  engine: "rule",                  // "rule" | "ai"
-  items: [                         // 可能解析出多条，一个都没有就是 []
-    {
-      title:      "开班会",                        // string 必填
-      startAt:    "2026-10-02T15:00:00+08:00",   // string|null
-      location:   "三教201",                      // string|null
-      category:   "school",                       // 同 TodoItem
-      confidence: 0.8                             // 0~1，规则版可以固定给 0.6
-    }
-  ],
-  error:  null                     // string|null
+### 3.3 数据源适配器（统一出口）
+
+四个数据源（`kuaidi100` / `exam_system` / `rail12306` / `history`）**对外只有这一个形状**：
+
+```ts
+interface DataSourceAdapter {
+  id: SourceKind;
+  /** 抓取。永远 resolve，永远不 reject —— 失败也要返回 AdapterResult{ ok:false } */
+  fetch(query: SourceQuery): Promise<AdapterResult>;
+}
+
+interface SourceQuery {
+  deviceId: string;
+  since: string | null;   // ISO8601，增量抓取起点；首次为 null
+  options?: Record<string, string>;  // 适配器私有参数，别的适配器不许读
+}
+
+interface AdapterResult {
+  ok: boolean;
+  source: SourceKind;
+  events: EventDraft[];   // 待入日程的「草稿」
+  hints: HistoryHint[];   // 🔴 只有 history 会给，其它适配器恒为 []
+  error: ShishiError | null;
+  fetchedAt: string;      // ISO8601 带 +08:00
 }
 ```
 
-> 🔴 **铁律：规则版和 AI 版必须返回完全相同的结构。**
-> 这是「保底」的前提 —— AI 调不通时切成规则版，上层代码一行都不用改。
-> 上层（`app.js`）**永远不许判断是哪个引擎**，只认 `ParseResult`。
+**三条铁律：**
 
-### 4.3 存储层 `SS.storage`
+1. **适配器只产草稿，绝不写库。** 写库是聚合层的事，适配器不许碰 `db_save`。
+2. **规则实现与桩实现必须返回完全相同的结构。** 换成真实调用时，上层一行都不用改。
+3. **上层永远不许判断「是哪个适配器」**，只认 `AdapterResult`；唯一例外是 `hints` 非空即来自 history。
 
-```js
-SS.storage.load()              // -> TodoItem[]   出错返回 []，永不返回 null
-SS.storage.save(items)         // -> TodoItem[]
-SS.storage.add(item)           // -> TodoItem[]   返回新的完整数组
-SS.storage.update(id, patch)   // -> TodoItem[]
-SS.storage.remove(id)          // -> TodoItem[]
+### 3.4 草稿 `EventDraft` 与去重
+
+```ts
+interface EventDraft {
+  title: string;
+  kind: EventKind;
+  source: SourceKind;
+  startAt: string;
+  endAt: string | null;
+  allDay: boolean;
+  location: string | null;
+  remindAt: string | null;
+  remindDaily: boolean;
+  meta: ScheduleEvent['meta'];
+  rawText: string;
+  externalId: string;      // 🔴 必填：快递单号 / 车次+日期 / 课程ID / 手工输入的 hash
+  confidence: number;      // 0~1，桩实现固定给 0.6
+}
 ```
 
-- localStorage 的 key：**`shishi:v1:todos`**（带版本号，改结构要升版本）
-- 值：`JSON.stringify(items)`
+> 🔴 **去重键（冻结）**：`dedupKey = source + ':' + externalId`
+> 同一个 `dedupKey` **全库只允许一条**。重复抓到走 **update**（改 `title`/`startAt`/`meta`，`rev` +1），**不许 insert 出新的一条**。
+> 快递单号变了就是新快递，别拿「驿站+姓名」当 externalId。
 
-> 🔴 **铁律：storage 的函数永远返回全新数组，不许原地改。**
-> 两边拿到同一个引用，一个人改了另一个人的数据就莫名其妙变了。
+### 3.5 用户历史信息 = `HistoryHint`（只推荐，不造事件）
 
-### 4.4 界面层 `SS.ui`（🧑‍🎓 新手实现）
-
-```js
-SS.ui.getInputText()            // -> string    读文本框内容（去掉首尾空格）
-SS.ui.render(items)             // -> void      重绘整个清单；传 [] 要显示空状态
-SS.ui.showParseResult(result)   // -> void      显示解析结果卡片
-SS.ui.setStatus(text)           // -> void      底部/顶部显示一行提示文字
-SS.ui.bindParse(handler)        // handler(rawText)  绑定「解析」按钮
-SS.ui.bindAdd(handler)          // handler()         绑定「加入待办」按钮
-SS.ui.bindView(handler)         // handler('all'|'today')  绑定「全部 / 今日」切换
-SS.ui.setAddEnabled(on)         // -> void      控制「加入待办」按钮能不能点
-SS.ui.bindManual(handler)       // handler()         绑定「手动录入」按钮（可选）
+```ts
+interface HistoryHint {
+  id: string;
+  kind: EventKind;
+  title: string;
+  suggestion: string;        // 中文一句，直接给 UI 显示，如「你上周三 15:00 有课，要加进课表吗？」
+  basedOn: string[];         // 依据的历史事件 id
+  confidence: number;        // 0~1
+}
 ```
 
-`render(items)` 里每条要显示：**标题、时间、地点、是否完成**，并带「完成」「删除」两个按钮。
+> 🔴 **`history` 适配器不许直接产事件**，只许产 `hints`。
+> 用户点「采纳」之后，才由**用户操作**触发 `event_upsert`（`source: 'history'`）。
 
-> 📌 **脚手架已就位**：`src/` 里已经把上面这些函数名都摆好了。
-> `getInputText` / `setStatus` / `bindParse` / `bindAdd` / `bindView` / `setAddEnabled`
-> 已经写好当范例；**剩下 `render` / `showParseResult` / `bindManual` 三个是新手的作业**。
-> 队长那边的 `parser.parse` / `storage.*` / `schema.create` 也留了 TODO 和实现提示。
+### 3.6 冲突判定（纯函数，结果不落盘）
 
-### 4.5 接线（👑 队长写在 `app.js`）
+```ts
+type ConflictRule = 'overlap' | 'parcel_vs_course' | 'ticket_vs_course';
 
-```js
-window.SS = window.SS || {};
+interface ConflictHit {
+  rule: ConflictRule;
+  withId: string;        // 撞上的另一条 id；自身到期类冲突填自己的 id
+  level: 'warn' | 'error';  // ⚠️ 本期三条规则统一用 'warn'
+  reason: string;        // 中文一句，直接显示，不许让 UI 自己拼
+}
 
-SS.ui.bindParse(async (text) => {
-  if (!text) { SS.ui.setStatus('先粘一段文字进来吧'); return; }
-  SS.ui.setStatus('解析中…');
-  const result = await SS.parser.parse(text);
-  SS.ui.showParseResult(result);
-});
-
-SS.ui.bindAdd(() => {
-  const items = SS.storage.add(pendingItem);   // pendingItem 由 showParseResult 后写入
-  SS.ui.render(items);
-});
+/** 纯函数：不许读存储、不许发请求、不许改传入数组 */
+function detectConflicts(events: ScheduleEvent[]): Record<string, ConflictHit[]>;
 ```
+
+| 规则 | 触发条件 | 级别 | `reason` 示例 |
+| --- | --- | --- | --- |
+| `overlap` | 两条**非 allDay** 事件区间重叠（`a.start < b.end && b.start < a.end`） | `warn` | `与「数据结构」时间重叠 30 分钟` |
+| `parcel_vs_course` | 快递 `expireAt` 当天有 `course` 事件 | `warn` | `快递当天到期，你当天 8:00-17:00 有课，记得提前取` |
+| `ticket_vs_course` | 车票 `departAt` 与当天 `course` 事件区间重叠 | `warn` | `14:30 出发，撞「数据结构」` |
+
+**实现要求（冻结）：**
+
+1. 双方都要挂：A 撞 B 时，A 和 B 的冲突列表里各有一条（`withId` 互指）。
+2. `reason` 里的数字（时长、时间）**必须算出来**，不许写死文本。
+3. 冲突**只在渲染前算一次**，算完挂到 `conflicts`；`db_save` 前必须剥掉（否则会存过期结论）。
+4. UI **只认** `data-conflict="warn" | "error"` 属性。**UI 层禁止自己判断冲突**，也禁止重新计算。
+
+### 3.7 存储与 IPC 边界
+
+```ts
+interface DbSnapshot {
+  version: 2;                 // 数据结构版本，改结构就 +1
+  events: ScheduleEvent[];
+  devices: DeviceRecord[];    // 见过面的设备
+  savedAt: string;            // ISO8601 带 +08:00
+}
+
+interface DeviceRecord {
+  deviceId: string;
+  platform: 'windows' | 'android';
+  appVersion: string;
+  lastSeenAt: string;
+}
+```
+
+- 桌面端存储 key：**`shishi:v2:events`**（旧 key `shishi:v1:todos` **不读、不迁移**）
+- 安卓端存储 key 同名，但**安卓端不算真源**，见 §3.8
+- 写入必须**先写临时文件再 rename**，崩了也不许把数据写坏
+
+**Tauri command 表（Rust 侧签名冻结，snake_case）：**
+
+| command | 入参 | 返回 | 说明 |
+| --- | --- | --- | --- |
+| `db_load` | — | `Result<DbSnapshot, ShishiError>` | 无文件返回空快照，**不许返回 null / 不许报错** |
+| `db_save` | `snapshot: DbSnapshot` | `Result<(), ShishiError>` | 原子写 |
+| `event_upsert` | `draft: EventDraft` | `Result<ScheduleEvent, ShishiError>` | 内部按 `dedupKey` 去重 |
+| `event_remove` | `id: string` | `Result<(), ShishiError>` | 不存在时静默成功 |
+| `source_fetch` | `query: SourceQuery` | `Result<AdapterResult, ShishiError>` | 桩实现，未接入返回 `E_NOT_IMPLEMENTED` |
+| `ble_status` | — | `Result<BleStatus, ShishiError>` | |
+| `ble_send` | `frame: FrameEnvelope` | `Result<(), ShishiError>` | |
+
+> 🔴 **TS 侧只许调用包装函数**（`dbLoad()` / `dbSave()` / `eventUpsert()`…），
+> **禁止在任何业务代码里直接写 `invoke('db_save')` 字符串**。
+> 包装层放在 `src/ipc/`（或等价的单一模块），全项目只有这一处出现 command 名。
+> 包装层负责：把 `ShishiError` 转成抛出 / 把 snake_case 差异吃干净。
+
+### 3.8 蓝牙（BLE）协议 —— 传输层留 TODO，协议先冻结
+
+**UUID（冻结，不许改）：**
+
+| UUID | 用途 | 属性 |
+| --- | --- | --- |
+| `d5f1c0de-0001-4a1e-9c2b-5f1e00000001` | Service | — |
+| `d5f1c0de-0001-4a1e-9c2b-5f1e00000002` | RX：手机 → 桌面 | Notify |
+| `d5f1c0de-0001-4a1e-9c2b-5f1e00000003` | TX：桌面 → 手机 | Write |
+| `d5f1c0de-0001-4a1e-9c2b-5f1e00000004` | INFO：设备信息 | Read |
+
+**帧格式（冻结）：`6 字节头 + UTF-8 JSON payload`**
+
+| 字节 | 名称 | 说明 |
+| --- | --- | --- |
+| 0 | `version` | 固定 `0x01`，不匹配直接丢帧 |
+| 1 | `type` | 见下表 |
+| 2 | `seq` | 0~255 循环递增 |
+| 3 | `fragIdx` | 分片序号，从 0 开始 |
+| 4 | `fragTotal` | 分片总数，单帧为 1 |
+| 5 | `flags` | 保留，本期固定 `0x00` |
+
+- **单帧 payload ≤ 200 字节**。超了就分片，`fragTotal > 1` 时接收方必须按 `fragIdx` 顺序重组完才解析。
+- 重组超时（建议 5 秒）就丢弃整包，**不许把残缺 JSON 往上层传**。
+
+**`type` 定义与 payload：**
+
+| type | 名称 | 方向 | payload |
+| --- | --- | --- | --- |
+| `0x01` | `HELLO` | 双向 | `{ deviceId, platform: 'windows'\|'android', appVersion, ts }` |
+| `0x02` | `EVENT_PUSH` | 手机 → 桌面 | `{ draft: EventDraft, clientRev: number }` |
+| `0x03` | `EVENT_ACK` | 桌面 → 手机 | `{ ackSeq: number, accepted: boolean, assignedId?: string, reason?: string }` |
+| `0x04` | `REMINDER` | 桌面 → 手机 | `{ eventId, title, remindAt, level: 'warn'\|'error' }` |
+| `0x05` | `TIME_SYNC` | 桌面 → 手机 | `{ desktopTs: string }` |
+| `0x06` | `PING` | 双向 | `{}` |
+| `0x7F` | `ERROR` | 双向 | `{ code: ErrorCode, message }` |
+
+**数据流向铁律：**
+
+1. **桌面端是唯一真源**。手机推送的 `EventDraft` 只是草稿，**收到 `EVENT_ACK{accepted:true}` 才算成功**。
+2. 桌面收到 `EVENT_PUSH` 后：按 `dedupKey` 去重 → `event_upsert` → 回 `EVENT_ACK`。
+3. 手机端 `clientRev` 落后于桌面 `rev` 时，**以桌面为准**（本期不做冲突合并，直接覆盖并记日志）。
+4. 时间一律以桌面为准，手机收到 `TIME_SYNC` 后校正自己的显示，**不许反过来改桌面时间**。
+
+> 🚧 **明确留白（TODO，谁都不许私自决定）**：
+> 主从角色（谁 Central / 谁 Peripheral）、MTU 协商、断线重连、重传与丢帧补偿、
+> 安卓运行时权限申请、后台存活策略。**这些要动之前先在群里说，改完同步进本节。**
+
+### 3.9 设计 token（沿用鲸鱼便签，冻结）
+
+```css
+:root {
+  /* 马卡龙六色（事件卡片按 kind 取色） */
+  --color-paper:    #FFFFFF;
+  --color-mint:     #8FE3BD;
+  --color-peach:    #FFB59B;
+  --color-lavender: #B9ADFF;
+  --color-lemon:    #FFD977;
+  --color-sky:      #8EC9FF;
+
+  /* 文字与强调 */
+  --ink: #1A1F33;
+  --ink-soft: #3F4761;
+  --ink-faint: #6F7893;
+  --accent: #6A7BFF;
+  --danger: #FF6B81;
+
+  /* 玻璃与形状 */
+  --glass-bg: rgba(250, 251, 255, 0.52);
+  --glass-blur: 20px;
+  --r-window: 15px;
+  --r-card: 13px;
+
+  /* 动效（统一缓动，禁 linear / ease） */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --fast: 0.16s var(--ease);
+  --mid: 0.28s var(--ease);
+}
+```
+
+**`kind` → 颜色映射（冻结）：**
+
+| kind | token | 用途 |
+| --- | --- | --- |
+| `course` | `--color-sky` | 课表 |
+| `parcel` | `--color-peach` | 快递 |
+| `ticket` | `--color-lavender` | 车票 |
+| `exam` | `--color-lemon` | 考试 |
+| `meeting` | `--color-mint` | 会议/例会 |
+| `custom` | `--color-paper` | 自定义 |
+
+- 冲突态：`[data-conflict="warn"]` 用 `--danger` 做**左侧色条 + 标题淡红**（本期全部 warn，不做红字刷屏）。
+- 安卓端不支持窗口级透明模糊，**平台条件样式里退回 `--glass-bg` 实心近似值**，不许另配一套配色。
 
 ---
 
-## 5. 命名规范
+## 4. 命名与统一错误
 
 | 类型 | 规范 | 例子 |
 | --- | --- | --- |
-| 文件名 | 全小写英文 | `parser.js` ✅ `解析.js` ❌ |
-| 全局命名空间 | 统一挂 `SS` | `SS.parser.parse()` |
-| 函数 / 变量 | camelCase | `getInputText` |
-| 常量 | UPPER_SNAKE | `MAX_ITEMS` |
-| 待办 id | `t_` 前缀 | `t_20261001_4f2a` |
-| 存储 key | `shishi:` 前缀 | `shishi:v1:todos` |
-| CSS 类名 | kebab-case | `.todo-item` |
+| 事件 id | `evt_` + 日期 + 4 位随机 | `evt_20261002_4f2a` |
+| 去重键 | `source:externalId` | `kuaidi100:SF1234567890` |
+| 存储 key | `shishi:v2:events` | 改结构就升 `v3` |
+| TS 变量 / 函数 | camelCase | `detectConflicts()` |
+| TS 类型 / 组件 | PascalCase | `ScheduleEvent`、`EventCard` |
+| Rust 函数 | snake_case | `db_save` |
+| **JSON 字段（一律）** | camelCase | `startAt` ✅ `start_at` ❌ |
+| CSS 类名 | kebab-case | `.event-card` |
+| 冲突标记属性 | `data-conflict` | `data-conflict="warn"` |
+| BLE UUID | 全小写带连字符 | 见 §3.8 |
+
+```ts
+type ErrorCode =
+  | 'E_INPUT' | 'E_STORAGE' | 'E_NETWORK' | 'E_AUTH'
+  | 'E_BLE'   | 'E_NOT_IMPLEMENTED' | 'E_UNKNOWN';
+
+interface ShishiError { code: ErrorCode; message: string; detail?: string }
+```
+
+> 🔴 **契约统一（冻结）**：
+> **Rust command 一律返回 `Result<T, ShishiError>`**；**TS 适配器一律 resolve，失败也返回 `AdapterResult{ok:false}`**。
+> 两边表现不同是故意的：command 是内部调用（异常要好定位），适配器是外部数据（失败是常态，要给 UI 显示原因）。
+> 未实现的桩实现，一律 `E_NOT_IMPLEMENTED` + `message: '本期未接入'`。
 
 ---
 
-## 6. 交接流程
-
-### 开工前（每天第一件事）
-
-1. **拉最新代码**（队长操作）
-2. 看一眼对方昨天动了哪些文件
-3. 确认自己今天只碰自己名下的文件
-
-### 收工前（每天最后一件事）
-
-1. **保证页面能打开、控制台不报红**（这一步没做到不许走）
-2. 提交推送（队长操作）
-3. **口头/群里说一句**：今天改了哪个文件、加了什么功能
-4. **截图归档**到 `.evidence/02-ai-prompts/`，并往 `docs/码道开发记录.md` 补一行
-
-### 冲突预防三条
-
-- 一个功能**只由一个人做完**，别两个人同时写
-- 要改对方的文件 → **先说一声**，改完通知回去
-- 传文件时**整个文件夹打包**，别只发 `index.html`（漏了 `js/` 会白屏）
-
----
-
-## 7. 坑清单（血泪版）
-
-### A. 打开就跑不起来
-
-| # | 症状 | 原因 | 怎么躲 |
-| --- | --- | --- | --- |
-| A1 | 页面**全白**，控制台报 `Cannot use import statement outside a module` | 用了 `import` / `export`，`file://` 不支持模块 | **禁用 ES Module**，用普通 `<script>` + 全局 `SS` |
-| A2 | 页面白，报 CORS / `Failed to fetch` | 用 `fetch` 读了本地 `.json` 文件 | 数据放 `localStorage`，或直接写死在 `.js` 里 |
-| A3 | 中文全变成「锟斤拷」或方块 | 缺 `<meta charset="utf-8">` | `index.html` 的 `<head>` 第一行就写上 |
-| A4 | 改完没反应，还是老样子 | 浏览器缓存了旧的 js | `Ctrl + F5` 强制刷新；或 `F12` → Network 勾 Disable cache |
-| A5 | 点按钮没反应，也没报错 | 脚本加载顺序错了，`ui.js` 在 `schema.js` 前面 | 严格按 §3 的顺序写 `<script>` |
-| A6 | 别人电脑上打不开 | 用了绝对路径 `C:\Users\...` | 一律用相对路径 `js/ui.js` |
-| A7 | 报 `xxx is not defined` | 忘了挂到 `SS` 上，或文件没引入 | 每个文件开头写 `window.SS = window.SS || {};` |
-
-### B. 数据存不住 / 存坏了
-
-| # | 症状 | 原因 | 怎么躲 |
-| --- | --- | --- | --- |
-| B1 | 刷新后数据全没了 | 存的是对象没 `JSON.stringify` | 存前 `stringify`，读后 `parse` |
-| B2 | 页面直接白屏 | localStorage 里是坏数据，`JSON.parse` 抛异常 | **`load()` 必须包 `try/catch`，出错返回 `[]`** |
-| B3 | 老数据没有新字段，界面显示 `undefined` | 数据结构升级了但老数据还在 | 读取时**补默认值**（`Object.assign(默认值, 老数据)`） |
-| B4 | 改了字段，别人的数据读不出来 | 没升版本号 | 存储 key 带版本 `shishi:v1:todos`，改结构就升到 `v2` |
-| B5 | 一个人改了数据，另一个人的也跟着变 | 两边共用同一个数组引用 | **所有函数返回新数组**，用 `{...item}` / `[...items]` |
-| B6 | 时间排序乱了 | 存的是 `"明天下午3点"` 这种文字 | **一律存 ISO8601**（`2026-10-02T15:00:00+08:00`），显示时才转文字 |
-| B7 | 列表里出现两条一模一样的 | id 重复（用了 `Math.random()` 太小） | id 用「时间戳 + 随机」`t_20261001_4f2a` |
-
-### C. 两个人对不上
-
-| # | 症状 | 原因 | 怎么躲 |
-| --- | --- | --- | --- |
-| C1 | 合并后一堆冲突，代码看不懂 | **两个人同时改了同一个文件** | 严格按 §3 的文件归属，只改自己那份 |
-| C2 | 报 `SS.parser.parse is not a function` | 一方把函数改名了，另一方不知道 | **接口签名冻结**（§4），要改必须两边一起改 |
-| C3 | 上层代码崩了 | 规则版返回数组，AI 版返回对象 | **两个引擎返回同一个 `ParseResult` 结构** |
-| C4 | 一方跑得起来，另一方白屏 | 传文件漏了 `js/` 目录 | 传**整个文件夹**，不要单个文件 |
-| C5 | 昨天写好的功能今天不见了 | 一方用旧版本覆盖了新的 | 开工前先拉最新；收工前必须提交 |
-| C6 | 两个人对「完成」的定义不一样 | 没沟通就各自实现 | 有歧义先问，别自己猜 |
-| C7 | **API Key 被推到 GitHub 了** | 硬编码在 `config.js` 里 | 密钥只写 `js/config.local.js`（已在 `.gitignore` 里）；`config.js` 里永远只放不敏感的默认值 |
-| C8 | 没报错但就是不对 | 一方改了逻辑没通知另一方 | **收工前口头说一句「改了啥」** —— 这条最土也最有用 |
-
-### D. 调大模型 API
-
-| # | 症状 | 原因 | 怎么躲 |
-| --- | --- | --- | --- |
-| D1 | 浏览器直连 API 报 CORS 错误 | 大多数大模型接口不给浏览器跨域 | **初版先用规则解析**；要直连走「本地小转发」或选支持 CORS 的服务 |
-| D2 | 返回的不是 JSON，解析崩了 | 模型爱在 JSON 外面加解释、加 ```json | Prompt 里写死「**只输出 JSON，不要任何解释、不要代码块标记**」，解析前先剥掉首尾杂字符 |
-| D3 | 偶尔解析出乱七八糟的东西 | 模型不稳定 | `try/catch` 兜住，失败就**回退规则解析**（保底） |
-| D4 | 解析不出时间 | 只给了「下周三」这种相对时间 | 把**今天的日期**塞进 Prompt，让模型算绝对日期 |
-| D5 | 每次结果不一样 | 温度参数太高 | `temperature` 设 0 ~ 0.2 |
-| D6 | 调用很慢，界面卡住 | 同步等待 | 调用期间把按钮置灰 + 显示「解析中…」 |
-
-### E. 到最后才发现
-
-| # | 症状 | 原因 | 怎么躲 |
-| --- | --- | --- | --- |
-| E1 | 交材料时**没有码道痕迹** | 攒到最后才补，补不出来 | **每天收工前 15 分钟**截图归档，这是死规矩 |
-| E2 | 评委电脑上跑不起来 | 只在开发机验证过 | 阶段 3 换一台干净电脑，照 README 走一遍 |
-| E3 | **APK 打不出来** | 拖到最后才发现环境不对 | **国庆期间就先打个 Hello World 的 APK 验证链路** |
-| E4 | 演示当天数据是空的 | 演示数据在开发机的 localStorage 里 | 准备一个「一键灌演示数据」的按钮 |
-
----
-
-## 8. 给 AI 的行为规范
+## 5. 给 AI（DeepSeek / 码道）的行为规范
 
 **必须做：**
 
-1. 写任何代码**之前**，先用一句话复述：「我理解的数据结构是 …，这次要改的是 … 函数」
-2. **只输出要改的那部分**，不要整个文件重写
+1. 写任何代码**之前**，先用一句话复述：「我理解的数据结构是 …，这次要改的是 … 接口」
+2. 只输出**要改的那一段**，不要整个文件重写
 3. 输出后说明：**改了哪个文件的哪个函数、怎么验证它好了**
-4. 时间一律用 **ISO8601 带 `+08:00`** 格式
-5. 涉及 `localStorage` 一律包 `try/catch`
-6. 有不确定性就明说「我不确定 X，建议你先试 Y」
+4. 时间一律 ISO8601 带 `+08:00`
+5. 涉及存储 / JSON 解析一律 `try/catch`，失败降级不崩
+6. 未实现的桩，明确返回 `E_NOT_IMPLEMENTED`，**不要假装实现**
+7. 有不确定性就直说「我不确定 X，建议先试 Y」
 
 **绝对不能做：**
 
-1. ❌ 引入任何框架、库、CDN 链接
-2. ❌ 使用 `import` / `export` / `type="module"`
-3. ❌ 硬编码 API Key、Token、密码
-4. ❌ 私自改动 §4 里的接口签名
-5. ❌ 把整个文件重写成完全不同的结构（零基础的人看不懂、会崩）
-6. ❌ 假设用户懂命令行、懂 Git、懂构建工具 —— **他不敲命令行的**
+1. ❌ 私自改动 §3 的字段名、枚举值、函数签名、UUID、token 名
+2. ❌ 在 UI 层发网络请求、判断冲突、直接写存储
+3. ❌ 让适配器写库，或让 `history` 适配器直接产事件
+4. ❌ 把 `conflicts` 存进 `DbSnapshot`
+5. ❌ 硬编码 Key / Token / 密码
+6. ❌ 引入未登记的开源依赖
+7. ❌ 桌面端和安卓端各写一套 UI
+8. ❌ 假设队友读过你的代码 —— **接口是唯一的沟通渠道**
 
-**当用户问的问题需要改接口时：**
+**当需求会动到冻结的接口时，先停下来回一句：**
 
-> 先停下来，回一句：
-> 「这会动到冻结的接口 `xxx`，建议你先跟队长确认一下，确认了我再写。」
+> 「这会动到冻结的接口 `xxx`（§3.x），按 §6 要先升版本并在群里说一声。确认了我再写。」
 
 ---
 
-## 9. 一句话总结
+## 6. 契约变更流程（改接口之前必读）
 
-> **接口冻死，文件分家，每天对表，收工截图。**
-> 做到这十六个字，双人编程就不会互相踩脚。
+1. **先说**：在群里说明「要改哪个接口、为什么、影响谁」，等一句「可以」。
+2. **同时改**：契约文档 + 所有调用方 **一次改完**，不许先改一半。
+3. **升版本**：`DbSnapshot.version` +1，存储 key 升号（`shishi:v2:events` → `v3`），本文档 `version` 升号。
+4. **记一笔**：往下面「变更日志」加一行。
+5. **验一遍**：改动方自己跑通一次再通知大家。
+
+### 变更日志
+
+| 版本 | 日期 | 改了什么 | 谁 |
+| --- | --- | --- | --- |
+| 1.0.0 | 2026-09-29 | 初版：原生 HTML/JS 双人规约、`TodoItem`、`SS.` 命名空间 | — |
+| 2.0.0 | 2026-08-28 | **全面重写**：改 Tauri v2 双端；`TodoItem` → `ScheduleEvent`；新增适配器接口、冲突规则、BLE 帧协议、设计 token；旧版作废 | — |
+
+---
+
+## 7. 坑清单（Tauri v2 双端版 · 血泪）
+
+### A. 跑不起来
+
+| # | 症状 | 原因 | 怎么躲 |
+| --- | --- | --- | --- |
+| A1 | `tauri build` 报 `link.exe not found` | 缺 MSVC 生成工具 | 装 VS Build Tools（含 C++ 桌面开发），Rust 用 `stable-x86_64-pc-windows-msvc` |
+| A2 | 窗口一片白 | WebView2 缺失 / 前端没起来 | 先 `pnpm dev` 起 Vite，再开 Tauri；检查 `devUrl` 端口 |
+| A3 | 透明圆角窗口失效 | 忘记 acrylic / 平台不支持 | 桌面用 `window_vibrancy`；安卓走实心近似值（§3.9） |
+| A4 | 安卓打不出 APK | 缺 Android SDK / NDK / 签名 | 提前把 Hello World APK 跑通，别拖到最后 |
+| A5 | `1420` 端口占用 | 上次 dev 没杀干净 | 先关掉旧进程再起 |
+| A6 | 队友电脑跑不起来 | 用了绝对路径 | 一律相对路径 + 环境变量 |
+
+### B. 时间与数据
+
+| # | 症状 | 原因 | 怎么躲 |
+| --- | --- | --- | --- |
+| B1 | 时间差 8 小时 | 用了 `new Date().toISOString()` | 手写带 `+08:00` 的格式化函数 |
+| B2 | 刷新数据全丢 | 没落盘或写坏 | 只经 `db_save`，原子写 |
+| B3 | 页面白屏 | 读到坏 JSON 后 `JSON.parse` 抛异常 | 解析必须 `try/catch`，坏数据返回空快照并告警 |
+| B4 | 列表出现两条一样的快递 | 没用 `dedupKey` 去重 | `source:externalId` 全库唯一 |
+| B5 | 界面显示 `undefined` | 老数据没有新字段 | 读取时补默认值（`Object.assign(默认值, 老数据)`） |
+| B6 | 一个人改了数据，另一个也跟着变 | 共用同一个数组引用 | 所有函数返回新数组，用 `{...}` / `[...]` |
+| B7 | 存进去一堆冲突结论 | 忘了剥 `conflicts` | `db_save` 前统一剥掉 |
+
+### C. 双端与 IPC
+
+| # | 症状 | 原因 | 怎么躲 |
+| --- | --- | --- | --- |
+| C1 | 前端拿到 `undefined` | Rust 返回了 `start_at`，前端等 `startAt` | 结构体必须 `#[serde(rename_all = "camelCase")]` |
+| C2 | `invoke` 报找不到 command | 名字写错 / 没注册 | 命令名只在包装层出现一次；`generate_handler!` 里登记 |
+| C3 | 安卓上请求被拦 | UI 层直接 `fetch` | 请求只许在适配器层 / Rust 侧 |
+| C4 | 蓝牙连不上 | 安卓 12+ 未申请运行时 BLE 权限 | 权限申请属于 §3.8 留白，动之前先说 |
+| C5 | 手机推了但桌面没数据 | 没等 `EVENT_ACK` 就认为成功 | 桌面为唯一真源，收到 ACK 才算成功 |
+| C6 | 两边结论不一致 | 各自实现冲突判定 | 只许调 `detectConflicts()` |
+
+### D. 材料与提交
+
+| # | 症状 | 原因 | 怎么躲 |
+| --- | --- | --- | --- |
+| D1 | 交材料时没有码道痕迹 | 攒到最后补，补不出来 | **每天收工前 15 分钟**截图归档，死规矩 |
+| D2 | 未登记开源组件 | 随手引了库 | 引依赖前先登记 `docs/作品说明.md` |
+| D3 | 密钥进了 Git | 写在普通配置文件 | 只放 `*.local.*`，确认在 `.gitignore` 里 |
+
+---
+
+## 8. 一句话总结
+
+> **一个 `ScheduleEvent` 走天下，适配器只产草稿，冲突只由纯函数算，桌面才是唯一真源。**
+> 四个字收尾：**先读契约，再动手**。
