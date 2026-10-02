@@ -1,62 +1,71 @@
-# 作品源码 · 拾事
+# 作品源码 · 实验助手 Lab Studio
 
-> 「拾事」—— 把散落在通知、短信、课表、车票、快递里的零碎信息，
-> 自动收拢成一份看得懂、会提醒你冲突的生活日志。
+> 「实验助手」—— 把一次生化实验做成一份**可编辑、可播放、可分享的流程文件**：
+> 编辑模式里写好每个反应步骤（文字 / 图片 / 视频占位 / 反应方程式 / 安全 TIPS）并在画布上摆好仪器，
+> 记录模式里逐步播放、边做边记，最后交给 LLM（或本地）生成实验报告参考版。
 
-**形态**：一个网页。电脑浏览器、手机浏览器都能直接打开。
+**形态**：一个网页。电脑浏览器、平板、手机都能直接打开。
 
 ---
 
 ## 怎么跑起来
 
-**不需要装任何东西，不需要命令行。**
+**不需要装任何东西，不需要命令行，不需要联网。**
 
-1. 双击 `index.html`
+1. 双击 `src/index.html`
 2. 就完了
 
-> 手机上想看：把整个 `src` 文件夹拷到手机，用浏览器打开 `index.html`；
-> 或者把文件夹传到局域网里，手机浏览器访问。
+> 手机上想看：把 `index.html` 这一个文件拷到手机，用浏览器打开即可（零依赖、零外链）。
+> 想在线预览：仓库开启 GitHub Pages 后直接访问 Pages 地址。
 
 ---
 
 ## 文件分工（**只改自己名下的文件**）
 
-| 文件 | 负责人 | 干什么 |
-| --- | --- | --- |
-| `index.html` | 🧑‍🎓 新手 | 页面骨架，只放标签，不写逻辑 |
-| `css/style.css` | 🧑‍🎓 新手 | 全部样式 |
-| `js/ui.js` | 🧑‍🎓 新手 | 界面层：渲染清单、显示结果 |
-| `js/schema.js` | 👑 队长 | 数据结构 |
-| `js/parser.js` | 👑 队长 | 解析引擎 |
-| `js/storage.js` | 👑 队长 | 本地存储 |
-| `js/app.js` | 👑 队长 | 入口接线 |
-| `js/config.js` | 👑 队长 | 配置（**不放密钥**） |
-| `js/config.local.js` | 👑 队长 | 密钥（**不进 git**，自己新建） |
+单文件工程，所有人改的是**同一个文件的不同区段**。动手前先看 `index.html` 里的分区注释：
 
-⚠️ **详细的接口契约、交接流程、22 条坑，全在 [`../skills/pair-dev-contract/SKILL.md`](../skills/pair-dev-contract/SKILL.md)。动手前先读它。**
+| 区段 | 区段注释锚点 | 负责人 | 干什么 |
+| --- | --- | --- | --- |
+| 1 图标与常量 | `1. 图标与常量` | 🧑‍🎓 新手 | `ICON` / `NAV` / `SUBJECTS` / `KEYS` |
+| 2 通用工具 | `2. 通用工具` | 👑 队长 | `esc` / `uid` / `clamp` / `toast` / `download` |
+| 3 存储层 | `3. 存储层` | 👑 队长 | `Store`（localStorage）+ `Media`（IndexedDB） |
+| 4 主题 | `4. 主题` | 🧑‍🎓 新手 | `applyTheme` / `resolvedTheme` / 令牌 |
+| 5 运行时状态 | `5. 运行时状态` | 👑 队长 | `ui` / `state` |
+| 6 仪器库 | `6. 仪器库` | 🧑‍🎓 新手 | `INST_CATS` / `INST_LIB`（只追加条目） |
+| 7 仪器画布 | `7. 仪器画布` | 👑 队长 | 渲染 + Pointer 交互 + `canvasAct` |
+| 8 通用视图片段 | `8. 通用视图片段` | 🧑‍🎓 新手 | `pageHead` / `mediaItemHTML` |
+| 9 视图 | `9. 视图` | 🧑‍🎓 新手 | `viewHome` / `viewEdit` / `viewRecord` / `viewReport` / `viewSettings` |
+| 10 导航 / 路由 | `10. 导航 / 路由` | 👑 队长 | `parseHash` / `goTo` / `render` |
+| 11 报告与 LLM | `11. 报告生成` | 👑 队长 | `REPORT_PROMPT` / `callLLM` / `buildLocalMarkdown` |
+| 12 动作分发 | `12. 动作分发` | 👑 队长 | `handleAct`（唯一动作入口） |
+| 13 启动 | `13. 启动` | 👑 队长 | `boot()` |
+| 样式 | `<style>` 段 | 🧑‍🎓 新手 | 全部 CSS，令牌一律走 `var(--x)` |
+
+⚠️ **冻结的接口契约、12 条铁律、交接流程、坑清单，全在 [`../skills/pair-dev-contract/SKILL.md`](../skills/pair-dev-contract/SKILL.md)。
+动手前先读它。**
 
 ---
 
-## TODO 清单（做完一条勾一条）
+## 自检（动手后必跑）
 
-### 👑 队长
+```bash
+node src/tools/check-page.mjs src/index.html
+```
 
-- [ ] `schema.js` · `create()` —— 补全 TodoItem 的所有字段
-- [ ] `schema.js` · `normalize()` —— 补默认值，兼容老数据
-- [ ] `schema.js` · `validate()` —— 校验 title / id / category
-- [ ] `storage.js` · `load()` —— **记得包 try/catch**（这条最容易白屏）
-- [ ] `storage.js` · `save()` / `add()` / `update()` / `remove()` —— 全部返回新数组
-- [ ] `parser.js` · `parse()` —— 规则解析（中文时间、地点、事项）
-- [ ] `app.js` · `filterToday()` —— 筛出今天的条目
-- [ ] `parser.js` · `parseByAI()` —— 大模型解析（D6）
+86 项自动校验，覆盖：脚本可执行 / 仪器库与替换接口 / 数据模型与持久化 / 画布交互 / 五个视图渲染 /
+本地报告与 markdown 渲染 / 注入防护 / 媒体与视频占位 / LLM 约定 / 主题三态 / 令牌完整性 /
+路由回落 / 单文件零外链形态。
 
-### 🧑‍🎓 新手
+**必须 `通过 86，失败 0` 才算没跑偏。** 这条同时是蓝图 §11 的第 10 项验收标准。
 
-- [ ] `ui.js` · `render()` —— 渲染待办清单（**D4 的主任务**）
-- [ ] `ui.js` · `showParseResult()` —— 显示解析结果卡片
-- [ ] `ui.js` · `bindManual()` —— 手动录入（可选）
-- [ ] `css/style.css` —— 把界面调好看（随便改，别怕）
-- [ ] `index.html` —— 按需要补控件
+浏览器里还有一层手动自检（F12 控制台）：
+
+```js
+INST_LIB.length          // -> 36
+KEYS.exps                // -> 'zhbit-lab-exps'
+parseHash()              // -> { view: 'home', param: null }
+Store.listExps().length  // -> 0（或你存进去的实验数量）
+```
 
 ---
 
@@ -64,24 +73,20 @@
 
 | 天 | 谁 | 目标 |
 | --- | --- | --- |
-| D1 | 新手 | 打开环境，学会「改代码 → 保存 → 刷新看变化」 |
-| D2 | 新手 | 骨架已经搭好了，确认页面能打开、底栏有字 |
-| D3 | 队长 | `parser.js` 的规则解析能用 |
-| D4 | 新手 | `render()` + `showParseResult()` 写完，清单能显示 |
-| D5 | 队长 | `storage.js` 全部写完，**刷新数据不丢**（保底里程碑） |
-| D6 | 队长 | 接大模型，`parseByAI()` 能用 |
-| D7 | 一起 | 手动录入 + 美化 + 录屏 + 归档痕迹 |
+| D1 | 新手 | 打开 `index.html`，学会「改代码 → 保存 → 刷新看变化」 |
+| D2 | 新手 | 认准 `INST_LIB` 与 `NAV`：会加一个仪器、会改一个导航名 |
+| D3 | 队长 | `Store` / `Media` 吃透：刷新不丢数据，脏数据被拒 |
+| D4 | 新手 | `viewEdit` 五要素输入 + `viewRecord` 播放器能显示 |
+| D5 | 队长 | 画布 `canvasAct` 全部动作可用（**保底里程碑**） |
+| D6 | 队长 | `callLLM` + `buildLocalMarkdown` 双路报告都能出 |
+| D7 | 一起 | 主题三态、三端自适应、`check-page` 全绿、归档痕迹 |
 
 > 做到 D5 就算**保底成功**。别为了冲进度把前面的做塌。
 
 ---
 
-## 自检
+## 上游文档
 
-```js
-// 在浏览器里按 F12 打开控制台，粘这几行，应该都不报错：
-SS.schema.newId()          // -> 't_20261001_xxxx'
-SS.schema.toIso()          // -> '2026-10-01T20:00:00+08:00'
-SS.storage.load()          // -> []（或者你存进去的数组）
-SS.ui.getInputText()       // -> ''（文本框里的内容）
-```
+- 需求与设计蓝图：[`../docs/实验助手-需求与设计蓝图.md`](../docs/实验助手-需求与设计蓝图.md)
+- 接口契约（唯一权威）：[`../skills/pair-dev-contract/SKILL.md`](../skills/pair-dev-contract/SKILL.md)
+- 人看的协作流程：[`../docs/工作须知.md`](../docs/工作须知.md)

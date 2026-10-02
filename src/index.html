@@ -1,65 +1,1995 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>拾事 · 生活日志</title>
-  <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#eef3fd" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#10131f" media="(prefers-color-scheme: dark)" />
+<title>实验助手 · Lab Studio</title>
+<style>
+/* ============================================================
+   实验助手 Lab Studio
+   视觉基准：鲸鱼便签（Whale Notes）柔光玻璃 + 马卡龙六色
+   单文件静态页，零依赖，双击即开
+   参考：正式项目/demo
+   ============================================================ */
+
+:root {
+  --bg-a: rgba(255, 255, 255, 0.62);
+  --bg-b: rgba(238, 243, 253, 0.5);
+  --line: rgba(96, 108, 145, 0.2);
+  --line-soft: rgba(96, 108, 145, 0.12);
+  --ink: #1a1f33;
+  --ink-soft: #3f4761;
+  --ink-faint: #6f7893;
+  --accent: #6a7bff;
+  --accent-soft: rgba(106, 123, 255, 0.12);
+  --danger: #ff6b81;
+  --ok: #2fb98a;
+  --warn: #d9a520;
+  --r-window: 15px;
+  --r-card: 13px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --fast: 0.16s var(--ease);
+  --mid: 0.28s var(--ease);
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+
+  --surface-1: rgba(255, 255, 255, 0.62);
+  --surface-2: rgba(255, 255, 255, 0.72);
+  --surface-3: rgba(255, 255, 255, 0.78);
+  --surface-hi: #ffffff;
+  --surface-low: rgba(255, 255, 255, 0.5);
+  --surface-ghost: rgba(255, 255, 255, 0.34);
+  --surface-bar: rgba(255, 255, 255, 0.7);
+  --hairline: rgba(255, 255, 255, 0.9);
+  --hairline-soft: rgba(255, 255, 255, 0.28);
+  --app-border: rgba(255, 255, 255, 0.72);
+
+  --shadow-card: 0 8px 20px rgba(30, 38, 70, 0.09);
+  --shadow-pop: 0 8px 20px rgba(30, 38, 70, 0.11);
+  --shadow-app: 0 24px 60px rgba(30, 38, 70, 0.13);
+  --shadow-icon: inset 0 0 0 1px rgba(255, 255, 255, 0.9), 0 2px 6px rgba(30, 38, 70, 0.07);
+  --shadow-tab: 0 10px 30px rgba(30, 38, 70, 0.16);
+
+  --page-a: #f8faff;
+  --page-b: #eef3fd;
+  --page-c: #f9f6ff;
+  --tab-a: rgba(255, 255, 255, 0.84);
+  --tab-b: rgba(238, 243, 253, 0.72);
+  --fallback-app: rgba(255, 255, 255, 0.9);
+  --fallback-tab: rgba(255, 255, 255, 0.95);
+  --hover-soft: rgba(120, 132, 165, 0.11);
+  --track: rgba(120, 132, 165, 0.14);
+  --scroller: rgba(120, 132, 165, 0.24);
+  --scroller-hover: rgba(120, 132, 165, 0.42);
+  --canvas-bg: rgba(255, 255, 255, 0.5);
+  --grid: rgba(120, 132, 165, 0.14);
+  --link-line: rgba(106, 123, 255, 0.6);
+}
+
+.t-paper   { --tint:#ffffff; --tint-2:#f4f6fb; --tint-line:rgba(130,142,175,.20); --tone:#8d97b4; }
+.t-mint    { --tint:#ecfdf5; --tint-2:#d8f7e9; --tint-line:rgba(47,185,138,.22);  --tone:#2fb98a; }
+.t-peach   { --tint:#fff4ef; --tint-2:#ffe2d6; --tint-line:rgba(255,138,101,.24); --tone:#f4815c; }
+.t-lavender{ --tint:#f4f1ff; --tint-2:#e5dfff; --tint-line:rgba(139,124,255,.24); --tone:#8b7cff; }
+.t-lemon   { --tint:#fffaeb; --tint-2:#ffefc8; --tint-line:rgba(226,174,41,.26);  --tone:#d9a520; }
+.t-sky     { --tint:#f1f8ff; --tint-2:#dcecff; --tint-line:rgba(94,165,255,.24);  --tone:#4f9bff; }
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-a: rgba(40, 47, 70, 0.58);
+  --bg-b: rgba(26, 31, 48, 0.46);
+  --line: rgba(158, 170, 205, 0.22);
+  --line-soft: rgba(158, 170, 205, 0.12);
+  --ink: #eef1f9;
+  --ink-soft: #c4cbdf;
+  --ink-faint: #8a93ae;
+  --accent: #8b98ff;
+  --accent-soft: rgba(139, 152, 255, 0.18);
+  --danger: #ff8095;
+  --ok: #43cfa0;
+  --warn: #e6b845;
+  --surface-1: rgba(255, 255, 255, 0.06);
+  --surface-2: rgba(255, 255, 255, 0.08);
+  --surface-3: rgba(255, 255, 255, 0.12);
+  --surface-hi: rgba(255, 255, 255, 0.14);
+  --surface-low: rgba(255, 255, 255, 0.04);
+  --surface-ghost: rgba(255, 255, 255, 0.03);
+  --surface-bar: rgba(255, 255, 255, 0.10);
+  --hairline: rgba(255, 255, 255, 0.10);
+  --hairline-soft: rgba(255, 255, 255, 0.06);
+  --app-border: rgba(255, 255, 255, 0.12);
+  --shadow-card: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 8px 20px rgba(0, 0, 0, 0.45);
+  --shadow-app: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --shadow-icon: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-tab: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --page-a: #171c2c;
+  --page-b: #10131f;
+  --page-c: #181327;
+  --tab-a: rgba(40, 47, 70, 0.82);
+  --tab-b: rgba(22, 26, 42, 0.72);
+  --fallback-app: rgba(26, 31, 48, 0.96);
+  --fallback-tab: rgba(26, 31, 48, 0.97);
+  --hover-soft: rgba(200, 210, 235, 0.10);
+  --track: rgba(200, 210, 235, 0.12);
+  --scroller: rgba(200, 210, 235, 0.22);
+  --scroller-hover: rgba(200, 210, 235, 0.38);
+  --canvas-bg: rgba(255, 255, 255, 0.04);
+  --grid: rgba(200, 210, 235, 0.10);
+  --link-line: rgba(139, 152, 255, 0.6);
+}
+
+:root[data-theme="dark"] .t-paper    { --tint:rgba(255,255,255,.06); --tint-2:rgba(255,255,255,.03); --tint-line:rgba(150,162,196,.20); --tone:#a8b0c8; }
+:root[data-theme="dark"] .t-mint     { --tint:rgba(47,185,138,.14);  --tint-2:rgba(47,185,138,.07);  --tint-line:rgba(47,185,138,.30);  --tone:#4fd3a4; }
+:root[data-theme="dark"] .t-peach    { --tint:rgba(244,129,92,.14);  --tint-2:rgba(244,129,92,.07);  --tint-line:rgba(244,129,92,.30);  --tone:#ff9b78; }
+:root[data-theme="dark"] .t-lavender { --tint:rgba(139,124,255,.15); --tint-2:rgba(139,124,255,.08); --tint-line:rgba(139,124,255,.32); --tone:#a79bff; }
+:root[data-theme="dark"] .t-lemon    { --tint:rgba(217,165,32,.14);  --tint-2:rgba(217,165,32,.07);  --tint-line:rgba(217,165,32,.30);  --tone:#e8bd4d; }
+:root[data-theme="dark"] .t-sky      { --tint:rgba(79,155,255,.14);  --tint-2:rgba(79,155,255,.07);  --tint-line:rgba(79,155,255,.30);  --tone:#6eb0ff; }
+
+:root[data-theme="dark"] .blob { opacity: 0.4; }
+:root[data-theme="dark"] .grain { opacity: 0.012; }
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+
+body {
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui,
+    "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  background: var(--page-b);
+  transition: background 0.3s var(--ease);
+  padding: 24px;
+  overflow-x: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bg {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  background: linear-gradient(158deg, var(--page-a) 0%, var(--page-b) 48%, var(--page-c) 100%);
+  transition: background 0.3s var(--ease);
+}
+.blob { position: absolute; border-radius: 50%; filter: blur(74px); opacity: 0.7; will-change: transform; }
+.b1 { width: 48vw; height: 48vw; min-width: 320px; min-height: 320px; left: -10vw; top: -14vh;
+      background: radial-gradient(circle at 40% 40%, rgba(142,201,255,.85), rgba(142,201,255,0) 70%); animation: drift 26s ease-in-out infinite; }
+.b2 { width: 42vw; height: 42vw; min-width: 280px; min-height: 280px; right: -12vw; bottom: -16vh;
+      background: radial-gradient(circle at 50% 50%, rgba(255,181,155,.72), rgba(255,181,155,0) 70%); animation: drift 32s ease-in-out infinite reverse; }
+.b3 { width: 38vw; height: 38vw; min-width: 260px; min-height: 260px; right: 2vw; top: -12vh;
+      background: radial-gradient(circle at 50% 50%, rgba(185,173,255,.62), rgba(185,173,255,0) 70%); animation: drift 38s ease-in-out infinite; }
+.b4 { width: 34vw; height: 34vw; min-width: 240px; min-height: 240px; left: 6vw; bottom: -18vh;
+      background: radial-gradient(circle at 50% 50%, rgba(143,227,189,.6), rgba(143,227,189,0) 70%); animation: drift 44s ease-in-out infinite reverse; }
+.b5 { width: 30vw; height: 30vw; min-width: 220px; min-height: 220px; left: 38vw; top: 26vh;
+      background: radial-gradient(circle at 50% 50%, rgba(255,217,119,.5), rgba(255,217,119,0) 70%); animation: drift 50s ease-in-out infinite; }
+.grain {
+  position: absolute; inset: 0; opacity: 0.022; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes drift { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(3vw,-3vh) scale(1.08); } }
+@keyframes frameIn { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: none; } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+
+.frame {
+  position: relative; z-index: 1;
+  width: min(1280px, 100%); height: min(860px, calc(100vh - 48px));
+  display: grid; grid-template-columns: 264px 1fr;
+  background: linear-gradient(158deg, var(--bg-a), var(--bg-b));
+  backdrop-filter: blur(42px) saturate(180%);
+  -webkit-backdrop-filter: blur(42px) saturate(180%);
+  border: 1px solid var(--app-border);
+  border-radius: var(--r-window);
+  box-shadow: var(--shadow-app), inset 0 1px 0 var(--hairline), inset 0 0 0 1px var(--hairline-soft);
+  overflow: hidden;
+  animation: frameIn .55s var(--ease);
+}
+
+.sidebar {
+  display: flex; flex-direction: column; min-width: 0;
+  border-right: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, var(--surface-ghost), transparent 40%);
+}
+.side-head { padding: 20px 18px 14px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center;
+  background: linear-gradient(145deg, #7b8aff, #5f6ef5); color: #fff; box-shadow: 0 4px 12px rgba(95,110,245,.35); flex: none; }
+.brand-mark svg { width: 19px; height: 19px; }
+.brand-text { display: block; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.brand-tag { display: block; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); margin-top: 1px; }
+
+.nav { display: flex; flex-direction: column; gap: 2px; padding: 6px 12px; flex: 1; overflow-y: auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 12px; border: 0; border-radius: 10px; cursor: pointer;
+  background: transparent; color: var(--ink-soft); font: inherit; font-size: 13.5px; font-weight: 600;
+  text-align: left; transition: background var(--fast), color var(--fast), transform var(--fast);
+}
+.nav-item svg { width: 17px; height: 17px; flex: none; color: var(--ink-faint); transition: color var(--fast); }
+.nav-item:hover { background: var(--hover-soft); color: var(--ink); }
+.nav-item:hover svg { color: var(--tone, var(--accent)); }
+.nav-item:active { transform: scale(.98); }
+.nav-item.on { background: var(--tint, var(--accent-soft)); color: var(--ink); box-shadow: inset 0 0 0 1px var(--tint-line, transparent); }
+.nav-item.on svg { color: var(--tone, var(--accent)); }
+
+.side-foot { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--line-soft); font-size: 11.5px; color: var(--ink-faint); }
+.foot-right { display: flex; align-items: center; gap: 8px; }
+.sync { display: inline-flex; align-items: center; gap: 5px; }
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgba(47,185,138,.16); }
+.theme-btn { width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--line-soft); background: var(--surface-2);
+  color: var(--ink-soft); cursor: pointer; display: grid; place-items: center; transition: background var(--fast), transform var(--fast); }
+.theme-btn:hover { background: var(--hover-soft); }
+.theme-btn:active { transform: scale(.9); }
+.theme-ico { font-size: 14px; line-height: 1; }
+
+.main { overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; }
+.view { padding: 26px 28px 40px; animation: cardIn .35s var(--ease); }
+
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.page-title { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+.page-sub { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-faint); }
+.head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2);
+  color: var(--ink-soft); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background var(--fast), transform var(--fast), box-shadow var(--fast), border-color var(--fast);
+}
+.btn svg { width: 15px; height: 15px; }
+.btn:hover { background: var(--surface-hi); transform: translateY(-1.5px); box-shadow: var(--shadow-card); }
+.btn:active { transform: scale(.96); }
+.btn-primary { border-color: transparent; background: linear-gradient(145deg, #7b8aff, #5f6ef5); color: #fff; box-shadow: 0 4px 12px rgba(95,110,245,.35); }
+.btn-primary:hover { box-shadow: 0 7px 18px rgba(95,110,245,.42); }
+.btn-danger { color: var(--danger); border-color: rgba(255,107,129,.3); }
+.btn-danger:hover { background: rgba(255,107,129,.1); }
+.btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+.btn-ghost { background: transparent; border-color: transparent; }
+.icon-btn { width: 32px; height: 32px; padding: 0; justify-content: center; border-radius: 9px; }
+
+.empty { text-align: center; padding: 56px 20px; color: var(--ink-faint); animation: float 3.6s ease-in-out infinite; }
+.empty svg { width: 54px; height: 54px; stroke-width: 1.2; color: var(--tone, var(--accent)); opacity: .7; }
+.empty p { margin: 14px 0 0; font-size: 13.5px; }
+
+.exp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 14px; }
+.exp-card {
+  position: relative; overflow: hidden; padding: 16px; border-radius: var(--r-card);
+  background: linear-gradient(148deg, var(--tint, #fff), var(--tint-2, #f4f6fb));
+  border: 1px solid var(--tint-line, var(--line-soft));
+  box-shadow: var(--shadow-card); cursor: pointer;
+  transition: transform var(--fast), box-shadow var(--fast), filter var(--fast);
+  animation: cardIn .35s var(--ease);
+}
+.exp-card::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 99px;
+  background: var(--tone, var(--accent)); transform: scaleY(.4); transform-origin: center; transition: transform var(--mid); }
+.exp-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-pop); filter: brightness(1.015); }
+.exp-card:hover::before { transform: scaleY(1); }
+.exp-card:active { transform: scale(.99); }
+.exp-thumb { height: 74px; border-radius: 10px; margin-bottom: 12px; display: grid; place-items: center;
+  background: var(--surface-low); border: 1px dashed var(--tint-line, var(--line)); color: var(--tone, var(--ink-faint)); }
+.exp-thumb svg { width: 34px; height: 34px; stroke-width: 1.3; }
+.exp-name { margin: 0 0 5px; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.exp-desc { margin: 0; font-size: 12px; line-height: 1.7; color: var(--ink-faint); min-height: 34px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.exp-meta { display: flex; justify-content: space-between; margin-top: 12px; font-size: 11px; color: var(--ink-faint); }
+.exp-ops { display: flex; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--tint-line, var(--line-soft)); }
+
+.editor-layout { display: grid; grid-template-columns: 208px 1fr; gap: 16px; align-items: start; }
+.step-rail, .card {
+  border-radius: var(--r-card); border: 1px solid var(--line-soft);
+  background: var(--surface-2); box-shadow: var(--shadow-card); padding: 14px;
+}
+.rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+  font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--ink-faint); }
+.step-list { display: flex; flex-direction: column; gap: 6px; }
+.step-item {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px;
+  border: 1px solid transparent; border-radius: 10px; background: var(--surface-low);
+  color: var(--ink-soft); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  text-align: left; transition: background var(--fast), border-color var(--fast), transform var(--fast);
+}
+.step-item:hover { background: var(--hover-soft); }
+.step-item:active { transform: scale(.98); }
+.step-item.on { background: var(--accent-soft); border-color: rgba(106,123,255,.3); color: var(--ink); }
+.step-no { width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; flex: none;
+  background: var(--surface-hi); font-size: 11px; font-weight: 700; color: var(--ink-faint); }
+.step-item.on .step-no { background: var(--accent); color: #fff; }
+.step-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.editor-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card-title { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; font-weight: 700; }
+.card-title svg { width: 16px; height: 16px; color: var(--tone, var(--accent)); }
+.card-title .grow { flex: 1; }
+
+.field { margin-bottom: 13px; }
+.field:last-child { margin-bottom: 0; }
+.field-label { display: block; margin-bottom: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .03em; color: var(--ink-faint); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+input[type="text"], input[type="password"], input[type="number"], textarea, select {
+  width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--surface-2); color: var(--ink); font: inherit; font-size: 13.5px;
+  transition: border-color var(--fast), box-shadow var(--fast), background var(--fast);
+}
+textarea { resize: vertical; min-height: 84px; line-height: 1.75; }
+input:focus, textarea:focus, select:focus { outline: 0; border-color: var(--accent); background: var(--surface-hi); box-shadow: 0 0 0 3.5px var(--accent-soft); }
+input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.tips-input { border-color: rgba(217,165,32,.4); background: rgba(255,250,235,.6); }
+:root[data-theme="dark"] .tips-input { background: rgba(217,165,32,.08); }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 99px;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-soft);
+  font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: all var(--fast);
+}
+.chip:hover { background: var(--surface-hi); transform: translateY(-1px); }
+.chip:active { transform: scale(.95); }
+.chip.on { background: var(--accent); border-color: transparent; color: #fff; }
+.chip.danger { color: var(--danger); border-color: rgba(255,107,129,.3); }
+
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 9px; }
+.media-item { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--line-soft); background: var(--surface-low); aspect-ratio: 1; }
+.media-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.media-ph { display: grid; place-items: center; height: 100%; color: var(--ink-faint); font-size: 11px; text-align: center; padding: 6px; }
+.media-del { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 7px; border: 0;
+  background: rgba(20,24,40,.6); color: #fff; cursor: pointer; display: grid; place-items: center; font-size: 12px; }
+.media-add { display: grid; place-items: center; aspect-ratio: 1; border-radius: 10px; border: 1px dashed var(--line);
+  background: var(--surface-ghost); color: var(--ink-faint); cursor: pointer; font-size: 11.5px; gap: 4px; transition: all var(--fast); }
+.media-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.media-add svg { width: 20px; height: 20px; }
+
+.canvas-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.canvas-tools { display: flex; gap: 5px; margin-left: auto; flex-wrap: wrap; }
+.canvas-scroll { overflow: auto; border-radius: 11px; border: 1px solid var(--line-soft); background: var(--canvas-bg); }
+.canvas-stage { position: relative; transform-origin: top left; }
+.cv-grid { position: absolute; inset: 0;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 20px 20px; border-radius: 11px; }
+.cv-item { position: absolute; display: grid; place-items: center; cursor: grab; touch-action: none;
+  border-radius: 10px; transition: box-shadow var(--fast), background var(--fast); }
+.cv-item svg { width: 100%; height: 100%; stroke: var(--ink-soft); }
+.cv-item img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.cv-item .cv-label { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: var(--ink-faint); white-space: nowrap; pointer-events: none; }
+.cv-item:hover { background: var(--hover-soft); }
+.cv-item.on { box-shadow: 0 0 0 1.6px var(--accent), 0 8px 18px rgba(30,38,70,.14); }
+.cv-item.dragging { cursor: grabbing; opacity: .9; }
+.cv-item .cv-op { position: absolute; width: 13px; height: 13px; border-radius: 50%; background: var(--surface-hi);
+  border: 1.6px solid var(--accent); display: none; }
+.cv-item.on .cv-op { display: block; }
+.cv-op.rot { top: -9px; left: 50%; transform: translateX(-50%); cursor: grab; }
+.cv-op.scl { right: -8px; bottom: -8px; cursor: nwse-resize; }
+.cv-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cv-svg line { stroke: var(--link-line); stroke-width: 2; stroke-dasharray: 7 5; }
+.cv-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-faint); font-size: 12.5px; pointer-events: none; }
+.inst-panel { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.inst-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 9px;
+  border: 1px solid var(--line-soft); background: var(--surface-2); color: var(--ink-soft);
+  font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all var(--fast); }
+.inst-chip svg { width: 17px; height: 17px; stroke: var(--ink-faint); }
+.inst-chip:hover { background: var(--surface-hi); border-color: var(--accent); transform: translateY(-1px); }
+.inst-chip:active { transform: scale(.95); }
+.inst-cat { font-size: 10.5px; font-weight: 700; color: var(--ink-faint); letter-spacing: .06em; margin: 10px 0 4px; width: 100%; }
+
+.player-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.player-nav { display: flex; gap: 6px; }
+.player-step { font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+.player-dots { display: flex; gap: 5px; margin-left: auto; flex-wrap: wrap; }
+.player-dot { width: 9px; height: 9px; border-radius: 50%; border: 0; background: var(--track); cursor: pointer; transition: all var(--fast); }
+.player-dot.on { background: var(--accent); transform: scale(1.25); }
+.player-stage { display: grid; grid-template-columns: 1.1fr .9fr; gap: 16px; align-items: start; }
+.read-block { margin-bottom: 12px; }
+.read-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; color: var(--ink-faint); margin-bottom: 5px; }
+.read-text { font-size: 13.5px; line-height: 1.85; color: var(--ink-soft); white-space: pre-wrap; word-break: break-word; }
+.eq-box { padding: 10px 12px; border-radius: 10px; background: var(--surface-low); border: 1px solid var(--line-soft);
+  font-family: var(--mono); font-size: 13.5px; color: var(--ink); overflow-x: auto; }
+.tips-box { padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(217,165,32,.35); background: rgba(255,250,235,.55);
+  font-size: 12.5px; line-height: 1.8; color: #8a6a12; }
+:root[data-theme="dark"] .tips-box { background: rgba(217,165,32,.1); color: var(--warn); }
+.player-canvas { border-radius: 11px; border: 1px solid var(--line-soft); background: var(--canvas-bg); overflow: auto; }
+
+.record-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+
+.md-preview { border-radius: var(--r-card); border: 1px solid var(--line-soft); background: var(--surface-2);
+  padding: 22px 24px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); overflow-x: auto; }
+.md-preview h1, .md-preview h2, .md-preview h3 { color: var(--ink); letter-spacing: -.01em; }
+.md-preview h2 { font-size: 16px; margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line-soft); }
+.md-preview h2:first-child { margin-top: 0; }
+.md-preview table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px; }
+.md-preview th, .md-preview td { border: 1px solid var(--line-soft); padding: 7px 10px; text-align: left; }
+.md-preview th { background: var(--surface-low); font-weight: 700; color: var(--ink); }
+.md-preview code { font-family: var(--mono); background: var(--surface-low); padding: 1px 5px; border-radius: 5px; font-size: 12.5px; }
+.md-preview img { max-width: 100%; border-radius: 10px; }
+
+.seg { display: inline-flex; padding: 3px; border-radius: 11px; background: var(--surface-low); border: 1px solid var(--line-soft); }
+.seg-btn { padding: 7px 14px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-soft);
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all var(--fast); }
+.seg-btn.on { background: var(--surface-hi); color: var(--ink); box-shadow: var(--shadow-card); }
+
+.msg { margin: 10px 0 0; font-size: 12.5px; min-height: 18px; color: var(--ink-faint); }
+.msg.err { color: var(--danger); }
+.msg.ok { color: var(--ok); }
+
+.toast { position: fixed; left: 50%; bottom: 34px; transform: translate(-50%, 20px); z-index: 60;
+  padding: 11px 20px; border-radius: 12px; background: rgba(26,31,51,.92); color: #fff; font-size: 13px; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity var(--mid), transform var(--mid); backdrop-filter: blur(8px); }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.tabbar { display: none; }
+
+@media (max-width: 980px) {
+  .editor-layout { grid-template-columns: 1fr; }
+  .player-stage, .record-grid, .field-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 860px) {
+  body { padding: 0; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  .frame { height: 100vh; height: 100dvh; width: 100%; border-radius: 0; grid-template-columns: 1fr; border: 0; }
+  .sidebar { display: none; }
+  .main { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+  .view { padding: calc(18px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 24px calc(16px + env(safe-area-inset-left)); }
+  .page-head { flex-direction: column; align-items: stretch; gap: 10px; }
+  .head-actions { width: 100%; }
+  .head-actions .btn { flex: 1; justify-content: center; }
+  .page-title { font-size: 19px; }
+  .exp-grid { grid-template-columns: 1fr 1fr; gap: 11px; }
+  .tabbar {
+    display: flex; position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 40;
+    padding: 7px; border-radius: 17px; gap: 2px;
+    background: linear-gradient(158deg, var(--tab-a), var(--tab-b));
+    backdrop-filter: blur(30px) saturate(170%);
+    border: 1px solid var(--app-border); box-shadow: var(--shadow-tab);
+  }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px;
+    border: 0; border-radius: 12px; background: transparent; color: var(--ink-faint);
+    font: inherit; font-size: 10px; font-weight: 600; cursor: pointer; transition: all var(--fast); }
+  .tab svg { width: 19px; height: 19px; }
+  .tab.on { background: var(--tint, var(--accent-soft)); color: var(--tone, var(--accent)); }
+  .tab:active { transform: scale(.94); }
+  body, input, textarea, select, button { font-size: 14px; }
+  .btn { min-height: 40px; }
+  .chip, .inst-chip { min-height: 36px; }
+  .step-item { min-height: 42px; }
+}
+@media (max-width: 560px) { .exp-grid { grid-template-columns: 1fr; } }
+
+@media (prefers-reduced-transparency: reduce) {
+  .frame { backdrop-filter: none; background: var(--fallback-app); }
+  .tabbar { backdrop-filter: none; background: var(--fallback-tab); }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .frame { background: var(--fallback-app); }
+  .tabbar { background: var(--fallback-tab); }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--scroller); border-radius: 99px; background-clip: padding-box; border: 2px solid transparent; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroller-hover); background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+</style>
 </head>
 <body>
+<div class="bg" aria-hidden="true">
+  <i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i><i class="blob b4"></i><i class="blob b5"></i>
+  <i class="grain"></i>
+</div>
 
-  <header class="app-header">
-    <h1 class="app-title">拾事</h1>
-    <p class="app-subtitle">粘一段文字，变成一条待办</p>
-  </header>
-
-  <main class="app-main">
-
-    <!-- ── 输入区 ───────────────────────────────────────── -->
-    <section class="panel">
-      <label class="panel-label" for="raw-input">把通知 / 短信 / 消息粘进来</label>
-      <textarea id="raw-input" class="raw-input" rows="4"
-        placeholder="例如：明天下午3点在三教201开班会"></textarea>
-
-      <div class="btn-row">
-        <button id="btn-parse" class="btn btn-primary" type="button">解析</button>
-        <button id="btn-add" class="btn" type="button" disabled>加入待办</button>
-        <button id="btn-manual" class="btn btn-ghost" type="button">手动录入</button>
+<div class="frame">
+  <aside class="sidebar">
+    <div class="side-head">
+      <div class="brand">
+        <span class="brand-mark" id="brandMark"></span>
+        <span>
+          <span class="brand-text">实验助手</span>
+          <span class="brand-tag">Lab Studio</span>
+        </span>
       </div>
-    </section>
+    </div>
+    <nav class="nav" id="nav" aria-label="主导航"></nav>
+    <div class="side-foot">
+      <span id="sideHint">本地保存</span>
+      <span class="foot-right">
+        <span class="sync"><i class="sync-dot"></i>已保存</span>
+        <button class="theme-btn" data-act="theme" type="button" title="切换深色 / 浅色" aria-label="切换深色 / 浅色"><span class="theme-ico"></span></button>
+      </span>
+    </div>
+  </aside>
 
-    <!-- ── 解析结果区（默认隐藏） ───────────────────────── -->
-    <section id="parse-result" class="panel result-panel" hidden></section>
+  <main class="main" id="main"></main>
+</div>
 
-    <!-- ── 待办清单 ────────────────────────────────────── -->
-    <section class="panel">
-      <div class="list-head">
-        <h2 class="list-title">待办</h2>
-        <div class="filters">
-          <button id="btn-view-all" class="chip is-active" type="button">全部</button>
-          <button id="btn-view-today" class="chip" type="button">今日</button>
+<nav class="tabbar" id="tabbar" aria-label="底部导航"></nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================
+   1. 图标与常量
+   ============================================================ */
+
+const SVG = `width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"`;
+const BIG = `width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"`;
+
+const ICON = {
+  logo: `<svg ${SVG} stroke-width="1.7" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/></svg>`,
+  home: `<svg ${SVG}><path d="M4 10.5 12 4l8 6.5"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></svg>`,
+  edit: `<svg ${SVG}><path d="M4 20h4l10-10-4-4L4 16z"/><path d="M14 6l4 4"/></svg>`,
+  play: `<svg ${SVG}><path d="M7 5l12 7-12 7z"/></svg>`,
+  report: `<svg ${SVG}><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h4"/><path d="M10 13h6M10 17h6"/></svg>`,
+  settings: `<svg ${SVG}><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M4.2 7.5l1.7 1M18.1 15.5l1.7 1M4.2 16.5l1.7-1M18.1 8.5l1.7-1"/></svg>`,
+  sun: `<svg ${SVG}><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`,
+  moon: `<svg ${SVG}><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>`,
+  plus: `<svg ${SVG}><path d="M12 5v14M5 12h14"/></svg>`,
+  trash: `<svg ${SVG}><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>`,
+  copy: `<svg ${SVG}><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg>`,
+  download: `<svg ${SVG}><path d="M12 4v11"/><path d="M8 11l4 4 4-4"/><path d="M4 20h16"/></svg>`,
+  upload: `<svg ${SVG}><path d="M12 20V9"/><path d="M8 13l4-4 4 4"/><path d="M4 4h16"/></svg>`,
+  image: `<svg ${SVG}><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg>`,
+  video: `<svg ${SVG}><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 11l5-3v8l-5-3z"/></svg>`,
+  close: `<svg ${SVG}><path d="M7 7l10 10M17 7 7 17"/></svg>`,
+  left: `<svg ${SVG}><path d="M15 6l-6 6 6 6"/></svg>`,
+  right: `<svg ${SVG}><path d="M9 6l6 6-6 6"/></svg>`,
+  check: `<svg ${SVG}><path d="M5 13l4 4L19 7"/></svg>`,
+  sparkle: `<svg ${SVG}><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9z"/></svg>`,
+  formula: `<svg ${SVG}><path d="M5 7h6M5 17h6"/><path d="M13 7l6 10M19 7l-6 10"/></svg>`,
+  link: `<svg ${SVG}><path d="M10 13a4 4 0 0 0 6 0l2-2a4 4 0 0 0-6-6l-1 1"/><path d="M14 11a4 4 0 0 0-6 0l-2 2a4 4 0 0 0 6 6l1-1"/></svg>`,
+  rotate: `<svg ${SVG}><path d="M20 11a8 8 0 1 0-2 6"/><path d="M20 5v6h-6"/></svg>`,
+  target: `<svg ${SVG}><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>`,
+  grid: `<svg ${SVG}><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16M15 4v16"/></svg>`,
+  flame: `<svg ${SVG}><path d="M12 3c3 4 5 6 5 9a5 5 0 0 1-10 0c0-1.5.8-2.6 1.8-3.6"/><path d="M12 20a2 2 0 0 1-2-2c0-1 1-1.6 2-3 1 1.4 2 2 2 3a2 2 0 0 1-2 2z"/></svg>`,
+  flask: `<svg ${SVG}><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/></svg>`,
+  text: `<svg ${SVG}><path d="M5 6h14M5 12h14M5 18h9"/></svg>`,
+};
+
+const NAV = [
+  { key: "home",     label: "实验列表", icon: "home",     theme: "t-paper" },
+  { key: "edit",     label: "编辑模式", icon: "edit",     theme: "t-sky" },
+  { key: "record",   label: "记录模式", icon: "play",     theme: "t-peach" },
+  { key: "report",   label: "实验报告", icon: "report",   theme: "t-lemon" },
+  { key: "settings", label: "设置",     icon: "settings", theme: "t-lavender" },
+];
+const VIEWS = NAV.map((n) => n.key);
+
+const SUBJECTS = [
+  { id: "chemistry", label: "化学", theme: "t-sky" },
+  { id: "biology",   label: "生物", theme: "t-mint" },
+  { id: "biochem",   label: "生化", theme: "t-lavender" },
+];
+
+const KEYS = {
+  exps: "zhbit-lab-exps",
+  exp: (id) => "zhbit-lab-exp:" + id,
+  theme: "zhbit-lab-theme",
+  llm: "zhbit-lab-llm",
+  report: (id) => "zhbit-lab-report:" + id,
+};
+const DB_NAME = "zhbit-lab";
+const DB_STORE = "media";
+const EXP_VERSION = 1;
+
+/* ============================================================
+   2. 通用工具
+   ============================================================ */
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+const uid = (p) => p + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const stripTags = (s) => String(s || "").replace(/<[^>]*>/g, "");
+const has = (v) => v != null && String(v).trim() !== "";
+
+function debounce(fn, ms) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+let toastTimer;
+function toast(msg) {
+  const el = $("toast");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 1900);
+}
+function fmtDate(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts), n = new Date();
+  const diff = n.getTime() - ts;
+  if (diff < 60000) return "刚刚";
+  if (diff < 3600000) return Math.floor(diff / 60000) + " 分钟前";
+  if (diff < 86400000) return Math.floor(diff / 3600000) + " 小时前";
+  return (d.getMonth() + 1) + "月" + d.getDate() + "日";
+}
+function fileStamp() {
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+}
+function download(name, text, mime) {
+  const blob = new Blob([text], { type: mime || "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 800);
+}
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+  } catch (e) { /* 回退 execCommand */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove(); return ok;
+  } catch (e) { return false; }
+}
+
+/* ============================================================
+   3. 存储层：localStorage（实验 / 配置）+ IndexedDB（图片）
+   ============================================================ */
+
+const Store = {
+  readJSON(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      const v = JSON.parse(raw);
+      return v == null ? fallback : v;
+    } catch (e) { return fallback; }
+  },
+  writeJSON(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch (e) { toast("本地存储写入失败，请导出备份"); return false; }
+  },
+  listExps() {
+    const arr = this.readJSON(KEYS.exps, []);
+    return Array.isArray(arr) ? arr.filter((m) => m && m.id).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)) : [];
+  },
+  getExp(id) {
+    const raw = this.readJSON(KEYS.exp(id), null);
+    return isValidExp(raw) ? normalizeExp(raw) : null;
+  },
+  saveExp(exp) {
+    if (!isValidExp(exp)) { toast("实验数据结构不合法，已拒绝保存"); return false; }
+    exp.updatedAt = Date.now();
+    exp.v = EXP_VERSION;
+    if (!this.writeJSON(KEYS.exp(exp.id), exp)) return false;
+    const list = this.listExps().filter((m) => m.id !== exp.id);
+    list.push({ id: exp.id, name: exp.name, subject: exp.subject, desc: exp.desc,
+      steps: exp.steps.length, createdAt: exp.createdAt, updatedAt: exp.updatedAt, theme: exp.theme });
+    return this.writeJSON(KEYS.exps, list);
+  },
+  removeExp(id) {
+    try { localStorage.removeItem(KEYS.exp(id)); localStorage.removeItem(KEYS.report(id)); } catch (e) { /* ignore */ }
+    return this.writeJSON(KEYS.exps, this.listExps().filter((m) => m.id !== id));
+  },
+  report(id) { return this.readJSON(KEYS.report(id), { markdown: "", mode: "", model: "", generatedAt: null, fields: null }); },
+  saveReport(id, rep) { return this.writeJSON(KEYS.report(id), rep); },
+};
+
+function isValidExp(e) {
+  if (!e || typeof e !== "object") return false;
+  if (!e.id || typeof e.id !== "string") return false;
+  if (!Array.isArray(e.steps)) return false;
+  return e.steps.every((s) => s && typeof s === "object" && typeof s.id === "string" && Array.isArray(s.images));
+}
+function normalizeStep(s) {
+  return {
+    id: s.id || uid("s_"),
+    title: s.title || "",
+    text: s.text || "",
+    equation: s.equation || "",
+    tips: s.tips || "",
+    images: Array.isArray(s.images) ? s.images : [],
+    videos: Array.isArray(s.videos) ? s.videos : [],
+    canvas: s.canvas && Array.isArray(s.canvas.items) ? {
+      w: s.canvas.w || 1000, h: s.canvas.h || 620,
+      items: s.canvas.items, links: Array.isArray(s.canvas.links) ? s.canvas.links : [],
+    } : { w: 1000, h: 620, items: [], links: [] },
+    record: {
+      note: (s.record && s.record.note) || "",
+      images: (s.record && Array.isArray(s.record.images)) ? s.record.images : [],
+    },
+  };
+}
+function normalizeExp(e) {
+  return {
+    v: EXP_VERSION,
+    id: e.id,
+    name: e.name || "未命名实验",
+    subject: e.subject || "chemistry",
+    theme: e.theme || "t-sky",
+    desc: e.desc || "",
+    createdAt: e.createdAt || Date.now(),
+    updatedAt: e.updatedAt || Date.now(),
+    rev: e.rev || 1,
+    steps: (e.steps || []).map(normalizeStep),
+    log: { total: (e.log && e.log.total) || "", totalImages: (e.log && e.log.totalImages) || [] },
+  };
+}
+function newExp(name, subject) {
+  const th = { chemistry: "t-sky", biology: "t-mint", biochem: "t-lavender" };
+  return normalizeExp({
+    id: uid("exp_"),
+    name: name || "未命名实验",
+    subject: subject || "chemistry",
+    theme: th[subject] || "t-sky",
+    desc: "",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    steps: [{ id: uid("s_"), title: "步骤 1", text: "", equation: "", tips: "", images: [], videos: [], canvas: null, record: null }],
+  });
+}
+
+/* ---------- IndexedDB：图片 Blob ---------- */
+
+const Media = {
+  _db: null,
+  _urls: new Map(),
+  open() {
+    if (this._db) return Promise.resolve(this._db);
+    return new Promise((resolve) => {
+      if (typeof indexedDB === "undefined") return resolve(null);
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE, { keyPath: "id" });
+      };
+      req.onsuccess = () => { this._db = req.result; resolve(this._db); };
+      req.onerror = () => resolve(null);
+    });
+  },
+  async put(id, blob) {
+    const db = await this.open();
+    if (!db) return false;
+    return new Promise((resolve) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      tx.objectStore(DB_STORE).put({ id, blob });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  },
+  async get(id) {
+    const db = await this.open();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      const tx = db.transaction(DB_STORE, "readonly");
+      const rq = tx.objectStore(DB_STORE).get(id);
+      rq.onsuccess = () => resolve(rq.result ? rq.result.blob : null);
+      rq.onerror = () => resolve(null);
+    });
+  },
+  async del(id) {
+    const db = await this.open();
+    if (this._urls.has(id)) { URL.revokeObjectURL(this._urls.get(id)); this._urls.delete(id); }
+    if (!db) return false;
+    return new Promise((resolve) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      tx.objectStore(DB_STORE).delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  },
+  async url(ref) {
+    if (!ref || ref.store !== "idb") return ref && ref.url ? ref.url : "";
+    if (this._urls.has(ref.id)) return this._urls.get(ref.id);
+    const blob = await this.get(ref.id);
+    if (!blob) return "";
+    const u = URL.createObjectURL(blob);
+    this._urls.set(ref.id, u);
+    return u;
+  },
+  async addImage(file) {
+    const blob = await compressImage(file);
+    const ref = { id: uid("m_"), kind: "image", name: file.name || "图片",
+      type: blob.type || file.type, size: blob.size, store: "idb", url: "", w: 0, h: 0 };
+    const ok = await this.put(ref.id, blob);
+    if (!ok) ref.store = "external";
+    return ref;
+  },
+  addVideo(file) {
+    return { id: uid("m_"), kind: "video", name: file ? file.name : "视频",
+      type: file ? file.type : "", size: file ? file.size : 0, store: "external", url: "", w: 0, h: 0 };
+  },
+};
+
+function compressImage(file, max) {
+  max = max || 1280;
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      let { width: w, height: h } = img;
+      const k = Math.min(1, max / Math.max(w, h));
+      w = Math.round(w * k); h = Math.round(h * k);
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      if (cv.toBlob) {
+        cv.toBlob((b) => resolve(b || file), "image/jpeg", 0.82);
+      } else { resolve(file); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+/* ============================================================
+   4. 主题
+   ============================================================ */
+
+let THEME_CHOICE = "system";
+const systemDark = () => typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
+const resolvedTheme = () => (THEME_CHOICE === "system" ? (systemDark() ? "dark" : "light") : THEME_CHOICE);
+function applyTheme(choice) {
+  THEME_CHOICE = choice || "system";
+  const t = resolvedTheme();
+  document.documentElement.setAttribute("data-theme", t);
+  localStorage.setItem(KEYS.theme, THEME_CHOICE);
+  paintThemeIcons();
+}
+function toggleTheme() {
+  const next = resolvedTheme() === "dark" ? "light" : "dark";
+  applyTheme(next);
+  toast(next === "dark" ? "已切换深色" : "已切换浅色");
+}
+function paintThemeIcons() {
+  const ico = resolvedTheme() === "dark" ? ICON.sun : ICON.moon;
+  document.querySelectorAll(".theme-ico").forEach((el) => { el.innerHTML = ico; });
+}
+function initTheme() {
+  THEME_CHOICE = localStorage.getItem(KEYS.theme) || "system";
+  if (typeof matchMedia === "function") {
+    const mq = matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", () => { if (THEME_CHOICE === "system") applyTheme("system"); });
+  }
+  applyTheme(THEME_CHOICE);
+}
+
+/* ============================================================
+   5. 运行时状态
+   ============================================================ */
+
+const ui = {
+  step: 0,
+  playIndex: 0,
+  canvasTool: "select",
+  selected: null,
+  linkFrom: null,
+  scale: 1,
+  showForm: false,
+};
+
+const state = {
+  view: "home",
+  param: null,
+  exp: null,
+  savedAt: null,
+};
+
+function markSaved() {
+  const el = document.querySelector(".sync");
+  if (el) el.innerHTML = `<i class="sync-dot"></i>已保存`;
+}
+
+/* ============================================================
+   6. 仪器库（占位美术，imageUrl 为后续替换接口）
+   渲染规则：优先 imageUrl，其次内联 SVG。新增仪器只需追加条目。
+   ============================================================ */
+
+const INST_CATS = [
+  { id: "glass",   label: "玻璃器皿", theme: "t-sky" },
+  { id: "measure", label: "计量与通用", theme: "t-paper" },
+  { id: "support", label: "支架与夹持", theme: "t-lavender" },
+  { id: "heat",    label: "加热设备", theme: "t-peach" },
+  { id: "biology", label: "生物器材", theme: "t-mint" },
+];
+
+const I = (d, extra) => `<svg ${SVG} viewBox="0 0 24 24" ${extra || ""}>${d}</svg>`;
+
+const INST_LIB = [
+  /* ---- 玻璃器皿 ---- */
+  { id: "test-tube", name: "试管", cat: "glass", w: 46, h: 116, imageUrl: "",
+    icon: I(`<path d="M9 3h6v13a3 3 0 0 1-6 0z"/><path d="M9 10h6"/><path d="M9 3h6"/>`) },
+  { id: "beaker", name: "烧杯", cat: "glass", w: 104, h: 104, imageUrl: "",
+    icon: I(`<path d="M5 6h14v10a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M5 10h14"/><path d="M8 6V4"/>`) },
+  { id: "flask-conical", name: "锥形瓶", cat: "glass", w: 104, h: 116, imageUrl: "",
+    icon: I(`<path d="M10 3h4v5l5 9a2 2 0 0 1-1.8 3H6.8A2 2 0 0 1 5 17l5-9z"/><path d="M7.5 14h9"/>`) },
+  { id: "flask-round", name: "圆底烧瓶", cat: "glass", w: 110, h: 116, imageUrl: "",
+    icon: I(`<path d="M10 3h4v4"/><circle cx="12" cy="15" r="7"/><path d="M9 3h6"/>`) },
+  { id: "flask-volumetric", name: "容量瓶", cat: "glass", w: 86, h: 126, imageUrl: "",
+    icon: I(`<path d="M10 3h4l1 4v11a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V7z"/><path d="M10 11h4"/><path d="M9.5 3h5"/>`) },
+  { id: "cylinder", name: "量筒", cat: "glass", w: 66, h: 126, imageUrl: "",
+    icon: I(`<path d="M9 3h6v16a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/><path d="M9 7h6M9 12h6M9 17h6"/>`) },
+  { id: "dropper", name: "胶头滴管", cat: "glass", w: 44, h: 116, imageUrl: "",
+    icon: I(`<path d="M9 3h6v5l-1 3h-4L9 8z"/><path d="M12 11v9"/><path d="M9.5 3h5"/>`) },
+  { id: "rod", name: "玻璃棒", cat: "glass", w: 40, h: 120, imageUrl: "",
+    icon: I(`<path d="M7 20 17 4"/><path d="M6 21l2-2M16 5l2-2"/>`) },
+  { id: "funnel", name: "漏斗", cat: "glass", w: 96, h: 112, imageUrl: "",
+    icon: I(`<path d="M4 4h16l-6 7v7l-4 2v-9z"/><path d="M4 4h16"/>`) },
+  { id: "evaporating-dish", name: "蒸发皿", cat: "glass", w: 104, h: 66, imageUrl: "",
+    icon: I(`<path d="M3 9h18a9 9 0 0 1-18 0z"/><path d="M9 6h6"/>`) },
+  { id: "crucible", name: "坩埚", cat: "glass", w: 90, h: 84, imageUrl: "",
+    icon: I(`<path d="M6 9h12l-1.5 8H7.5z"/><path d="M9 6h6"/><path d="M5 9h14"/>`) },
+  { id: "watch-glass", name: "表面皿", cat: "glass", w: 100, h: 60, imageUrl: "",
+    icon: I(`<path d="M3 14a9 6 0 0 1 18 0z"/><path d="M3 14h18"/>`) },
+  { id: "reagent-bottle", name: "试剂瓶", cat: "glass", w: 78, h: 116, imageUrl: "",
+    icon: I(`<path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M9 13h6"/><path d="M9 3h6"/>`) },
+
+  /* ---- 计量与通用 ---- */
+  { id: "balance", name: "电子天平", cat: "measure", w: 120, h: 96, imageUrl: "",
+    icon: I(`<path d="M3 20h18"/><path d="M12 5v15"/><path d="M5 10h14"/><path d="M8 10l-2 5h4z"/><path d="M16 10l-2 5h4z"/><circle cx="12" cy="4" r="1.4"/>`) },
+  { id: "thermometer", name: "温度计", cat: "measure", w: 40, h: 126, imageUrl: "",
+    icon: I(`<path d="M12 3a2 2 0 0 1 2 2v9a3 3 0 1 1-4 0V5a2 2 0 0 1 2-2z"/><path d="M12 9v6"/>`) },
+  { id: "ph-paper", name: "pH 试纸", cat: "measure", w: 70, h: 110, imageUrl: "",
+    icon: I(`<rect x="6" y="3" width="9" height="18" rx="1.5"/><path d="M8.5 8h4M8.5 12h4M8.5 16h4"/>`) },
+  { id: "pipette-gun", name: "移液枪", cat: "measure", w: 44, h: 120, imageUrl: "",
+    icon: I(`<path d="M12 2v8"/><path d="M8 10h8v5a4 4 0 0 1-8 0z"/><path d="M12 19v3"/><path d="M10 5h4"/>`) },
+  { id: "pipette", name: "移液管", cat: "measure", w: 34, h: 128, imageUrl: "",
+    icon: I(`<path d="M12 2v14"/><path d="M10 16h4l-2 6z"/><path d="M10 6h4"/>`) },
+  { id: "wash-bottle", name: "洗瓶", cat: "measure", w: 76, h: 116, imageUrl: "",
+    icon: I(`<path d="M9 4h5v3l3 4v9H6V11l3-4z"/><path d="M17 9l4-2"/><path d="M9 4h5"/>`) },
+
+  /* ---- 支架与夹持 ---- */
+  { id: "stand", name: "铁架台", cat: "support", w: 116, h: 132, imageUrl: "",
+    icon: I(`<path d="M4 21h14"/><path d="M8 21V4"/><path d="M8 8h10"/><path d="M18 8v4"/>`) },
+  { id: "ring", name: "铁圈", cat: "support", w: 84, h: 84, imageUrl: "",
+    icon: I(`<path d="M12 3v5"/><circle cx="12" cy="13" r="5.5"/>`) },
+  { id: "gauze", name: "石棉网", cat: "support", w: 110, h: 66, imageUrl: "",
+    icon: I(`<rect x="3" y="8" width="18" height="7" rx="1.5"/><path d="M7 8v7M12 8v7M17 8v7"/>`) },
+  { id: "tube-holder", name: "试管夹", cat: "support", w: 116, h: 76, imageUrl: "",
+    icon: I(`<path d="M4 8h9l3 3"/><path d="M4 8c0 5 3 8 8 8"/><path d="M16 11l4 6"/>`) },
+  { id: "tongs", name: "坩埚钳", cat: "support", w: 80, h: 116, imageUrl: "",
+    icon: I(`<path d="M8 3l4 8"/><path d="M16 3l-4 8"/><path d="M12 11v10"/>`) },
+
+  /* ---- 加热设备 ---- */
+  { id: "alcohol-lamp", name: "酒精灯", cat: "heat", w: 92, h: 108, imageUrl: "",
+    icon: I(`<path d="M8 20h8v-7H8z"/><path d="M12 13V9"/><path d="M10 9h4l-1.2-4h-1.6z"/><path d="M6 20h12"/>`) },
+  { id: "bunsen", name: "本生灯", cat: "heat", w: 82, h: 116, imageUrl: "",
+    icon: I(`<path d="M8 20h8l-1.2-8h-5.6z"/><path d="M12 12V7"/><path d="M10.5 7h3L12 3z"/>`) },
+  { id: "water-bath", name: "水浴锅", cat: "heat", w: 126, h: 92, imageUrl: "",
+    icon: I(`<rect x="3" y="10" width="18" height="9" rx="2"/><path d="M7 10V7a3 3 0 0 1 6 0"/><path d="M6 19v2M18 19v2"/>`) },
+  { id: "hotplate", name: "电炉", cat: "heat", w: 116, h: 92, imageUrl: "",
+    icon: I(`<rect x="3" y="11" width="18" height="5" rx="1.5"/><path d="M6 16v5M18 16v5"/><path d="M9 8c0-2 1-3 3-3s3 1 3 3"/>`) },
+
+  /* ---- 生物器材 ---- */
+  { id: "microscope", name: "显微镜", cat: "biology", w: 108, h: 132, imageUrl: "",
+    icon: I(`<path d="M5 21h13"/><path d="M9 21a6 6 0 0 1 6-6"/><path d="M13 3l4 4-6 6-4-4z"/><path d="M8 13l-2 2"/><path d="M16 16l3 5"/>`) },
+  { id: "petri-dish", name: "培养皿", cat: "biology", w: 108, h: 66, imageUrl: "",
+    icon: I(`<ellipse cx="12" cy="10" rx="9" ry="4"/><path d="M3 10v3a9 4 0 0 0 18 0v-3"/>`) },
+  { id: "loop", name: "接种环", cat: "biology", w: 56, h: 120, imageUrl: "",
+    icon: I(`<path d="M7 21l6-9"/><circle cx="15" cy="8" r="3"/>`) },
+  { id: "centrifuge-tube", name: "离心管", cat: "biology", w: 44, h: 116, imageUrl: "",
+    icon: I(`<path d="M9 3h6v12l-3 6-3-6z"/><path d="M9 8h6"/>`) },
+  { id: "centrifuge", name: "离心机", cat: "biology", w: 124, h: 104, imageUrl: "",
+    icon: I(`<circle cx="12" cy="12" r="8.5"/><path d="M12 12l5-3"/><path d="M12 12l-4 4"/><circle cx="12" cy="12" r="1.6"/>`) },
+  { id: "electrophoresis", name: "电泳仪", cat: "biology", w: 126, h: 86, imageUrl: "",
+    icon: I(`<rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M8 7v10M12 7v10M16 7v10"/>`) },
+  { id: "incubator", name: "恒温培养箱", cat: "biology", w: 110, h: 128, imageUrl: "",
+    icon: I(`<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 9h14"/><path d="M9 15h6"/>`) },
+  { id: "cotton", name: "酒精棉", cat: "biology", w: 70, h: 70, imageUrl: "",
+    icon: I(`<circle cx="12" cy="12" r="7"/><path d="M9 12c1-2 5-2 6 0"/><path d="M12 5v-2"/>`) },
+];
+
+function instById(id) { return INST_LIB.find((x) => x.id === id) || null; }
+function instName(item) {
+  const base = instById(item.inst);
+  return item.label || (base ? base.name : "未知仪器");
+}
+function renderInstIcon(item, size) {
+  const base = instById(item.inst);
+  if (!base) return "";
+  const dim = size || Math.min(base.w, base.h);
+  if (base.imageUrl) {
+    return `<img src="${esc(base.imageUrl)}" alt="${esc(base.name)}" style="width:100%;height:100%;object-fit:contain" />`;
+  }
+  return base.icon.replace(`width="16" height="16"`, `width="${dim}" height="${dim}"`);
+}
+/* ============================================================
+   7. 仪器画布：渲染 + 交互（Pointer Events，鼠标/触摸同一套）
+   ============================================================ */
+
+let dragState = null;
+const rnd = () => Math.round(Math.random() * 80 - 40);
+const saveSoon = debounce(() => { if (state.exp) persistExp(); }, 350);
+
+function curStep() { return state.exp && state.exp.steps[ui.step] ? state.exp.steps[ui.step] : null; }
+function curCanvas() { const s = curStep(); return s ? s.canvas : null; }
+function itemCenter(it) {
+  const b = instById(it.inst);
+  const w = b ? b.w : 90, h = b ? b.h : 90;
+  return { x: it.x + w / 2, y: it.y + h / 2 };
+}
+function canvasFit() {
+  const sc = document.querySelector(".canvas-scroll");
+  const c = curCanvas();
+  if (!sc || !c) return 1;
+  return clamp((sc.clientWidth - 2) / c.w, 0.25, 1);
+}
+function syncCanvasScale() {
+  const st = document.querySelector(".canvas-stage");
+  const sc = document.querySelector(".canvas-scroll");
+  const c = curCanvas();
+  if (!st || !sc || !c) return;
+  const f = canvasFit();
+  st.style.transform = "scale(" + f + ")";
+  sc.style.height = (c.h * f + 2) + "px";
+}
+function linkLine(c, l) {
+  const a = c.items.find((x) => x.id === l.from);
+  const b = c.items.find((x) => x.id === l.to);
+  if (!a || !b) return "";
+  const ca = itemCenter(a), cb = itemCenter(b);
+  return `<line x1="${ca.x}" y1="${ca.y}" x2="${cb.x}" y2="${cb.y}"></line>`;
+}
+function itemHTML(it, i, readonly) {
+  const b = instById(it.inst);
+  const w = b ? b.w : 90, h = b ? b.h : 90;
+  const on = ui.selected === it.id ? " on" : "";
+  const ops = readonly ? "" : `<span class="cv-op rot" data-op="rot"></span><span class="cv-op scl" data-op="scl"></span>`;
+  return `<div class="cv-item${on}" data-item="${esc(it.id)}" style="left:${it.x}px;top:${it.y}px;width:${w}px;height:${h}px;transform:rotate(${it.rot || 0}deg) scale(${it.scale || 1});z-index:${i + 1}">${renderInstIcon(it)}<span class="cv-label">${esc(instName(it))}</span>${ops}</div>`;
+}
+function canvasHTML(step, readonly) {
+  const c = step.canvas;
+  const items = c.items.map((it, i) => itemHTML(it, i, readonly)).join("");
+  const lines = c.links.map((l) => linkLine(c, l)).join("");
+  const empty = c.items.length ? "" : `<div class="cv-empty">从下方仪器库点击添加仪器，拖动可自由摆放</div>`;
+  return `<div class="canvas-scroll" data-ro="${readonly ? 1 : 0}">
+    <div class="canvas-stage" style="width:${c.w}px;height:${c.h}px">
+      <div class="cv-grid"></div>
+      <svg class="cv-svg" viewBox="0 0 ${c.w} ${c.h}" preserveAspectRatio="none">${lines}</svg>
+      ${items}${empty}
+    </div>
+  </div>`;
+}
+function instPanelHTML() {
+  return INST_CATS.map((cat) => {
+    const list = INST_LIB.filter((x) => x.cat === cat.id);
+    const chips = list.map((x) => {
+      const ico = x.icon.replace(`width="16" height="16"`, `width="17" height="17"`);
+      return `<button class="inst-chip" data-act="cv-add" data-inst="${x.id}" type="button" title="${esc(x.name)}">${ico}<span>${esc(x.name)}</span></button>`;
+    }).join("");
+    return `<div class="inst-cat">${esc(cat.label)}</div>${chips}`;
+  }).join("");
+}
+function refreshCanvas() {
+  const host = document.querySelector("[data-canvas-host]");
+  const s = curStep();
+  if (!host || !s) return;
+  host.innerHTML = canvasHTML(s, host.dataset.ro === "1");
+  syncCanvasScale();
+}
+function redrawLinks() {
+  const c = curCanvas(), svg = document.querySelector(".cv-svg");
+  if (!svg || !c) return;
+  svg.innerHTML = c.links.map((l) => linkLine(c, l)).join("");
+}
+
+function onPointerDown(e) {
+  const sc = e.target.closest(".canvas-scroll");
+  if (!sc || sc.dataset.ro === "1") return;
+  const c = curCanvas();
+  if (!c) return;
+  const el = e.target.closest(".cv-item");
+  if (!el) {
+    if (e.target.closest(".cv-grid") || e.target.closest(".canvas-stage")) {
+      ui.selected = null; ui.linkFrom = null; refreshCanvas();
+    }
+    return;
+  }
+  const it = c.items.find((x) => x.id === el.dataset.item);
+  if (!it) return;
+
+  if (ui.canvasTool === "link") {
+    if (!ui.linkFrom) { ui.linkFrom = it.id; toast("已选起点，再点一个仪器完成连线"); }
+    else if (ui.linkFrom !== it.id) {
+      c.links.push({ id: uid("l_"), from: ui.linkFrom, to: it.id, kind: "导管", note: "" });
+      ui.linkFrom = null; saveSoon(); toast("已连线");
+    }
+    refreshCanvas();
+    return;
+  }
+
+  ui.selected = it.id;
+  const fit = canvasFit();
+  const rect = sc.getBoundingClientRect();
+  const px = (e.clientX - rect.left) / fit, py = (e.clientY - rect.top) / fit;
+  const op = e.target.closest(".cv-op");
+  const mode = op && op.classList.contains("rot") ? "rot" : op && op.classList.contains("scl") ? "scl" : "move";
+  const ct = itemCenter(it);
+  dragState = {
+    mode, it, startX: px, startY: py, baseX: it.x, baseY: it.y,
+    baseRot: it.rot || 0, baseScale: it.scale || 1,
+    startAng: Math.atan2(py - ct.y, px - ct.x) * 180 / Math.PI,
+    startDist: Math.max(4, Math.hypot(px - ct.x, py - ct.y)),
+  };
+  refreshCanvas();
+  const el2 = document.querySelector(`.cv-item[data-item="${it.id}"]`);
+  if (el2) el2.classList.add("dragging");
+  e.preventDefault();
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerUp);
+}
+
+function onPointerMove(e) {
+  if (!dragState) return;
+  const c = curCanvas(), sc = document.querySelector(".canvas-scroll");
+  if (!c || !sc) return;
+  const fit = canvasFit();
+  const rect = sc.getBoundingClientRect();
+  const px = (e.clientX - rect.left) / fit, py = (e.clientY - rect.top) / fit;
+  const it = dragState.it;
+  const b = instById(it.inst);
+  const w = b ? b.w : 90, h = b ? b.h : 90;
+
+  if (dragState.mode === "move") {
+    it.x = clamp(Math.round(dragState.baseX + (px - dragState.startX)), 0, Math.max(0, c.w - w));
+    it.y = clamp(Math.round(dragState.baseY + (py - dragState.startY)), 0, Math.max(0, c.h - h));
+  } else if (dragState.mode === "rot") {
+    const ct = itemCenter(it);
+    const ang = Math.atan2(py - ct.y, px - ct.x) * 180 / Math.PI;
+    it.rot = Math.round((dragState.baseRot + (ang - dragState.startAng)) / 15) * 15;
+  } else {
+    const ct = itemCenter(it);
+    const d = Math.max(4, Math.hypot(px - ct.x, py - ct.y));
+    it.scale = clamp(Math.round(dragState.baseScale * (d / dragState.startDist) * 100) / 100, 0.4, 2.5);
+  }
+
+  const el = document.querySelector(`.cv-item[data-item="${it.id}"]`);
+  if (el) {
+    el.style.left = it.x + "px";
+    el.style.top = it.y + "px";
+    el.style.transform = `rotate(${it.rot || 0}deg) scale(${it.scale || 1})`;
+  }
+  redrawLinks();
+}
+
+function onPointerUp() {
+  if (dragState) {
+    dragState.it.x = Math.round(dragState.it.x / 10) * 10;
+    dragState.it.y = Math.round(dragState.it.y / 10) * 10;
+    saveSoon();
+  }
+  dragState = null;
+  window.removeEventListener("pointermove", onPointerMove);
+  window.removeEventListener("pointerup", onPointerUp);
+  window.removeEventListener("pointercancel", onPointerUp);
+  refreshCanvas();
+}
+
+function canvasAct(action, el) {
+  const s = curStep();
+  if (!s) return;
+  const c = s.canvas;
+  const sel = () => c.items.find((x) => x.id === ui.selected);
+
+  if (action === "cv-add") {
+    const b = instById(el.dataset.inst);
+    if (!b) return;
+    const x = clamp(Math.round(c.w / 2 - b.w / 2 + rnd()), 0, c.w - b.w);
+    const y = clamp(Math.round(c.h / 2 - b.h / 2 + rnd()), 0, c.h - b.h);
+    const it = { id: uid("i_"), inst: b.id, x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10, rot: 0, scale: 1, label: "", note: "" };
+    c.items.push(it); ui.selected = it.id; saveSoon(); refreshCanvas();
+    return;
+  }
+  if (action === "cv-del") {
+    if (!ui.selected) { toast("先点选一个仪器"); return; }
+    c.items = c.items.filter((x) => x.id !== ui.selected);
+    c.links = c.links.filter((l) => l.from !== ui.selected && l.to !== ui.selected);
+    ui.selected = null; saveSoon(); refreshCanvas(); return;
+  }
+  if (action === "cv-dup") {
+    const it = sel();
+    if (!it) { toast("先点选一个仪器"); return; }
+    const cp = Object.assign({}, it, { id: uid("i_"), x: it.x + 20, y: it.y + 20 });
+    c.items.push(cp); ui.selected = cp.id; saveSoon(); refreshCanvas(); return;
+  }
+  if (action === "cv-rot-" || action === "cv-rot+") {
+    const it = sel(); if (!it) { toast("先点选一个仪器"); return; }
+    it.rot = (it.rot || 0) + (action === "cv-rot-" ? -15 : 15); saveSoon(); refreshCanvas(); return;
+  }
+  if (action === "cv-scale-" || action === "cv-scale+") {
+    const it = sel(); if (!it) { toast("先点选一个仪器"); return; }
+    const k = action === "cv-scale-" ? 0.9 : 1.1;
+    it.scale = clamp(Math.round((it.scale || 1) * k * 100) / 100, 0.4, 2.5); saveSoon(); refreshCanvas(); return;
+  }
+  if (action === "cv-front" || action === "cv-back") {
+    const it = sel(); if (!it) { toast("先点选一个仪器"); return; }
+    c.items = c.items.filter((x) => x.id !== it.id);
+    if (action === "cv-front") c.items.push(it); else c.items.unshift(it);
+    saveSoon(); refreshCanvas(); return;
+  }
+  if (action === "cv-tool") {
+    ui.canvasTool = ui.canvasTool === "link" ? "select" : "link";
+    ui.linkFrom = null;
+    toast(ui.canvasTool === "link" ? "连线模式：依次点击两个仪器" : "已回到选择模式");
+    render(); return;
+  }
+  if (action === "cv-unlink") {
+    if (!c.links.length) { toast("当前没有连线"); return; }
+    c.links.pop(); saveSoon(); refreshCanvas(); return;
+  }
+  if (action === "cv-clear") {
+    if (!c.items.length) { toast("画布已经是空的"); return; }
+    if (!confirm("确定清空本步骤的全部仪器与连线？")) return;
+    c.items = []; c.links = []; ui.selected = null; saveSoon(); refreshCanvas(); return;
+  }
+  if (action === "cv-label") {
+    const it = sel(); if (!it) { toast("先点选一个仪器"); return; }
+    const v = prompt("修改该仪器的显示名称：", instName(it));
+    if (v === null) return;
+    it.label = v.trim(); saveSoon(); refreshCanvas(); return;
+  }
+}
+
+document.addEventListener("pointerdown", onPointerDown);
+/* ============================================================
+   8. 通用视图片段
+   ============================================================ */
+
+function stepTitle(s, i) { return s.title || ("步骤 " + (i + 1)); }
+function pageHead(title, sub, actions) {
+  return `<header class="page-head"><div><h1 class="page-title">${esc(title)}</h1><p class="page-sub">${esc(sub)}</p></div><div class="head-actions">${actions || ""}</div></header>`;
+}
+function emptyHTML(icon, text) { return `<div class="empty">${icon}<p>${esc(text)}</p></div>`; }
+function persistExp() {
+  if (!state.exp) return;
+  if (Store.saveExp(state.exp)) { state.savedAt = Date.now(); markSaved(); }
+}
+function mediaItemHTML(m) {
+  const inner = m.kind === "video"
+    ? `<div class="media-ph">🎬<br>${esc(m.name)}</div>`
+    : `<img data-media-id="${esc(m.id)}" alt="${esc(m.name)}" />`;
+  return `<div class="media-item">${inner}<button class="media-del" data-act="media-del" data-id="${esc(m.id)}" title="移除">×</button></div>`;
+}
+function findMedia(id) {
+  if (!state.exp) return null;
+  const pool = [];
+  state.exp.steps.forEach((s) => { pool.push(...s.images, ...s.videos, ...s.record.images); });
+  pool.push(...(state.exp.log.totalImages || []));
+  return pool.find((m) => m.id === id) || null;
+}
+async function hydrateMedia() {
+  const nodes = document.querySelectorAll("[data-media-id]");
+  for (const n of nodes) {
+    const ref = findMedia(n.dataset.mediaId);
+    if (!ref) continue;
+    const u = await Media.url(ref);
+    if (u) n.src = u;
+  }
+}
+
+/* ============================================================
+   9. 视图：首页 / 编辑 / 记录 / 报告 / 设置
+   ============================================================ */
+
+function expCardHTML(m) {
+  const th = m.theme || "t-sky";
+  return `<article class="exp-card ${th}" data-act="exp-open" data-id="${esc(m.id)}">
+    <div class="exp-thumb">${ICON.flask}</div>
+    <h3 class="exp-name">${esc(m.name)}</h3>
+    <p class="exp-desc">${esc(m.desc || "暂无简介")}</p>
+    <div class="exp-meta"><span>${m.steps || 0} 个步骤</span><span>${fmtDate(m.updatedAt)}</span></div>
+    <div class="exp-ops">
+      <button class="btn btn-sm" data-act="exp-dup" data-id="${esc(m.id)}">${ICON.copy}<span>复制</span></button>
+      <button class="btn btn-sm" data-act="exp-export" data-id="${esc(m.id)}">${ICON.download}<span>导出</span></button>
+      <button class="btn btn-sm btn-danger" data-act="exp-del" data-id="${esc(m.id)}">${ICON.trash}<span>删除</span></button>
+    </div>
+  </article>`;
+}
+
+function viewHome() {
+  const list = Store.listExps();
+  const actions = `<button class="btn btn-primary" data-act="exp-new">${ICON.plus}<span>新建实验</span></button>
+    <button class="btn" data-act="exp-import">${ICON.upload}<span>导入</span></button>`;
+  const body = list.length
+    ? `<div class="exp-grid">${list.map(expCardHTML).join("")}</div>`
+    : emptyHTML(ICON.flask, "还没有实验，点「新建实验」开始吧～");
+  return `<section class="view">${pageHead("我的实验", "共 " + list.length + " 个实验 · 数据保存在本机", actions)}${body}</section>`;
+}
+
+function viewEdit() {
+  const e = state.exp;
+  if (!e) return viewHome();
+  if (!e.steps.length) e.steps.push(normalizeStep({ id: uid("s_") }));
+  ui.step = clamp(ui.step, 0, e.steps.length - 1);
+  const s = e.steps[ui.step];
+  const steps = e.steps.map((st, i) => `<button class="step-item${i === ui.step ? " on" : ""}" data-act="step-open" data-step="${i}"><span class="step-no">${i + 1}</span><span class="step-item-name">${esc(stepTitle(st, i))}</span></button>`).join("");
+  const actions = `<button class="btn" data-act="step-add">${ICON.plus}<span>添加步骤</span></button>
+    <button class="btn btn-primary" data-act="go-record">${ICON.play}<span>去记录</span></button>`;
+
+  const meta = `<div class="card">
+      <div class="field"><label class="field-label">实验名称</label><input type="text" data-field="name" data-scope="exp" value="${esc(e.name)}" placeholder="例如：银镜反应" /></div>
+      <div class="field"><label class="field-label">实验简介</label><input type="text" data-field="desc" data-scope="exp" value="${esc(e.desc)}" placeholder="一句话说明这个实验" /></div>
+      <div class="field"><label class="field-label">学科分类</label>
+        <div class="chip-row">${SUBJECTS.map((sub) => `<button class="chip${e.subject === sub.id ? " on" : ""}" data-act="exp-subject" data-v="${sub.id}" type="button">${esc(sub.label)}</button>`).join("")}</div>
+      </div>
+    </div>`;
+
+  const editor = `<div class="card">
+      <h3 class="card-title">${ICON.text}<span class="grow">步骤 ${ui.step + 1}</span>
+        <button class="btn btn-sm" data-act="step-move" data-dir="-1">上移</button>
+        <button class="btn btn-sm" data-act="step-move" data-dir="1">下移</button>
+        <button class="btn btn-sm btn-danger" data-act="step-del">${ICON.trash}<span>删除</span></button>
+      </h3>
+      <div class="field"><label class="field-label">步骤标题</label><input type="text" data-field="title" value="${esc(s.title)}" placeholder="例如：加入硝酸银溶液" /></div>
+      <div class="field"><label class="field-label">文字描述</label><textarea data-field="text" placeholder="描述本步的操作与现象…">${esc(s.text)}</textarea></div>
+      <div class="field"><label class="field-label">反应方程式</label><input class="mono" type="text" data-field="equation" value="${esc(s.equation)}" placeholder="例如：Ag+ + e- = Ag" /></div>
+      <div class="field"><label class="field-label">安全小 TIPS</label><textarea class="tips-input" data-field="tips" placeholder="本步需要注意的安全事项…">${esc(s.tips)}</textarea></div>
+    </div>`;
+
+  const images = `<div class="card">
+      <h3 class="card-title">${ICON.image}<span class="grow">图片</span></h3>
+      <div class="media-grid">${s.images.map(mediaItemHTML).join("")}
+        <button class="media-add" data-act="media-add" data-kind="image" type="button">${ICON.plus}<span>添加图片</span></button>
+      </div>
+    </div>`;
+
+  const videos = `<div class="card">
+      <h3 class="card-title">${ICON.video}<span class="grow">视频</span></h3>
+      <p class="msg">第一阶段仅登记视频文件名/链接，文件本身留待原生端处理。</p>
+      <div class="media-grid">${s.videos.map(mediaItemHTML).join("")}
+        <button class="media-add" data-act="media-add" data-kind="video" type="button">${ICON.video}<span>添加视频</span></button>
+      </div>
+    </div>`;
+
+  const canvas = `<div class="card">
+      <h3 class="card-title">${ICON.flask}<span class="grow">仪器摆放</span>
+        <button class="btn btn-sm${ui.canvasTool === "link" ? " btn-primary" : ""}" data-act="cv-tool">${ICON.link}<span>连线</span></button>
+        <button class="btn btn-sm" data-act="cv-dup">${ICON.copy}<span>复制</span></button>
+        <button class="btn btn-sm btn-danger" data-act="cv-del">${ICON.trash}<span>删除</span></button>
+      </h3>
+      <div class="canvas-head">
+        <span class="msg" style="margin:0">点击仪器选中，可拖动 / 旋转 / 缩放</span>
+        <div class="canvas-tools">
+          <button class="btn btn-sm" data-act="cv-rot-" title="逆时针 15°">↺</button>
+          <button class="btn btn-sm" data-act="cv-rot+" title="顺时针 15°">↻</button>
+          <button class="btn btn-sm" data-act="cv-scale-" title="缩小">−</button>
+          <button class="btn btn-sm" data-act="cv-scale+" title="放大">＋</button>
+          <button class="btn btn-sm" data-act="cv-front" title="置顶">置顶</button>
+          <button class="btn btn-sm" data-act="cv-back" title="置底">置底</button>
+          <button class="btn btn-sm" data-act="cv-label" title="重命名">改名</button>
+          <button class="btn btn-sm" data-act="cv-unlink" title="删除最后一条连线">断线</button>
+          <button class="btn btn-sm btn-danger" data-act="cv-clear">清空</button>
         </div>
       </div>
+      <div data-canvas-host data-ro="0"></div>
+      <div class="inst-panel">${instPanelHTML()}</div>
+    </div>`;
 
-      <ul id="todo-list" class="todo-list"></ul>
-      <p id="empty-state" class="empty-state">还没有待办，上面粘一段文字试试～</p>
-    </section>
+  return `<section class="view">${pageHead("编辑模式", "老师与同学都可编辑 · 填写反应步骤并摆放仪器", actions)}
+    <div class="editor-layout">
+      <aside class="step-rail">
+        <div class="rail-head"><span>反应步骤</span><span>${ui.step + 1}/${e.steps.length}</span></div>
+        <div class="step-list">${steps}</div>
+      </aside>
+      <div class="editor-main">${meta}${editor}${images}${videos}${canvas}</div>
+    </div>
+  </section>`;
+}
 
-  </main>
+function viewRecord() {
+  const e = state.exp;
+  if (!e) return viewHome();
+  if (!e.steps.length) return `<section class="view">${pageHead("记录模式", "还没有步骤", "")}${emptyHTML(ICON.play, "先到编辑模式添加反应步骤吧～")}</section>`;
+  ui.playIndex = clamp(ui.playIndex, 0, e.steps.length - 1);
+  const s = e.steps[ui.playIndex];
+  const dots = e.steps.map((_, i) => `<button class="player-dot${i === ui.playIndex ? " on" : ""}" data-act="play-go" data-step="${i}" title="第 ${i + 1} 步"></button>`).join("");
 
-  <footer class="app-footer">
-    <span id="status-bar" class="status-bar">准备就绪</span>
-  </footer>
+  const read = `<div class="card">
+      <h3 class="card-title">${ICON.text}<span class="grow">${esc(stepTitle(s, ui.playIndex))}</span></h3>
+      ${has(s.text) ? `<div class="read-block"><div class="read-label">文字描述</div><div class="read-text">${esc(s.text)}</div></div>` : ""}
+      ${has(s.equation) ? `<div class="read-block"><div class="read-label">反应方程式</div><div class="eq-box">${esc(s.equation)}</div></div>` : ""}
+      ${has(s.tips) ? `<div class="read-block"><div class="read-label">安全小 TIPS</div><div class="tips-box">${esc(s.tips)}</div></div>` : ""}
+      ${s.images.length ? `<div class="read-block"><div class="read-label">图片</div><div class="media-grid">${s.images.map(mediaItemHTML).join("")}</div></div>` : ""}
+      ${s.videos.length ? `<div class="read-block"><div class="read-label">视频</div><div class="media-grid">${s.videos.map(mediaItemHTML).join("")}</div></div>` : ""}
+      ${(!has(s.text) && !has(s.equation) && !has(s.tips) && !s.images.length && !s.videos.length) ? `<p class="msg">本步还没有内容，可回到编辑模式补充。</p>` : ""}
+    </div>`;
 
-  <!-- ── 脚本加载顺序不能改（见 SKILL.md §3） ──────────────
-       接大模型时再加一行：<script src="js/config.local.js"></script>
-       位置放在 config.js 之后、parser.js 之前。        -->
-  <script src="js/schema.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/parser.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/app.js"></script>
+  const canvas = `<div class="card">
+      <h3 class="card-title">${ICON.flask}<span class="grow">仪器摆放（只读）</span></h3>
+      <div data-canvas-host data-ro="1"></div>
+    </div>`;
 
+  const records = `<div class="record-grid">
+      <div class="card">
+        <h3 class="card-title">${ICON.edit}<span class="grow">分步记录 · 第 ${ui.playIndex + 1} 步</span></h3>
+        <div class="field"><label class="field-label">现象 / 数据</label><textarea data-field="record" data-scope="record" placeholder="记录本步实际观察到的现象或数据…">${esc(s.record.note)}</textarea></div>
+        <div class="media-grid">${s.record.images.map(mediaItemHTML).join("")}
+          <button class="media-add" data-act="media-add" data-kind="record" type="button">${ICON.plus}<span>记录图片</span></button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="card-title">${ICON.report}<span class="grow">总记录</span></h3>
+        <div class="field"><label class="field-label">整场备注与异常</label><textarea data-field="total" data-scope="total" placeholder="记录整场实验的备注、异常与临时处理…">${esc(e.log.total)}</textarea></div>
+      </div>
+    </div>`;
+
+  return `<section class="view">${pageHead("记录模式", "按已编辑文件逐步播放，可边播放边记录", `<button class="btn" data-act="go-edit">${ICON.edit}<span>回到编辑</span></button><button class="btn btn-primary" data-act="go-report">${ICON.sparkle}<span>生成报告</span></button>`)}
+    <div class="player-bar">
+      <div class="player-nav">
+        <button class="btn btn-sm" data-act="play-prev">${ICON.left}<span>上一步</span></button>
+        <button class="btn btn-sm" data-act="play-next"><span>下一步</span>${ICON.right}</button>
+      </div>
+      <span class="player-step">步骤 ${ui.playIndex + 1} / ${e.steps.length}</span>
+      <div class="player-dots">${dots}</div>
+    </div>
+    <div class="player-stage">${read}${canvas}</div>
+    ${records}
+  </section>`;
+}
+
+function viewReport() {
+  const e = state.exp;
+  if (!e) return viewHome();
+  const rep = Store.report(e.id);
+  const configured = !!getLLMConfig().apiKey;
+  const actions = `<button class="btn" data-act="rep-local">${ICON.report}<span>本地生成</span></button>
+    <button class="btn btn-primary" data-act="rep-llm">${ICON.sparkle}<span>分发给 LLM</span></button>
+    <button class="btn" data-act="rep-copy">${ICON.copy}<span>复制</span></button>
+    <button class="btn" data-act="rep-export">${ICON.download}<span>导出 .md</span></button>`;
+  const hint = configured ? "已检测到 LLM 配置，可尝试「分发给 LLM」。" : "尚未配置 LLM，将使用本地 markdown 表格生成。";
+  const body = rep.markdown
+    ? `<div class="md-preview">${mdToHtml(rep.markdown)}</div>`
+    : emptyHTML(ICON.report, "还没有生成报告，点「本地生成」试试～");
+  const meta = rep.generatedAt
+    ? `<p class="msg">生成方式：${rep.mode === "llm" ? "LLM（" + esc(rep.model || "未标注模型") + "）" : "本地 markdown"} · ${esc(fmtDate(rep.generatedAt))}</p>`
+    : "";
+  return `<section class="view">${pageHead("实验报告", "LLM 可选接入；未配置时输出本地 markdown 表格", actions)}
+    <div class="card"><p class="msg" style="margin:0">${esc(hint)}</p></div>
+    <div style="height:14px"></div>
+    ${meta}${body}
+  </section>`;
+}
+
+function viewSettings() {
+  const cfg = getLLMConfig();
+  const themeSeg = `<div class="seg">${[["system", "跟随系统"], ["light", "浅色"], ["dark", "深色"]].map(([v, l]) => `<button class="seg-btn${THEME_CHOICE === v ? " on" : ""}" data-act="set-theme" data-v="${v}" type="button">${l}</button>`).join("")}</div>`;
+  return `<section class="view">${pageHead("设置", "主题、LLM 接入与本地数据管理", "")}
+    <div class="card">
+      <h3 class="card-title">${ICON.sun}<span class="grow">外观</span></h3>
+      ${themeSeg}
+    </div>
+    <div style="height:14px"></div>
+    <div class="card">
+      <h3 class="card-title">${ICON.sparkle}<span class="grow">LLM 接入（OpenAI 兼容）</span></h3>
+      <p class="msg">接口由使用者自行配置，密钥仅保存在本机，导出实验文件时不会包含。</p>
+      <div class="field"><label class="field-label">Base URL</label><input type="text" data-llm="baseUrl" value="${esc(cfg.baseUrl)}" placeholder="https://api.example.com/v1" /></div>
+      <div class="field"><label class="field-label">API Key</label><input type="password" data-llm="apiKey" value="${esc(cfg.apiKey)}" placeholder="sk-..." /></div>
+      <div class="field"><label class="field-label">模型</label><input type="text" data-llm="model" value="${esc(cfg.model)}" placeholder="例如：gpt-4o-mini" /></div>
+      <div class="chip-row">
+        <button class="btn btn-sm" data-act="llm-save">${ICON.check}<span>保存配置</span></button>
+        <button class="btn btn-sm" data-act="llm-test">${ICON.sparkle}<span>连通性测试</span></button>
+        <button class="btn btn-sm" data-act="llm-prompt">查看提示词模板</button>
+      </div>
+      <p class="msg" id="llmMsg"></p>
+    </div>
+    <div style="height:14px"></div>
+    <div class="card">
+      <h3 class="card-title">${ICON.download}<span class="grow">数据管理</span></h3>
+      <div class="chip-row">
+        <button class="btn btn-sm" data-act="data-export-all">${ICON.download}<span>导出全部实验</span></button>
+        <button class="btn btn-sm" data-act="exp-import">${ICON.upload}<span>导入实验文件</span></button>
+        <button class="btn btn-sm btn-danger" data-act="data-clear">${ICON.trash}<span>清空全部数据</span></button>
+      </div>
+      <p class="msg">导出的 .json 即为「可分享文件」，可跨设备传递；后续原生端蓝牙互传将复用同一格式。</p>
+    </div>
+  </section>`;
+}
+
+/* ============================================================
+   10. 导航 / 路由
+   ============================================================ */
+
+function renderNav() {
+  $("nav").innerHTML = NAV.map((n) => `<button class="nav-item ${n.theme}" data-key="${n.key}" data-go="${n.key}">${ICON[n.icon]}<span>${n.label}</span></button>`).join("");
+  const tabs = NAV.map((n) => `<button class="tab ${n.theme}" data-key="${n.key}" data-go="${n.key}">${ICON[n.icon]}<span>${n.label}</span></button>`).join("");
+  $("tabbar").innerHTML = tabs + `<button class="tab tab-theme" data-act="theme" type="button" aria-label="切换深色 / 浅色"><span class="theme-ico"></span></button>`;
+}
+function syncNav() {
+  document.querySelectorAll("[data-key]").forEach((el) => {
+    const on = el.dataset.key === state.view;
+    el.classList.toggle("on", on);
+    if (on) el.setAttribute("aria-current", "page"); else el.removeAttribute("aria-current");
+  });
+  paintThemeIcons();
+}
+function parseHash() {
+  const parts = (location.hash || "").replace(/^#\/?/, "").split("/");
+  return { view: parts[0] || "home", param: parts[1] || null };
+}
+function pickExpId(param) {
+  if (param && Store.getExp(param)) return param;
+  if (state.exp && Store.getExp(state.exp.id)) return state.exp.id;
+  const list = Store.listExps();
+  return list.length ? list[0].id : null;
+}
+function goTo(view, param) {
+  if (state.exp) persistExp();
+  const key = VIEWS.includes(view) ? view : "home";
+  let p = param || null;
+  if (key === "home") {
+    state.view = "home"; state.param = null; state.exp = null;
+  } else if (key === "settings") {
+    state.view = "settings"; state.param = null;
+  } else {
+    const id = pickExpId(p);
+    if (!id) { toast("先新建一个实验"); state.view = "home"; state.param = null; state.exp = null; p = null; }
+    else { state.view = key; state.param = id; state.exp = Store.getExp(id); ui.step = 0; ui.playIndex = 0; ui.selected = null; }
+  }
+  if (!suppressHash) {
+    location.hash = "#/" + state.view + (state.view === "home" || state.view === "settings" ? "" : "/" + state.param);
+  }
+  render();
+}
+function render() {
+  const main = $("main");
+  if (state.view === "edit") main.innerHTML = viewEdit();
+  else if (state.view === "record") main.innerHTML = viewRecord();
+  else if (state.view === "report") main.innerHTML = viewReport();
+  else if (state.view === "settings") main.innerHTML = viewSettings();
+  else main.innerHTML = viewHome();
+  main.scrollTop = 0;
+  syncNav();
+  refreshCanvas();
+  hydrateMedia();
+}
+/* ============================================================
+   11. 报告生成：本地 markdown / LLM（OpenAI 兼容）
+   ============================================================ */
+
+const REPORT_PROMPT = `你是一位严谨的实验教学助理。请根据下面给出的实验数据，整理一份规范的中文实验报告参考版，使用 Markdown 输出。
+
+要求：
+1. 按以下结构组织，只保留有内容的章节：实验名称、实验目的、实验原理、仪器与试剂、实验步骤、实验现象与数据、数据处理与结果、结论、讨论与误差分析、思考题、注意事项。
+2. 实验原理部分保留反应方程式（用行内代码或公式行呈现）。
+3. 「实验现象与数据」必须用 Markdown 表格呈现，列为：步骤 | 操作 | 现象/数据 | 备注。
+4. 不得编造未提供的数据；缺失信息统一标注「（待补充）」。
+5. 全文使用简体中文，不要输出多余寒暄。
+
+实验数据（JSON）：
+{{DATA}}`;
+
+function getLLMConfig() {
+  return Object.assign({ baseUrl: "", apiKey: "", model: "" }, Store.readJSON(KEYS.llm, {}));
+}
+function saveLLMConfig(c) { return Store.writeJSON(KEYS.llm, c); }
+function llmFromForm() {
+  const g = (k) => { const el = document.querySelector(`[data-llm="${k}"]`); return el ? el.value.trim() : ""; };
+  return { baseUrl: g("baseUrl"), apiKey: g("apiKey"), model: g("model") };
+}
+
+async function callLLM(prompt) {
+  const cfg = getLLMConfig();
+  if (!cfg.apiKey) throw new Error("未配置 API Key");
+  const base = (cfg.baseUrl || "https://api.openai.com/v1").replace(/\/+$/, "");
+  const res = await fetch(base + "/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfg.apiKey },
+    body: JSON.stringify({
+      model: cfg.model || "gpt-4o-mini",
+      temperature: 0.3,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const data = await res.json();
+  const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  if (!text) throw new Error("返回内容为空");
+  return String(text);
+}
+
+function collectReportData(e) {
+  return {
+    name: e.name,
+    subject: e.subject,
+    desc: e.desc,
+    steps: e.steps.map((s, i) => ({
+      no: i + 1,
+      title: stepTitle(s, i),
+      text: s.text,
+      equation: s.equation,
+      tips: s.tips,
+      instruments: s.canvas.items.map((it) => instName(it)),
+      observed: s.record.note,
+      images: s.record.images.length,
+    })),
+    totalLog: e.log.total,
+  };
+}
+
+function cell(s) { return String(s == null ? "" : s).replace(/\|/g, "\\|").replace(/\r?\n/g, " "); }
+
+function buildLocalMarkdown(e) {
+  const L = [];
+  L.push("# " + e.name, "");
+  L.push("> 本报告由「实验助手」本地生成（未接入 LLM）", "");
+  if (has(e.desc)) L.push("## 实验简介", e.desc, "");
+
+  const insts = [];
+  e.steps.forEach((s) => s.canvas.items.forEach((it) => { const n = instName(it); if (insts.indexOf(n) < 0) insts.push(n); }));
+  if (insts.length) { L.push("## 仪器与试剂"); insts.forEach((x) => L.push("- " + x)); L.push(""); }
+
+  const eqs = e.steps.map((s) => s.equation).filter(has);
+  if (eqs.length) { L.push("## 反应方程式"); eqs.forEach((x) => L.push("- `" + x + "`")); L.push(""); }
+
+  L.push("## 实验步骤");
+  e.steps.forEach((s, i) => L.push(`${i + 1}. **${stepTitle(s, i)}**${has(s.text) ? "：" + cell(s.text) : ""}`));
+  L.push("");
+
+  L.push("## 实验现象与数据");
+  L.push("| 步骤 | 操作 | 现象/数据 | 备注 |");
+  L.push("| --- | --- | --- | --- |");
+  e.steps.forEach((s, i) => {
+    L.push(`| ${i + 1} | ${cell(stepTitle(s, i))} | ${cell(s.record.note)} | ${s.record.images.length ? "附图 " + s.record.images.length + " 张" : ""} |`);
+  });
+  L.push("");
+
+  const tips = e.steps.map((s, i) => ({ s, i })).filter((x) => has(x.s.tips));
+  if (tips.length) { L.push("## 注意事项"); tips.forEach((x) => L.push(`- **${stepTitle(x.s, x.i)}**：${cell(x.s.tips)}`)); L.push(""); }
+
+  if (has(e.log.total)) L.push("## 总记录", e.log.total, "");
+  return L.join("\n");
+}
+
+function localReport() {
+  const e = state.exp;
+  if (!e) return;
+  const md = buildLocalMarkdown(e);
+  Store.saveReport(e.id, { markdown: md, mode: "local", model: "", generatedAt: Date.now() });
+  render();
+  toast("已本地生成 markdown 报告");
+}
+
+async function llmReport() {
+  const e = state.exp;
+  if (!e) return;
+  const cfg = getLLMConfig();
+  if (!cfg.apiKey) { toast("未配置 LLM，改用本地生成"); localReport(); return; }
+  toast("正在请求 LLM…");
+  try {
+    const prompt = REPORT_PROMPT.replace("{{DATA}}", JSON.stringify(collectReportData(e), null, 2));
+    const md = await callLLM(prompt);
+    Store.saveReport(e.id, { markdown: md, mode: "llm", model: cfg.model, generatedAt: Date.now() });
+    render();
+    toast("LLM 报告已生成");
+  } catch (err) {
+    toast("LLM 调用失败：" + err.message + "，已降级本地生成");
+    localReport();
+  }
+}
+
+async function llmTest() {
+  saveLLMConfig(llmFromForm());
+  const el = $("llmMsg");
+  const say = (t, cls) => { if (el) { el.textContent = t; el.className = "msg " + (cls || ""); } };
+  say("测试中…", "");
+  try {
+    const r = await callLLM("请只回复两个字：正常");
+    say("连接成功：" + r.slice(0, 40), "ok");
+  } catch (e) { say("连接失败：" + e.message, "err"); }
+}
+
+function repCopy() {
+  const e = state.exp; if (!e) return;
+  const md = Store.report(e.id).markdown;
+  if (!md) { toast("还没有报告内容"); return; }
+  copyText(md).then((ok) => toast(ok ? "已复制 markdown" : "复制失败"));
+}
+function repExport() {
+  const e = state.exp; if (!e) return;
+  const md = Store.report(e.id).markdown;
+  if (!md) { toast("还没有报告内容"); return; }
+  download((e.name || "实验报告") + "-报告-" + fileStamp() + ".md", md, "text/markdown;charset=utf-8");
+}
+
+/* ---------- 极简 markdown → HTML（标题 / 表格 / 列表 / 行内样式） ---------- */
+
+function mdInline(t) {
+  return esc(t)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img alt="$1" src="$2" />');
+}
+function mdToHtml(md) {
+  const lines = String(md || "").split(/\r?\n/);
+  const out = [];
+  let inTable = false, inList = false;
+  const closeAll = () => {
+    if (inTable) { out.push("</tbody></table>"); inTable = false; }
+    if (inList) { out.push("</ul>"); inList = false; }
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const t = line.trim();
+    if (!t) { closeAll(); continue; }
+    if (/^\|(.+)\|$/.test(t)) {
+      const cells = t.slice(1, -1).split("|").map((c) => c.trim());
+      if (/^[\s|:-]+$/.test(t.replace(/\|/g, ""))) continue;
+      if (!inTable) { out.push("<table><thead><tr>" + cells.map((c) => "<th>" + mdInline(c) + "</th>").join("") + "</tr></thead><tbody>"); inTable = true; }
+      else out.push("<tr>" + cells.map((c) => "<td>" + mdInline(c) + "</td>").join("") + "</tr>");
+      continue;
+    }
+    if (inTable) { out.push("</tbody></table>"); inTable = false; }
+    const h = t.match(/^(#{1,4})\s+(.*)$/);
+    if (h) { closeAll(); out.push(`<h${h[1].length}>${mdInline(h[2])}</h${h[1].length}>`); continue; }
+    if (/^[-*]\s+/.test(t)) {
+      if (!inList) { out.push("<ul>"); inList = true; }
+      out.push("<li>" + mdInline(t.replace(/^[-*]\s+/, "")) + "</li>");
+      continue;
+    }
+    if (inList) { out.push("</ul>"); inList = false; }
+    if (/^>\s?/.test(t)) { out.push("<blockquote>" + mdInline(t.replace(/^>\s?/, "")) + "</blockquote>"); continue; }
+    if (/^\d+\.\s+/.test(t)) { out.push("<p>" + mdInline(t) + "</p>"); continue; }
+    out.push("<p>" + mdInline(t) + "</p>");
+  }
+  closeAll();
+  return out.join("\n");
+}
+/* ============================================================
+   12. 动作分发（事件委托的唯一入口）
+   ============================================================ */
+
+function updateStepName() {
+  const s = curStep();
+  const el = document.querySelector(`.step-item[data-step="${ui.step}"] .step-item-name`);
+  if (el && s) el.textContent = stepTitle(s, ui.step);
+}
+
+function expNew() {
+  const name = prompt("实验名称：", "未命名实验");
+  if (name === null) return;
+  const e = newExp((name || "").trim() || "未命名实验", "chemistry");
+  Store.saveExp(e);
+  state.exp = e;
+  ui.step = 0;
+  goTo("edit", e.id);
+  toast("已创建实验");
+}
+function expDup(id) {
+  const src = Store.getExp(id);
+  if (!src) return;
+  const cp = normalizeExp(JSON.parse(JSON.stringify(src)));
+  cp.id = uid("exp_");
+  cp.name = src.name + " 副本";
+  cp.createdAt = Date.now();
+  cp.updatedAt = Date.now();
+  cp.rev = 1;
+  Store.saveExp(cp);
+  render();
+  toast("已复制实验");
+}
+function expDel(id) {
+  const m = Store.listExps().find((x) => x.id === id);
+  if (!confirm("确定删除「" + ((m && m.name) || "该实验") + "」？此操作不可恢复。")) return;
+  Store.removeExp(id);
+  if (state.exp && state.exp.id === id) { state.exp = null; goTo("home"); }
+  else render();
+  toast("已删除");
+}
+function expExport(id) {
+  const e = Store.getExp(id);
+  if (!e) return;
+  const rep = Store.report(id);
+  const pack = { kind: "zhbit-lab-experiment", v: EXP_VERSION, exportedAt: Date.now(), exp: e, report: rep };
+  download((e.name || "实验") + "-" + fileStamp() + ".json", JSON.stringify(pack, null, 2));
+  toast("已导出可分享文件");
+}
+function expImport() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.onchange = () => {
+    const f = (input.files || [])[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const data = JSON.parse(rd.result);
+        const raw = data && data.exp ? data.exp : data;
+        if (!isValidExp(raw)) { toast("文件结构不合法，已拒绝"); return; }
+        const e = normalizeExp(raw);
+        e.id = uid("exp_");
+        e.name = (e.name || "导入实验") + "（导入）";
+        Store.saveExp(e);
+        if (data && data.report && data.report.markdown) {
+          Store.saveReport(e.id, { markdown: data.report.markdown, mode: data.report.mode || "local", model: data.report.model || "", generatedAt: data.report.generatedAt || Date.now() });
+        }
+        goTo("edit", e.id);
+        toast("导入成功");
+      } catch (err) { toast("解析失败：不是有效的实验文件"); }
+    };
+    rd.readAsText(f, "utf-8");
+  };
+  input.click();
+}
+function exportAll() {
+  const exps = Store.listExps().map((m) => Store.getExp(m.id)).filter(Boolean);
+  if (!exps.length) { toast("还没有实验可导出"); return; }
+  download("实验助手-全部实验-" + fileStamp() + ".json",
+    JSON.stringify({ kind: "zhbit-lab-backup", v: EXP_VERSION, exportedAt: Date.now(), exps }, null, 2));
+  toast("已导出 " + exps.length + " 个实验");
+}
+function clearAll() {
+  if (!confirm("确定清空全部实验与报告？主题与 LLM 配置会保留。")) return;
+  Store.listExps().forEach((m) => Store.removeExp(m.id));
+  state.exp = null;
+  goTo("home");
+  toast("已清空全部数据");
+}
+function pickMedia(kind) {
+  const s = curStep();
+  if (!s) return;
+  const input = document.createElement("input");
+  input.type = "file";
+  if (kind === "image" || kind === "record") { input.accept = "image/*"; input.multiple = true; }
+  else input.accept = "video/*";
+  input.onchange = async () => {
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+    if (kind === "video") {
+      s.videos.push(Media.addVideo(files[0]));
+    } else {
+      for (const f of files) {
+        const ref = await Media.addImage(f);
+        if (kind === "record") s.record.images.push(ref); else s.images.push(ref);
+      }
+    }
+    persistExp();
+    render();
+    toast("已添加素材");
+  };
+  input.click();
+}
+function mediaDel(id) {
+  const e = state.exp;
+  if (!e) return;
+  const drop = (arr) => arr.filter((m) => m.id !== id);
+  e.steps.forEach((s) => {
+    s.images = drop(s.images);
+    s.videos = drop(s.videos);
+    s.record.images = drop(s.record.images);
+  });
+  e.log.totalImages = drop(e.log.totalImages || []);
+  Media.del(id);
+  persistExp();
+  render();
+}
+
+async function handleAct(action, el) {
+  const e = state.exp;
+  switch (action) {
+    case "theme": toggleTheme(); return;
+
+    case "exp-new": expNew(); return;
+    case "exp-open": goTo("edit", el.dataset.id); return;
+    case "exp-dup": expDup(el.dataset.id); return;
+    case "exp-del": expDel(el.dataset.id); return;
+    case "exp-export": expExport(el.dataset.id); return;
+    case "exp-import": expImport(); return;
+
+    case "exp-subject": {
+      if (!e) return;
+      e.subject = el.dataset.v;
+      e.theme = { chemistry: "t-sky", biology: "t-mint", biochem: "t-lavender" }[e.subject] || "t-sky";
+      persistExp(); render(); return;
+    }
+
+    case "step-add": {
+      if (!e) return;
+      e.steps.push(normalizeStep({ id: uid("s_") }));
+      ui.step = e.steps.length - 1;
+      ui.selected = null;
+      persistExp(); render(); return;
+    }
+    case "step-open": ui.step = Number(el.dataset.step); ui.selected = null; ui.linkFrom = null; render(); return;
+    case "step-del": {
+      if (!e || e.steps.length <= 1) { toast("至少保留一个步骤"); return; }
+      if (!confirm("删除当前步骤？")) return;
+      e.steps.splice(ui.step, 1);
+      ui.step = clamp(ui.step, 0, e.steps.length - 1);
+      persistExp(); render(); return;
+    }
+    case "step-move": {
+      if (!e) return;
+      const dir = Number(el.dataset.dir);
+      const j = ui.step + dir;
+      if (j < 0 || j >= e.steps.length) return;
+      const t = e.steps[ui.step]; e.steps[ui.step] = e.steps[j]; e.steps[j] = t;
+      ui.step = j; persistExp(); render(); return;
+    }
+
+    case "media-add": pickMedia(el.dataset.kind); return;
+    case "media-del": mediaDel(el.dataset.id); return;
+
+    case "play-prev": ui.playIndex = Math.max(0, ui.playIndex - 1); render(); return;
+    case "play-next": ui.playIndex = Math.min((e ? e.steps.length : 1) - 1, ui.playIndex + 1); render(); return;
+    case "play-go": ui.playIndex = Number(el.dataset.step); render(); return;
+
+    case "go-edit": goTo("edit", e && e.id); return;
+    case "go-record": goTo("record", e && e.id); return;
+    case "go-report": goTo("report", e && e.id); return;
+
+    case "rep-local": localReport(); return;
+    case "rep-llm": llmReport(); return;
+    case "rep-copy": repCopy(); return;
+    case "rep-export": repExport(); return;
+
+    case "set-theme": applyTheme(el.dataset.v); render(); return;
+    case "llm-save": saveLLMConfig(llmFromForm()); toast("LLM 配置已保存"); return;
+    case "llm-test": llmTest(); return;
+    case "llm-prompt": alert(REPORT_PROMPT); return;
+
+    case "data-export-all": exportAll(); return;
+    case "data-clear": clearAll(); return;
+
+    default:
+      if (action && action.indexOf("cv-") === 0) { canvasAct(action, el); return; }
+  }
+}
+
+/* ============================================================
+   13. 启动
+   ============================================================ */
+
+function boot() {
+  $("brandMark").innerHTML = ICON.logo;
+  renderNav();
+  initTheme();
+
+  document.addEventListener("click", (ev) => {
+    const goEl = ev.target.closest("[data-go]");
+    if (goEl) { goTo(goEl.dataset.go, goEl.dataset.param || null); return; }
+    const actEl = ev.target.closest("[data-act]");
+    if (actEl) handleAct(actEl.dataset.act, actEl);
+  });
+
+  document.addEventListener("input", (ev) => {
+    const el = ev.target;
+    if (!el || !el.dataset) return;
+    if (el.dataset.llm !== undefined && el.hasAttribute("data-llm")) return;
+    const scope = el.dataset.scope;
+    const s = curStep();
+    if (scope === "exp" && state.exp) { state.exp[el.dataset.field] = el.value; saveSoon(); return; }
+    if (scope === "record" && s) { s.record.note = el.value; saveSoon(); return; }
+    if (scope === "total" && state.exp) { state.exp.log.total = el.value; saveSoon(); return; }
+    const f = el.dataset.field;
+    if (f && s) { s[f] = el.value; saveSoon(); if (f === "title") updateStepName(); }
+  });
+
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Delete" && state.view === "edit" && ui.selected && !/input|textarea/i.test((ev.target.tagName || ""))) {
+      ev.preventDefault(); canvasAct("cv-del", { dataset: {} });
+    }
+  });
+
+  window.addEventListener("hashchange", () => {
+    const { view, param } = parseHash();
+    suppressHash = true;
+    goTo(view, param);
+    suppressHash = false;
+  });
+
+  window.addEventListener("resize", debounce(() => { syncCanvasScale(); }, 120));
+
+  window.addEventListener("beforeunload", () => { if (state.exp) persistExp(); });
+
+  const { view, param } = parseHash();
+  suppressHash = true;
+  goTo(view, param);
+  suppressHash = false;
+}
+
+boot();
+</script>
 </body>
 </html>
