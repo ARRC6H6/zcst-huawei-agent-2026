@@ -27,7 +27,7 @@ start src/index.html          # Windows
 
 ```bash
 node src/tools/check-page.mjs src/index.html
-# 期望：共 86 项，通过 86，失败 0
+# 期望：共 88 项，通过 88，失败 0
 ```
 
 > 应用是**单文件 HTML**：所有 HTML / CSS / JS 内联在一个文件里，零外链、零 CDN、零构建步骤。
@@ -62,7 +62,7 @@ node src/tools/check-page.mjs src/index.html
 │  └─ README.md               # 痕迹材料的整理说明
 └─ src/
    ├─ index.html              # ⭐ 作品全部源码（单文件，约 2000 行，13 个区段）
-   ├─ tools/check-page.mjs    # 86 项自动校验脚本
+   ├─ tools/check-page.mjs    # 88 项自动校验脚本
    └─ README.md               # 源码说明：区段分工、自检命令、十天目标
 ```
 

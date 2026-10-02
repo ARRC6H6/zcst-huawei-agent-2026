@@ -875,6 +875,9 @@ const state = {
   savedAt: null,
 };
 
+/* goTo() 内部改 hash 时置位，避免 hashchange 回调递归触发 */
+let suppressHash = false;
+
 function markSaved() {
   const el = document.querySelector(".sync");
   if (el) el.innerHTML = `<i class="sync-dot"></i>已保存`;
@@ -1054,7 +1057,7 @@ function instPanelHTML() {
   return INST_CATS.map((cat) => {
     const list = INST_LIB.filter((x) => x.cat === cat.id);
     const chips = list.map((x) => {
-      const ico = x.icon.replace(`width="16" height="16"`, `width="17" height="17"`);
+      const ico = renderInstIcon({ inst: x.id }, 17);
       return `<button class="inst-chip" data-act="cv-add" data-inst="${x.id}" type="button" title="${esc(x.name)}">${ico}<span>${esc(x.name)}</span></button>`;
     }).join("");
     return `<div class="inst-cat">${esc(cat.label)}</div>${chips}`;

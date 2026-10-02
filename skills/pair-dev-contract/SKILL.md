@@ -78,7 +78,7 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
 | 9 | 仪器一律**先追加 `INST_LIB` 条目**，不许在画布/视图里写死仪器名与尺寸 | 美术资源后续替换只改 `imageUrl`，改别处就白干 |
 | 10 | **不许私自改动 §3 的任何签名、字段名、枚举值、key、token 名** | 接口是唯一能让多人并行不返工的东西 |
 | 11 | 存储层**永不抛异常**（返回 `false` / `null` / `fallback`）；只有网络层允许 `throw` | 单文件应用抛异常就是白屏，用户没有任何恢复手段 |
-| 12 | 改完必须跑 `node src/tools/check-page.mjs src/index.html`，**通过 86 / 失败 0** 才许提交 | 这是唯一能挡住「我这边是好的」的机器校验 |
+| 12 | 改完必须跑 `node src/tools/check-page.mjs src/index.html`，**通过 88 / 失败 0** 才许提交 | 这是唯一能挡住「我这边是好的」的机器校验 |
 
 ---
 
@@ -101,7 +101,7 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
   desc: "",                // 实验简介
   createdAt: 1759366440000, // Date.now() 毫秒数
   updatedAt: 1759366440000, // 任何保存都会强制刷新它（见 §3.6）
-  rev: 1,                  // 整数自增，为后续双端同步留的伏笔，本期只写不读
+  rev: 1,                  // 本期恒为 1（不发自增）；双端同步落地时才启用
   steps: [ Step, ... ],    // 至少 1 条（UI 层保证，不在数据层校验）
   log: {
     total: "",             // 总记录：整场备注与异常
@@ -116,12 +116,12 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
 | --- | --- |
 | `id` | 前缀 `exp_`。旧版 `t_` / `evt_` 前缀**不读取、不迁移**（v3 从空数据开始） |
 | `subject` | 只许三个枚举值；新增学科必须同时补 `SUBJECTS` 与 `theme` 映射，并升 `EXP_VERSION` |
-| `theme` | **不许手写**，一律由 `subject` 映射：`chemistry→t-sky`、`biology→t-mint`、`biochem→t-lavender` |
-| `rev` | 本期无同步逻辑，只保证存在且为整数；双端同步（蓝图 §10）落地时才启用 |
+| `theme` | 由 `subject` 映射：`chemistry→t-sky`、`biology→t-mint`、`biochem→t-lavender`。映射只发生在 `newExp()` 与 `exp-subject` 动作里；**`normalizeExp()` 对缺失 `theme` 的数据固定回落 `t-sky`，不按 `subject` 反推** —— 所以导入缺 `theme` 的老数据会丢掉学科配色，要改这里先想清楚兼容性 |
+| `rev` | 本期**恒为 1**，全文没有任何自增逻辑；双端同步（蓝图 §10）落地时才启用。**不要依赖它判断新旧** |
 | `log.totalImages` | 与 `Step.record.images` 同构，都是 `mediaRef[]` |
 
 > 🔴 **报告不在 `Exp` 里面。** 它是独立存储的一份数据（§3.6 `KEYS.report`），
-> 导出单实验时才一起打进包里（§3.7）。**不许把 `report` 塞进 `Exp`。**
+> 导出单实验时才一起打进包里（§3.8）。**不许把 `report` 塞进 `Exp`。**
 > （蓝图 §3.1 的示意把 `report` 画在实验文件里，实现上刻意拆开了 —— 以本节为准。）
 
 ### 3.2 `Step`（反应步骤）
@@ -203,7 +203,7 @@ Link = {
 
 | 规则 | 值 |
 | --- | --- |
-| 逻辑画布尺寸 | `w: 1000`, `h: 620`（固定；容器按宽度等比缩放，缩放比见 `canvasFit()`） |
+| 逻辑画布尺寸 | **默认** `w: 1000`, `h: 620`（`newExp()` / `normalizeStep()` 的默认值）。⚠️ `normalizeStep` 会**保留**外部传入的 `w`/`h`，渲染按 `canvas` 自身尺寸走，所以不要假定恒为 1000×620。容器按宽度等比缩放，缩放比见 `canvasFit()` |
 | 坐标吸附 | `10px`。**新增时立即吸附**；**拖拽过程中不吸附**，只在 `pointerup` 时把落点取整 |
 | 旋转步进 | `15°`。`cv-rot±` 直接 ±15；拖旋转柄时按 `Math.round(角度/15)*15` 吸附 |
 | 缩放下限 / 上限 | `0.4` / `2.5`。`cv-scale±` 各 ×1.1 / ×0.9 后 clamp；拖角柄按距离比例缩放，同样 clamp |
@@ -260,13 +260,17 @@ INST_LIB 条目 = {
 
 **三条冻结规则：**
 
-1. **渲染唯一入口是 `renderInstIcon(item, size)`**：`imageUrl` 非空 → 渲染 `<img>`（`object-fit: contain`）；
-   否则把 `icon` 的 `width/height` 换成实际尺寸后渲染 SVG。**任何新仪器都不需要改画布逻辑。**
+1. **渲染唯一入口是 `renderInstIcon(item, size)`**：它接收带 `.inst`（仪器库 id）的**实例对象**，
+   `imageUrl` 非空 → 渲染 `<img>`（`object-fit: contain`）；否则把 `icon` 的 `width/height` 换成实际尺寸后渲染 SVG。
+   **两个调用点都走它**：画布里的仪器（`itemHTML`，传 CanvasItem、尺寸取库中 `w`/`h`）
+   与编辑页左侧仪器面板（`instPanelHTML`，传 `{ inst: x.id }`、尺寸 17）。
+   ⚠️ 面板**不许**再直接 `x.icon.replace(...)` —— 那样填了 `imageUrl` 也不换图，且校验测不出来。
 2. **条目 id 全库唯一**；`cat` 必须命中 `INST_CATS`，**不许出现孤儿分类**，也不许有空的分类。
 3. 仪器清单必须**含 `beaker` / `test-tube` / `microscope` / `alcohol-lamp` / `petri-dish`**
    （校验硬性项），且总数 **≥ 30**（当前 36 条：glass 13 / measure 6 / support 5 / heat 4 / biology 8）。
 
-> 📌 **后续换美术只做一件事**：给对应条目填 `imageUrl`。禁止把图片路径写进视图或画布代码。
+> 📌 **后续换美术只做一件事**：给对应条目填 `imageUrl`。画布与仪器面板会一起生效；
+> 禁止把图片路径写进视图或画布代码。
 
 ### 3.6 存储层 `Store` / `Media`（签名与 key 冻结）
 
@@ -418,7 +422,8 @@ Report = {
   mode: "local",       // "local" | "llm"
   model: "",           // mode==="llm" 时记模型名
   generatedAt: null,   // Date.now() 毫秒数
-  fields: null,        // 保留字段，本期不用
+  fields: null,        // ⚠️ 只存在于 Store.report() 的默认值对象里；localReport/llmReport 写入的对象不含它，
+                       //    所以生成过报告后读到的是 undefined。本期不使用，启用前先统一写入
 }
 ```
 
@@ -520,15 +525,23 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | 设置 settings | `t-lavender` |
 | 学科 chemistry / biology / biochem | `t-sky` / `t-mint` / `t-lavender` |
 
-**视觉铁律：**
+**视觉铁律**（新增 / 改动的代码必须遵守；括注是**既有的历史例外**，别照抄、也别顺手扩大）：
 
 1. **深色只写一份** `:root[data-theme="dark"]` 令牌块；**浅色里的每个语义 token 都必须在深色里有覆盖**
-   （豁免项仅 `--r-window` / `--r-card` / `--ease` / `--fast` / `--mid` / `--mono`）。
-2. **禁裸写颜色**：不许出现 `background: #fff`、`color: #333`，一律 `var(--x)`；**不许引用未定义的 `var()`**。
-3. 缓动只用 `var(--ease)` 系；**禁 `linear` / `ease`**。
-4. 移动端断点 `@media (max-width: 860px)` 切单栏 + 底部 Tab；正文 ≥ 14px、触控目标 ≥ 44px、
+   （豁免项仅 `--r-window` / `--r-card` / `--ease` / `--fast` / `--mid` / `--mono`，与 `check-page.mjs` 的 `SHAPE_EXEMPT` 一致）。
+2. 新样式**禁止裸写颜色**，一律 `var(--x)`；**不许引用未定义的 `var()`**。
+   *历史例外*：品牌标与主按钮的固定渐变 `#7b8aff → #5f6ef5`、5 处反白 `color: #fff`（`.brand-mark` / `.btn-primary` /
+   `.step-item.on .step-no` / `.chip.on` / `.media-del`）、吐司底 `rgba(26,31,51,.92)`。
+   校验目前**只拦 `background: #fff` 一种写法**（`check-page.mjs`），其余靠人眼。
+3. 新动画缓动只用 `var(--ease)` 系。*历史例外*：背景光斑 `animation: drift … ease-in-out`（5 处）与空态 `float`。
+4. 移动端断点 `@media (max-width: 860px)` 切单栏 + 底部 Tab；正文 ≥ 14px、主要触控目标 ≥ 44px、
    `:hover` 一律补 `:active` 等价反馈。
-5. 图标一律内联 SVG（`stroke-width: 1.8`、`currentColor`），**不许外链图标库**。
+   *历史例外*：移动端 `.btn` 40px / `.chip`·`.inst-chip` 36px / `.step-item` 42px —— **新增按钮不得低于 44px**。
+5. 图标一律内联 SVG（`currentColor`、主图标线宽 `1.8`），**不许外链图标库**。
+   *历史例外*：Logo `1.7`、空态大图标 `1.2`、缩略图与 Tab 图标 `1.3` —— 按尺寸微调是既有约定，**新增图标统一 1.8**。
+
+> ⚠️ `check-page.mjs` 对视觉规则**只覆盖了一部分**（深色令牌齐全、无未定义 `var()`、无 `background: #fff`、
+> 断点与 tabbar 存在）。第 2~5 条的例外清单得**人眼过一遍**，别默认机器已经拦住了。
 
 ---
 
@@ -536,11 +549,11 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 
 | 类型 | 规范 | 例子 |
 | --- | --- | --- |
-| 实验 id | `exp_` + base36 随机 | `exp_k3f9a2x1b7` |
-| 步骤 id | `s_` + 随机 | `s_9a2k3f` |
-| 媒体 id | `m_` + 随机 | `m_7f2a91` |
-| 仪器实例 id | `i_` + 随机 | `i_2b8c14` |
-| 连线 id | `l_` + 随机 | `l_5d0e77` |
+| 实验 id | `exp_` + 随机 | `exp_k3f9a2x1b7` |
+| 步骤 id | `s_` + 随机 | `s_9a2k3f1b7` |
+| 媒体 id | `m_` + 随机 | `m_7f2a91c0d3` |
+| 仪器实例 id | `i_` + 随机 | `i_2b8c14e5f6` |
+| 连线 id | `l_` + 随机 | `l_5d0e77a1c2` |
 | 存储 key | `zhbit-lab-` 前缀 | `zhbit-lab-exp:exp_xxx` |
 | 函数 / 变量 | camelCase | `buildLocalMarkdown()` |
 | 常量 / 令牌名 | UPPER_SNAKE / `--kebab` | `INST_LIB`、`--tint-line` |
@@ -548,6 +561,13 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | data 属性 | kebab-case | `data-act`、`data-canvas-host`、`data-ro` |
 | 布尔判断 | 用现成工具 | `has(v)`（非空判断）、`clamp(v,a,b)` |
 | 转义 | 一律 `esc()` | `esc(e.name)` |
+
+> 🔴 **`uid(prefix)` 的真实格式**：`prefix + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4)`。
+> 也就是**去掉前缀通常 10 位**（6 位随机 + 4 位时间戳后缀；30 万次实测全部为 10 位）。
+> ⚠️ 但**长度不保证固定**：`Math.random().toString(36)` 给的是最短往返表示，
+> 当随机值的小数部分不足 6 位时会变短（例如 `Math.random()` 恰好返回 `0.5` → `"0.i"`，随机段只有 1 位）。
+> 所以：**不要按固定长度或固定正则去校验 id**，一律用 `uid()` 生成、当普通字符串处理。
+> 所有 id **必须用 `uid()` 生成，不许手写**（手写 id 一定撞车或不合格式）。
 
 **统一错误约定（单文件应用，没有异常类型）：**
 
@@ -673,7 +693,7 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | F1 | 交材料时没有码道痕迹 | 攒到最后补，补不出来 | **每天收工前 15 分钟**截图归档，死规矩 |
 | F2 | 未登记开源组件 | 随手引了库 | 本项目零第三方依赖；将来引依赖前先登记 `docs/作品说明.md` |
 | F3 | 密钥进了 Git | 写在普通配置文件 | 只存浏览器 localStorage；仓库里不许出现任何 Key |
-| F4 | 提交了跑不起来的版本 | 改完没跑校验 | 提交前必跑 `node src/tools/check-page.mjs src/index.html`，86 项全绿 |
+| F4 | 提交了跑不起来的版本 | 改完没跑校验 | 提交前必跑 `node src/tools/check-page.mjs src/index.html`，88 项全绿 |
 
 ---
 

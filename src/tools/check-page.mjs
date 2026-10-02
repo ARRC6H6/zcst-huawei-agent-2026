@@ -72,10 +72,10 @@ const main = () => store.main.innerHTML;
 /* ---------------- 1. 脚本可执行 ---------------- */
 
 try {
-  new Function(code)();
-  check("内联脚本执行无异常", true);
+  new Function('"use strict";' + code)();
+  check("内联脚本在严格模式下执行无异常（无隐式全局变量）", true);
 } catch (e) {
-  check("内联脚本执行无异常 —— " + e.message, false);
+  check("内联脚本在严格模式下执行无异常 —— " + e.message, false);
   results.forEach(([ok, n]) => console.log((ok ? "  OK   " : "  FAIL ") + n));
   process.exit(1);
 }
@@ -165,6 +165,16 @@ check("仪器面板：覆盖全部仪器分类",
   A.INST_CATS.every((c) => A.instPanelHTML().indexOf(c.label) >= 0));
 check("仪器面板：每个仪器都有可点击入口",
   A.INST_LIB.every((x) => A.instPanelHTML().indexOf('data-inst="' + x.id + '"') >= 0));
+check("仪器面板：imageUrl 为空时回退 SVG 占位",
+  A.instPanelHTML().indexOf("<svg") >= 0);
+check("仪器面板：填写 imageUrl 后同样优先渲染图片（与画布同一渲染入口）",
+  (() => {
+    const b = A.instById("beaker");
+    const old = b.imageUrl; b.imageUrl = "art/beaker.png";
+    const out = A.instPanelHTML();
+    b.imageUrl = old;
+    return out.indexOf('src="art/beaker.png"') >= 0;
+  })());
 
 /* ---------------- 5. 编辑页 / 记录页 / 报告页渲染 ---------------- */
 
