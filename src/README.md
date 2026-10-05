@@ -18,6 +18,17 @@
 > 手机上想看：把 `index.html` 这一个文件拷到手机，用浏览器打开即可（零依赖、零外链）。
 > 想在线预览：仓库开启 GitHub Pages 后直接访问 Pages 地址。
 
+### 可选：局域网互传（同一 Wifi 下手机 ↔ 电脑）
+
+应用本体不需要服务端；要用「局域网互传」页，才需要在**任意一台设备**上跑一次：
+
+```bash
+python lan-server.py        # 或双击 start-lan.bat（Windows）/ ./start-lan.sh（Linux、macOS）
+```
+
+终端会打印 `同一Wifi下其他设备访问: http://192.168.x.x:8000`，其他设备浏览器打开该地址即可。
+细节见 [`局域网互传-使用说明.md`](局域网互传-使用说明.md)。**不启动它，应用功能完全不变。**
+
 ---
 
 ## 文件分工（**只改自己名下的文件**）
@@ -37,9 +48,14 @@
 | 9 视图 | `9. 视图` | 🧑‍🎓 新手 | `viewHome` / `viewEdit` / `viewRecord` / `viewReport` / `viewSettings` |
 | 10 导航 / 路由 | `10. 导航 / 路由` | 👑 队长 | `parseHash` / `goTo` / `render` |
 | 11 报告与 LLM | `11. 报告生成` | 👑 队长 | `REPORT_PROMPT` / `callLLM` / `buildLocalMarkdown` |
-| 12 动作分发 | `12. 动作分发` | 👑 队长 | `handleAct`（唯一动作入口） |
-| 13 启动 | `13. 启动` | 👑 队长 | `boot()` |
+| 12 AI 生成实验步骤 | `12. AI 生成实验步骤` | 👑 队长 | `viewAI` / `GEN` / `GEN_PROMPT` / `aiParseJSON` / Office 解析 |
+| 13 局域网互传 | `13. 局域网互传` | 👑 队长 | `viewLan` / `LAN` / `lanAct` / 分片上传 / 轮询 |
+| 14 动作分发 | `14. 动作分发` | 👑 队长 | `handleAct`（唯一动作入口） |
+| 15 启动 | `15. 启动` | 👑 队长 | `boot()` |
 | 样式 | `<style>` 段 | 🧑‍🎓 新手 | 全部 CSS，令牌一律走 `var(--x)` |
+
+> 📌 第 16 区段起是**内联的第三方库**（`<script id="chem-input-lib">`，React + KaTeX + mhchem），
+> 由 `chem-input` 源工程构建后内联而来，**不要手改**。
 
 ⚠️ **冻结的接口契约、12 条铁律、交接流程、坑清单，全在 [`../skills/pair-dev-contract/SKILL.md`](../skills/pair-dev-contract/SKILL.md)。
 动手前先读它。**
@@ -49,14 +65,20 @@
 ## 自检（动手后必跑）
 
 ```bash
-node src/tools/check-page.mjs src/index.html
+node src/tools/check-page.mjs    src/index.html   # 153 项（工作区放有课程素材时 155 项）
+node src/tools/check-isotope.mjs src/index.html   # 25 项
+node src/tools/check-lan.mjs     src/index.html   # 33 项
 ```
 
-88 项自动校验，覆盖：脚本可执行 / 仪器库与替换接口 / 数据模型与持久化 / 画布交互 / 五个视图渲染 /
-本地报告与 markdown 渲染 / 注入防护 / 媒体与视频占位 / LLM 约定 / 主题三态 / 令牌完整性 /
-路由回落 / 单文件零外链形态。
+- `check-page.mjs`：脚本可执行 / 仪器库与替换接口 / 数据模型与持久化 / 画布交互 / 各视图渲染 /
+  本地报告与 markdown 渲染 / 注入防护 / 媒体与视频占位 / LLM 约定 / 主题三态 / 令牌完整性 /
+  路由回落 / 单文件零外链形态 / AI 页 / 局域网互传页。
+- `check-isotope.mjs`：抽出内联的 chem-input 库，真跑 `smartConvert` 与 KaTeX 渲染，
+  断言「质量数一律落在元素符号左上角」（`^18O`、`O^18`、`H2O^18`、`C^14O2`），且不误伤 `Fe^3+` / `SO4^2-` 电荷。
+- `check-lan.mjs`：真启动 `lan-server.py`，跑通初始化 / 分片 / 状态 / 合并 / 列表 / 下载 / 秒传 /
+  断点续传 / 空文件 / 文本互传 / 删除 / 路径穿越 / CORS。
 
-**必须 `通过 88，失败 0` 才算没跑偏。** 这条同时是蓝图 §11 的第 10 项验收标准。
+**三套必须全部 `失败 0` 才算没跑偏。** 这条同时是蓝图 §11 第 10 项验收标准。
 
 浏览器里还有一层手动自检（F12 控制台）：
 
@@ -65,6 +87,7 @@ INST_LIB.length          // -> 36
 KEYS.exps                // -> 'zhbit-lab-exps'
 parseHash()              // -> { view: 'home', param: null }
 Store.listExps().length  // -> 0（或你存进去的实验数量）
+NAV.length               // -> 7（含「局域网互传」）
 ```
 
 ---

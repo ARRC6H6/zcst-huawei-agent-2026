@@ -3,11 +3,12 @@ name: zhbit-lab-protocol
 description: >
   珠科×华为云码道 Agent 创新赛「实验助手 Lab Studio」项目的**软件接口契约（唯一权威）**。
   规定实验文件数据模型、存储层（Store / Media）签名与 key、仪器库替换接口、画布交互动作集、
-  事件委托与哈希路由、报告与 LLM（OpenAI 兼容）接入约定、设计 token 与命名铁律。
+  事件委托与哈希路由、报告与 LLM（OpenAI 兼容）接入约定、AI 生成实验步骤页、
+  局域网互传页（#/lan + 可选 lan-server.py）、设计 token 与命名铁律。
   凡是要写、改、查、解释这个项目的代码，必须先读本文件，并遵守其中全部铁律，
   接口签名一律不许私自改。本文件是原 `shishi-protocol`（拾事 Shishi）的替代版（旧版已作废）。
-version: 3.0.0
-updated: 2026-10-02
+version: 3.1.0
+updated: 2026-10-05
 applies_to: 实验助手 Lab Studio（单文件 HTML · 零依赖 · 桌面/平板/手机三端自适应）
 ---
 
@@ -48,18 +49,23 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
 | 作品名 | 实验助手 Lab Studio |
 | 形态 | **单文件 HTML**（`src/index.html`），零依赖、零外链、双击即开 |
 | 前端 | 原生 HTML + CSS + ES2017 JavaScript（无框架、无构建、无 npm 依赖） |
-| 后端 | **无**。数据全部留在本机（localStorage + IndexedDB） |
+| 后端 | **核心功能无后端**（数据留在本机 localStorage + IndexedDB）；**可选的** `src/lan-server.py`（零依赖 Python 标准库）只服务「局域网互传」页，不启动它时应用功能完全不变 |
 | 学科 | 大学生化实验（化学 / 生物 / 生化） |
-| 交付物 | `.json` 实验文件（可分享 / 可导入导出） |
+| 交付物 | `.json` 实验文件（可分享 / 可导入导出）＋ 同 Wifi 下的文件与文本互传 |
+| 页面 | 实验列表 / AI生成实验步骤 / 编辑模式 / 记录模式 / 实验报告 / 局域网互传 / 设置（共 7 个导航页） |
 | 视觉参考 | 鲸鱼便签 Whale Notes（柔光玻璃 + 马卡龙六色），token 见 §3.9 |
 | 依据文档 | [`docs/实验助手-需求与设计蓝图.md`](../../docs/实验助手-需求与设计蓝图.md) |
 
 > 📌 **本期范围红线**：
 > ① **不引入任何第三方库 / CDN / 构建步骤**（`check-page.mjs` 会直接判死）；
-> ② **不做后端**，数据只在本机，跨设备靠导出 `.json`；
+>    内联进 `index.html` 的 React / KaTeX / mhchem 属**已登记的开源组件**（见 `docs/作品说明.md` §六），
+>    不是「引入依赖」——它们随文件一起内联，不需要安装、不产生外链；
+> ② **不做后端**，数据只在本机，跨设备靠导出 `.json`；唯一例外是**局域网互传**的
+>    可选配套服务端 `src/lan-server.py`（仅同一 Wifi 内收发文件与文本，不经任何云服务）；
 > ③ **视频只登记元信息（占位）**，不落地文件、不存 IndexedDB；
 > ④ **LLM 由使用者自填 Key**，未配置或失败一律降级到本地 markdown，不许报错卡死；
-> ⑤ 蓝牙同步 / 互传（蓝图 §10）**本期只留数据层伏笔**（`rev` 字段 + `.json` 格式），不实现传输。
+> ⑤ 蓝牙同步 / 双端原生同步（蓝图 §10）**仍不实现**；「同一 Wifi 设备互传」已由 §3.10 的
+>    `#/lan` 页 + `lan-server.py` 落地，属本期已交付能力。
 
 ---
 
@@ -68,17 +74,17 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
 | # | 铁律 | 原因 |
 | --- | --- | --- |
 | 1 | **单文件、零依赖、零外链**：不许 `<script src>`、不许 CDN、不许 `npm install`、不许构建 | 交付形态就是「双击即开」；评委复现成本必须为 0 |
-| 2 | **UI 层不许发网络请求**，全项目只允许 `callLLM()` 一处 `fetch` | 密钥泄露 + 安卓/浏览器 CORS 拦死；请求必须收口在一个函数里 |
+| 2 | **UI 层不许乱发网络请求**：全项目只允许**两处**网络出口 —— ① `callLLM()`（报告页，用户自配 Key）；② `#/lan` 页的局域网互传模块（`lanApi()` + 分片上传 XHR，见 §3.10）。其余任何视图都不许 `fetch` / `XMLHttpRequest` | 密钥泄露 + CORS 拦死；请求必须收口在具名函数里，且互传只走同一 Wifi、不经云 |
 | 3 | **时间戳一律 `Date.now()` 毫秒数**，禁 `toISOString()`、禁 ISO 字符串、禁 `new Date(str)` 解析 | 少 8 小时 / 时区漂移是经典 bug 源头；毫秒数天然无时区 |
 | 4 | **禁硬编码任何 Key / Token / 密码**；LLM 配置只存 `localStorage['zhbit-lab-llm']` | 推到 GitHub 就泄露，删记录也删不干净 |
-| 5 | 依赖必须**先登记**到 `docs/作品说明.md` 的「开源组件」表，再引 | 赛事硬性要求；本项目目前**零第三方依赖** |
+| 5 | 依赖必须**先登记**到 `docs/作品说明.md` 的「开源组件」表，再引 | 赛事硬性要求；本项目除**已登记且已内联**的 React / KaTeX / mhchem 外，零第三方依赖 |
 | 6 | **业务数据只经 `Store` / `Media`**；直接碰 `localStorage` 只允许主题那两处（§3.6） | 分散读写必然出现 key 写错、坏 JSON 未兜住 |
 | 7 | 所有用户可填文本进 HTML **必须经 `esc()`**；markdown 进 HTML 必须经 `mdToHtml()` / `mdInline()` | 实验名 / 步骤文本是用户输入，不转义就是 XSS |
 | 8 | **数据结构一变，`EXP_VERSION` 必须 +1**，并同步改本文件 §3.1、§6 变更日志 | 版本号是判断「读到的是哪代数据」的唯一依据 |
 | 9 | 仪器一律**先追加 `INST_LIB` 条目**，不许在画布/视图里写死仪器名与尺寸 | 美术资源后续替换只改 `imageUrl`，改别处就白干 |
 | 10 | **不许私自改动 §3 的任何签名、字段名、枚举值、key、token 名** | 接口是唯一能让多人并行不返工的东西 |
 | 11 | 存储层**永不抛异常**（返回 `false` / `null` / `fallback`）；只有网络层允许 `throw` | 单文件应用抛异常就是白屏，用户没有任何恢复手段 |
-| 12 | 改完必须跑 `node src/tools/check-page.mjs src/index.html`，**通过 88 / 失败 0** 才许提交 | 这是唯一能挡住「我这边是好的」的机器校验 |
+| 12 | 改完必须跑三套校验，**全绿（失败 0）**才许提交：`node src/tools/check-page.mjs src/index.html`（页面，153 项；工作区放有课程素材时 155 项）、`node src/tools/check-isotope.mjs src/index.html`（同位素左上标，25 项）、`node src/tools/check-lan.mjs src/index.html`（互传服务端端到端，33 项） | 这是唯一能挡住「我这边是好的」的机器校验 |
 
 ---
 
@@ -359,10 +365,15 @@ parseHash() -> { view: string, param: string | null }
 | view | 渲染函数 | 是否需要 expId |
 | --- | --- | --- |
 | `home` | `viewHome()` | 否 |
+| `aigen` | `viewAI()` | 否 |
 | `edit` | `viewEdit()` | 是 |
 | `record` | `viewRecord()` | 是 |
 | `report` | `viewReport()` | 是 |
+| `lan` | `viewLan()` | 否 |
 | `settings` | `viewSettings()` | 否 |
+
+**无参数独立页（冻结）：** `BARE_VIEWS = ["home", "settings", "aigen", "lan"]`。
+落在这四个 view 时 `goTo()` 直接把 `state.view` 设过去、不解析 `expId`，路由写作 `#/lan`（不带参数）。
 
 **路由回落链（冻结）：**
 
@@ -370,9 +381,10 @@ parseHash() -> { view: string, param: string | null }
 2. 需要 expId 但没有有效 id → `pickExpId()`：`param` 有效则用它 → 否则当前 `state.exp` → 否则列表第一个。
 3. 仍然拿不到 id → toast「先新建一个实验」，回落 `home`。
 4. `goTo()` 是**唯一导航入口**：切换前先 `persistExp()` 保存当前实验；
-   除 `home` / `settings` 外每次进入都会重置 `ui.step = 0`、`ui.playIndex = 0`、`ui.selected = null`。
+   除 `BARE_VIEWS` 外的页面每次进入都会重置 `ui.step = 0`、`ui.playIndex = 0`、`ui.selected = null`。
 5. `render()` 是**唯一重绘入口**，内部顺序固定为：
-   `main.innerHTML = viewXxx()` → `main.scrollTop = 0` → `syncNav()` → `refreshCanvas()` → `hydrateMedia()`。
+   `main.innerHTML = viewXxx()` → `main.scrollTop = 0` → `syncNav()` → `refreshCanvas()` → `hydrateMedia()` → `hydrateChemInputs()`；
+   若当前是 `lan` 页，再执行 `lanBind()` + `lanMaybeAutoConnect()`，否则 `lanStopPoll()`（离开互传页必须停轮询）。
 
 **事件委托（冻结，两个 data 属性收口全部交互）：**
 
@@ -387,7 +399,9 @@ parseHash() -> { view: string, param: string | null }
 > `click`（委托 `data-go` / `data-act`）、`input`（表单同步）、`keydown`（编辑页 `Delete` 删仪器）、
 > `hashchange`（路由）、`resize`（画布等比缩放，120ms 防抖）、`beforeunload`（落盘）、
 > `pointerdown`（`document`，画布）+ `pointermove` / `pointerup` / `pointercancel`（`window`，拖动时挂载）、
-> `matchMedia("(prefers-color-scheme: dark)")` 的 `change`（跟随系统主题时同步）。
+> `matchMedia("(prefers-color-scheme: dark)")` 的 `change`（跟随系统主题时同步）、
+> `dragover` / `dragleave` / `drop`（**仅** `#/lan` 页的上传拖拽区，`lanBind()` 里绑在 `[data-lan-drop]` 上）、
+> `setInterval`（**仅** `#/lan` 页的 5 秒轮询，`lanStartPoll()` / `lanStopPoll()` 成对出现）。
 
 **表单同步（冻结）：** `input` 事件只认三个 `data-scope`：
 
@@ -398,8 +412,11 @@ parseHash() -> { view: string, param: string | null }
 | `data-scope="total"` | `exp.log.total` |
 | 无 scope + `data-field` | 当前步骤的该字段（`title` 时额外 `updateStepName()`） |
 | `data-llm="baseUrl\|apiKey\|model"` | **不自动写**，必须点「保存配置」（`llm-save`） |
+| `data-ai="doc"` | AI 页的课件正文 → `GEN.docText`（只进内存，不落盘） |
+| `data-lan="base"` / `data-lan="clip"` | 局域网互传页的服务端地址 / 待发送文本，**按需读取，不进 `input` 委托** |
 
 所有 `input` 都走 `saveSoon()`（350ms 防抖）落盘，**不许每敲一个字就同步写 localStorage**。
+（`data-lan` 两个输入框例外：它们不改实验数据，值在点「连接」「发送」时按需 `querySelector` 读取。）
 
 **`handleAct` 动作清单（冻结，除 `cv-*` 外的全部）：**
 
@@ -408,9 +425,16 @@ theme                                  exp-new / exp-open / exp-dup / exp-del / 
 exp-subject                            step-add / step-open / step-del / step-move
 media-add / media-del                  play-prev / play-next / play-go
 go-edit / go-record / go-report        rep-local / rep-llm / rep-copy / rep-export
-set-theme / llm-save / llm-test / llm-prompt
-data-export-all / data-clear           （default → cv-* → canvasAct）
+set-theme / llm-save / llm-test / llm-prompt / llm-deepseek
+ai-pick / ai-run / ai-import-new / ai-import-append / ai-clear / ai-prompt
+ai-copy-prompt / ai-copy-json / ai-import-json / ai-paste-json
+lan-connect / lan-refresh / lan-copy / lan-pick / lan-clear
+lan-dl / lan-del / lan-clip-send / lan-clip-copy
+data-export-all / data-clear           （default → lan-* → lanAct；cv-* → canvasAct）
 ```
+
+> 前缀转发（冻结）：`handleAct` 的 `default` 分支先看 `lan-` 前缀 → `lanAct(action, el)`，
+> 再看 `cv-` 前缀 → `canvasAct(action, el)`。新增互传动作**必须**用 `lan-` 前缀。
 
 ### 3.8 报告与 LLM 接入
 
@@ -543,6 +567,63 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 > ⚠️ `check-page.mjs` 对视觉规则**只覆盖了一部分**（深色令牌齐全、无未定义 `var()`、无 `background: #fff`、
 > 断点与 tabbar 存在）。第 2~5 条的例外清单得**人眼过一遍**，别默认机器已经拦住了。
 
+### 3.10 局域网互传（`#/lan` + 可选 `src/lan-server.py`）
+
+**定位**：同一 Wifi 下，手机 / 平板 / 电脑用浏览器互传**实验文件与文本**，数据只在本机局域网流动。
+页面本身不依赖服务端：连不上时只显示引导，**不许报错卡死、不许影响其他六个页面**。
+
+**存储 key（冻结）：** `localStorage['zhbit-lab-lan'] = { base: "http://192.168.1.23:8000" }`
+—— 只存服务端地址，用于「下次打开自动连接」。实验数据仍只走 `Store` / `Media`。
+
+**地址解析（冻结）**：`lanDefaultBase()` —— 页面是 `http(s)://` 打开时取 `location.origin`（同源自动连接）；
+`file://` 打开时取上述 localStorage 里记的地址。
+
+**服务端接口（`lan-server.py`，冻结；零依赖 Python 3.7+ 标准库）：**
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/`（及 `/index.html`、真实文件名） | 返回单文件实验助手页面 |
+| GET | `/api/server-info` | `{ok,host,ip,ips,port,urls,chunkSize,files}` |
+| GET | `/api/files` | `{ok,files:[{id,name,size,time}]}` |
+| GET | `/api/download?id=` | 流式下载，`Content-Disposition` 带原名（RFC 5987） |
+| DELETE | `/api/files?id=` | 删除文件与索引 |
+| POST | `/api/upload/init` | body `{name,size,lastModified}` → `{id,chunkSize,totalChunks,uploaded,done}` |
+| POST | `/api/upload/chunk?id=&index=` | body 为原始分片字节（原子落盘 `<i>.part.tmp` → `os.replace`） |
+| GET | `/api/upload/status?id=` | 已传分片下标（外部续传用） |
+| POST | `/api/upload/complete` | body `{id}` → 按序合并；**缺片必须 409，不许产出残缺文件** |
+| GET / POST | `/api/clip` | `{text,time}` 全局单条文本剪贴板 |
+
+**客户端约定（冻结）：**
+
+| 项 | 值 |
+| --- | --- |
+| 文件指纹 = id | 服务端 `md5(name\|size\|lastModified)[:16]`，前端**不自己算**（只发三个字段） |
+| 分片 | 默认 4 MB（`--chunk-mb` 可调，下限 256 KB）；`file.slice()` 逐片上传 |
+| 秒传 | `init` 返回 `done:true` → 直接标记完成，不传任何分片 |
+| 断点续传 | `init` 返回 `uploaded:[...]` → 跳过这些下标；上传失败单片重试 1 次 |
+| 上传实现 | `XMLHttpRequest` + `upload.onprogress` 出进度与速度（`fetch` 无上传进度） |
+| 轮询 | `#/lan` 页 5 秒 `setInterval` 刷新文件列表 + 文本；**离开页面必须 `lanStopPoll()`** |
+| 重绘 | 进度与列表用 `lanPaintStatus/Files/Prog/Clip` **局部重绘**，不许整页 `render()`（会把输入框顶掉） |
+| 转义 | 文件名 / 文本一律 `esc()` 进 `innerHTML`（文件名来自别的设备，等同不可信输入） |
+| 跨域 | 服务端对所有 `/api/*` 返回 `Access-Control-Allow-Origin: *` 并处理 `OPTIONS` 预检，`file://` 双击打开也能连 |
+
+> 🔴 **安全边界（必须写进任何文档）**：本功能**无鉴权**，局域网内任何能访问该地址的设备都可上传 / 下载 / 删除，
+> 仅限可信网络，**不可暴露公网**。服务端只服务单文件页面与 `/api/*`，不提供任意路径读取。
+
+### 3.11 AI 生成实验步骤（`#/aigen`）
+
+**定位**：把老师发的课件（`.ppt/.pptx/.doc/.docx/.txt/.md`）交给大模型，生成一份可编辑的实验文件。
+**离线通路必须常在**：复制提示词 → 自行到任意大模型对话框 → 把返回的 JSON 粘回来（`ai-paste-json`）。
+
+| 项 | 约定 |
+| --- | --- |
+| 提示词 | `GEN_PROMPT`，唯一注入点 `{{DOC}}`；要求「只输出一个 JSON」「不要输出仪器画布」「配好 `subject`/`theme`」 |
+| 解析 | `aiParseJSON()` 容忍 ```json 围栏与 `{exp:{}}` 整包；无 JSON 必须**明确报错**，不许静默 |
+| 校验 | `aiValidateGen()` → `{errors,warnings}`；缺名称 / 非法学科 / 空步骤 / 步骤缺文字描述都要拦下 |
+| 落地 | `aiBuildExp()` 建实验（每步画布留空，交给用户摆放）；`aiImport("new"/"append")` 分别新建 / 追加到当前实验 |
+| 文档解析 | `.docx/.pptx` 走内联 ZIP + deflate；旧版 `.doc/.ppt` 直读 OLE2 正文；`aiDecodeText()` 兼容 UTF-8 / GBK |
+| 网络 | AI 页的「生成」按钮可用 `callLLM()`（同 §3.8 的 OpenAI 兼容约定）；**不许新增第二处 `fetch`** |
+
 ---
 
 ## 4. 命名与统一错误
@@ -601,13 +682,14 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 
 1. ❌ 私自改动 §3 的字段名、枚举值、函数签名、存储 key、token 名
 2. ❌ 引入任何外部依赖（CDN / `<script src>` / npm 包 / 构建步骤）
-3. ❌ 在 UI 层 `fetch`（唯一例外：`callLLM()`）
+3. ❌ 在 UI 层乱 `fetch`（唯一两处例外：`callLLM()` 与 §3.10 的 `lanApi()` / 分片 XHR）
 4. ❌ 硬编码 API Key / Token；把 `apiKey` 写进导出的 `.json`
 5. ❌ 把 `report` 塞进 `Exp`；把 `conflicts` 式的派生数据写进存储
 6. ❌ 绕过 `Store` / `Media` 直接读写 storage；绕过 `normalizeExp` 直接用原始数据
 7. ❌ 每敲一个字就写一次 localStorage（必须走 `saveSoon()` 防抖）
-8. ❌ 改完不跑 `check-page.mjs` 就提交
+8. ❌ 改完不跑校验就提交（`check-page` / `check-isotope` / `check-lan` 三套全绿）
 9. ❌ 假设队友读过你的代码 —— **接口是唯一的沟通渠道**
+10. ❌ 把互传页做成「连不上就白屏 / 抛异常」；连不上必须是**引导态**，且不许在非 `#/lan` 页面发起任何互传请求
 
 **当需求会动到冻结的接口时，先停下来回一句：**
 
@@ -631,6 +713,7 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | 1.0.0 | 2026-09-29 | 初版：原生 HTML/JS 双人规约、`TodoItem`、`SS.` 命名空间（`pair-dev-contract`） | — |
 | 2.0.0 | 2026-08-28 | 改 Tauri v2 双端：`TodoItem` → `ScheduleEvent`，新增适配器接口、冲突规则、BLE 帧协议（`shishi-protocol`，**已作废**） | — |
 | 3.0.0 | 2026-10-02 | **全面重写**：作品改为「实验助手 Lab Studio」单文件 HTML；`ScheduleEvent`/适配器/冲突/BLE 全部作废，替换为 `Exp`/`Step`/`mediaRef`/`CanvasItem`、`Store`/`Media`、`INST_LIB` 替换接口、`canvasAct` 动作集、哈希路由与 `data-act` 事件委托、`REPORT_PROMPT` 与 OpenAI 兼容接入、新设计 token；定义 `EXP_VERSION = 1` | — |
+| 3.1.0 | 2026-10-05 | **补齐 v3.0.0 之后落地的三个能力，并修正与现实不符的条款**：① 新增 §3.11「AI 生成实验步骤页」；② 新增 §3.10「局域网互传」（`#/lan` + 可选 `src/lan-server.py`，含存储 key `zhbit-lab-lan`、10 个 HTTP 接口、分片/秒传/续传/局部重绘/5 秒轮询约定、无鉴权安全边界）；③ §3.7 视图表补 `aigen`/`lan`，`BARE_VIEWS` 明确为 4 个，动作清单补 `ai-*` / `lan-*` 与 `lan-` 前缀转发；④ 铁律 2 由「只有 `callLLM()` 能发请求」改为「`callLLM()` + `#/lan` 互传模块两处收口」；⑤ 铁律 5 / 红线① 补记**已内联并登记**的 React 18.3.1 / KaTeX / mhchem；⑥ 铁律 12 由「`check-page` 88 项」改为**三套校验**（153/155 + 25 + 33）；⑦ §7 补「G. 局域网互传」坑表。**`EXP_VERSION` 仍为 1**（`Exp` 数据结构未变），互传只新增独立 storage key | — |
 
 ---
 
@@ -691,9 +774,21 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | # | 症状 | 原因 | 怎么躲 |
 | --- | --- | --- | --- |
 | F1 | 交材料时没有码道痕迹 | 攒到最后补，补不出来 | **每天收工前 15 分钟**截图归档，死规矩 |
-| F2 | 未登记开源组件 | 随手引了库 | 本项目零第三方依赖；将来引依赖前先登记 `docs/作品说明.md` |
+| F2 | 未登记开源组件 | 随手引了库 | 内联的 React / KaTeX / mhchem 已登记在 `docs/作品说明.md` §六；再引任何依赖前必须先登记 |
 | F3 | 密钥进了 Git | 写在普通配置文件 | 只存浏览器 localStorage；仓库里不许出现任何 Key |
-| F4 | 提交了跑不起来的版本 | 改完没跑校验 | 提交前必跑 `node src/tools/check-page.mjs src/index.html`，88 项全绿 |
+| F4 | 提交了跑不起来的版本 | 改完没跑校验 | 提交前必跑 `node src/tools/check-page.mjs src/index.html`（153/155 项）+ `check-isotope.mjs`（25）+ `check-lan.mjs`（33），全绿 |
+
+### G. 局域网互传
+
+| # | 症状 | 原因 | 怎么躲 |
+| --- | --- | --- | --- |
+| G1 | 手机打开地址进不去 | 用了 `127.0.0.1`、两台设备不同 Wifi、或 Windows 防火墙没放行 | 用终端打印的局域网 IP（`192.168.x.x`）；首次运行选「允许访问专用网络」 |
+| G2 | 双击 HTML 打开时互传页连不上 | `file://` 与 `http://` 不同源 | 在页面「服务端地址」里填 `http://192.168.x.x:8000`（服务端已开 CORS）；填一次会记住 |
+| G3 | 上传完成但下载的文件打不开 | 缺片也让它合并了 | 服务端 `complete` 必须校验全部分片，缺片返回 409；前端 `uploaded` 要跳过已传分片 |
+| G4 | 大文件传到一半断了要重头来 | 没做断点续传 | `init` 会回报 `uploaded`，前端只补缺失分片；分片落盘用 `.part.tmp` + `os.replace` 保证原子 |
+| G5 | 中文文件名变成乱码 / 下载名丢了 | 用原名当磁盘文件名或没按 RFC 5987 编码 | 磁盘只用 16 位十六进制 id，原名存 `files.json`；下载头用 `filename*=UTF-8''…` |
+| G6 | 传完页面卡住 | 轮询没停 / 整页重绘抢焦点 | 离开 `#/lan` 必须 `lanStopPoll()`；进度与列表一律局部重绘 |
+| G7 | 被同网段他人上传/删了文件 | 本功能**无鉴权** | 仅限可信局域网；**绝不把端口暴露到公网**；重要数据另行备份 |
 
 ---
 
