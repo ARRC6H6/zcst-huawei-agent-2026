@@ -1,6 +1,6 @@
 /* 实验助手 · 同位素角标（左上标质量数）校验
  *
- *   node tools/check-isotope.mjs [实验助手.html]
+ *   node tools/check-isotope.mjs [原型.html]
  *
  * 编辑模式的「反应方程式」由内联的 chem-input 库（React + KaTeX + mhchem）渲染，
  * 它不在主脚本里，所以单独把 <script id="chem-input-lib"> 抽到 Node 的 vm 里跑：
@@ -12,19 +12,12 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+import { findAppHtmlOrNull } from "./app-html.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-/** 自动识别「实验助手」单文件页面（容忍 实验助手v0.1beta.html 这类带版本号的文件名） */
-function findAppHtml(dir) {
-  for (const name of ["实验助手.html", "index.html"]) {
-    if (fs.existsSync(path.join(dir, name))) return path.join(dir, name);
-  }
-  const hit = fs.readdirSync(dir)
-    .filter((f) => f.toLowerCase().endsWith(".html") && f.startsWith("实验助手"))
-    .sort()[0];
-  return hit ? path.join(dir, hit) : path.join(dir, "实验助手.html");
-}
-const html = fs.readFileSync(path.resolve(process.argv[2] || findAppHtml(path.join(here, ".."))), "utf8");
+const html = fs.readFileSync(
+  path.resolve(process.argv[2] || findAppHtmlOrNull(path.join(here, "..")) || path.join(here, "..", "原型.html")),
+  "utf8");
 
 const results = [];
 const check = (name, cond, extra = "") => {

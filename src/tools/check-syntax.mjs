@@ -1,6 +1,6 @@
 /* 内联脚本语法自检：把单文件 HTML 里的 <script> 逐个取出来做语法解析（不执行）。
  *
- *   node tools/check-syntax.mjs [实验助手.html]
+ *   node tools/check-syntax.mjs [原型.html]
  *
  * 用途：改完那个 1 MB 单文件页面后，先用最快的方式确认没有语法错误，
  * 再跑完整的三套静态/端到端校验。
@@ -9,21 +9,15 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+import { findAppHtmlOrNull } from "./app-html.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.join(here, "..");
 
-function findAppHtml(dir) {
-  const hit = fs.readdirSync(dir)
-    .filter((f) => f.toLowerCase().endsWith(".html") && f.startsWith("实验助手"))
-    .sort()[0];
-  return hit ? path.join(dir, hit) : null;
-}
-
 const arg = process.argv.slice(2).find((a) => !a.startsWith("--"));
-const file = arg ? path.resolve(arg) : findAppHtml(projectDir);
+const file = arg ? path.resolve(arg) : findAppHtmlOrNull(projectDir);
 if (!file || !fs.existsSync(file)) {
-  console.error("找不到要校验的 HTML");
+  console.error("找不到要校验的 HTML（原型.html / 实验助手*.html / index.html）");
   process.exit(2);
 }
 

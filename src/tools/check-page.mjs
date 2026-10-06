@@ -38,11 +38,12 @@ const code = m[1] + `
   aiApplyJSON, aiImport, aiExtOf, aiZipEntries, aiDocxText, aiPptxText, aiDecodeText,
   aiLegacyPptText, aiLegacyDocText, aiZipRead, aiReadFile,
   viewLan, LAN, LAN_KEY, lanAct, lanConnect, lanRefresh, lanStatusHTML, lanFilesHTML,
-  lanProgHTML, lanClipInfo, lanSize, lanTime, lanDefaultBase, lanUrl,
+  lanProgHTML, lanClipInfo, lanSize, lanTime, lanDefaultBase, lanUrl, lanMaybeAutoConnect,
   lanIsTauri, lanInvoke, lanServerHint, lanBecomeServer, lanStopServer, lanSyncServerStatus,
   handleAct, Timer, TIMER_PRESETS, normalizeTimer, timerEditHTML, timerRecordHTML, timerWriteNote,
-  lanAutoDetect, lanAutoBuildExp, lanAutoSync, lanAutoHTML, lanAutoBanner, lanAutoClear,
-  lanAutoItems, lanAutoErrs, lanAutoMarkSelf, lanAutoMaybeStart, lanAutoStop, lanIsExpJson, lanPaintAuto,
+  lanAutoDetect, lanAutoBuildExp, lanImportText, lanImportOnDownload, lanDownloadBlob,
+  lanAutoHTML, lanAutoBanner, lanAutoClear,
+  lanAutoItems, lanAutoErrs, lanIsExpJson, lanPaintAuto,
   winInitFrame };
 `;
 
@@ -808,48 +809,71 @@ check("计时器：记录页计时条夹在导航条与正文之间",
     main().indexOf('class="player-bar"') < main().indexOf("timer-card") &&
     main().indexOf("timer-card") < main().indexOf('class="player-stage"')));
 
-/* ---------------- 18. 互传自动导入（本机当服务端，收到的实验 .json 直接进列表） ---------------- */
+/* ---------------- 18. 互传「下载即导入」（点下载 = 导入开关，接收端同样生效） ---------------- */
 
-check("自动导入：只认 .json（图片 / 文档 / PDF 静默跳过）",
+check("下载即导入：只认 .json（图片 / 文档 / PDF 静默跳过）",
   A.lanIsExpJson("实验.json") === true && A.lanIsExpJson("报告.PDF") === false &&
   A.lanIsExpJson("照片.png") === false && A.lanIsExpJson("") === false);
-check("自动导入：识别本应用实验包（kind=zhbit-lab-experiment / exp）",
+check("下载即导入：识别本应用实验包（kind=zhbit-lab-experiment / exp）",
   (A.lanAutoDetect({ kind: "zhbit-lab-experiment", exp: { id: "e", steps: [] } }) || {}).kind === "实验包");
-check("自动导入：识别「导出全部实验」备份（exps[]）",
+check("下载即导入：识别「导出全部实验」备份（exps[]）",
   (A.lanAutoDetect({ kind: "zhbit-lab-backup", exps: [{ id: "a" }, { id: "b" }] }) || {}).exps.length === 2);
-check("自动导入：识别 AI 生成的裸实验 JSON（steps）",
+check("下载即导入：识别 AI 生成的裸实验 JSON（steps）",
   (A.lanAutoDetect({ name: "n", subject: "chemistry", steps: [{ title: "a" }] }) || {}).kind === "实验 JSON");
-check("自动导入：认不出的 JSON 返回 null（留给报错）",
+check("下载即导入：认不出的 JSON 返回 null（留给报错）",
   A.lanAutoDetect({ foo: 1 }) === null && A.lanAutoDetect([1, 2]) === null && A.lanAutoDetect("x") === null);
-check("自动导入：只有本机当服务端时才扫（浏览器纯下载不导）",
-  /LAN\.auto\.busy \|\| !LAN\.online \|\| !LAN\.serverMode/.test(html) &&
-  /if \(ok\) lanAutoMaybeStart\(\)/.test(html) &&
-  /if \(lanIsTauri\(\)\) lanSyncServerStatus\(\)/.test(html));
+check("下载即导入：不再有后台监听 / 轮询（下载才是触发键）",
+  !/lanAutoSync|lanAutoMaybeStart|lanAutoStop|LAN_AUTO_POLL_MS|lanAutoMarkSelf/.test(html) &&
+  /async function lanImportOnDownload/.test(html));
+check("下载即导入：App 形态与浏览器形态的下载都接了导入（接收端也生效）",
+  /\/\* 下载即导入[\s\S]{0,200}await lanImportOnDownload\(id, shown\);/.test(html) &&
+  /if \(blob\) \{ await lanImportOnDownload\(id, shown, blob\); return; \}/.test(html) &&
+  /const blob = await lanDownloadBlob\(url, shown\)/.test(html));
+check("下载即导入：手机端 viewport 显式允许缩放（maximum-scale / user-scalable）",
+  /name="viewport"[^>]*maximum-scale=5\.0[^>]*user-scalable=yes/.test(html) &&
+  /touch-action: pan-x pan-y pinch-zoom/.test(html));
+checkRust("下载即导入：Android App 打开 WebView 内置缩放（否则手机端捏不动）",
+  /builtInZoomControls = true/.test(readIf(path.join(here, "..", "src-tauri", "gen", "android", "app",
+    "src", "main", "java", "com", "zhbit", "labassistant", "MainActivity.kt"))) &&
+  /onWebViewCreate/.test(readIf(path.join(here, "..", "src-tauri", "gen", "android", "app",
+    "src", "main", "java", "com", "zhbit", "labassistant", "MainActivity.kt"))));
+
+/* App 形态不该把 tauri.localhost 当服务端地址去连（真机截图里会误报「不是有效的 JSON」） */
+globalThis.window.__TAURI__ = { core: { invoke: async () => null } };
+const savedLocation = globalThis.location;
+globalThis.location = { hash: "", origin: "http://tauri.localhost", protocol: "http:" };
+check("互传页：App 形态不把 tauri.localhost 当服务端地址",
+  !/tauri\.localhost/.test(A.lanDefaultBase()));
+let autoFetched = 0;
+const fetchBeforeApp = globalThis.fetch;
+globalThis.fetch = async () => { autoFetched += 1; throw new Error("stub: 不该发请求"); };
+A.LAN.base = ""; A.LAN.online = false; A.LAN.checking = false; A.LAN.autoTried = false;
+A.lanMaybeAutoConnect();
+check("互传页：App 形态没有可用地址时不自动连接（不再误报「不是有效 JSON」）", autoFetched === 0);
+globalThis.fetch = fetchBeforeApp;
+globalThis.location = savedLocation;
+delete globalThis.window.__TAURI__;
+check("互传页：浏览器形态仍按同源地址自动连接（行为不回退）",
+  (() => {
+    globalThis.location = { hash: "", origin: "http://192.168.1.9:8000", protocol: "http:" };
+    const b = A.lanDefaultBase();
+    globalThis.location = savedLocation;
+    return b === "http://192.168.1.9:8000";
+  })());
 
 const bareBuilt = A.lanAutoBuildExp({ name: "裸实验", subject: "biology", steps: [{ title: "接种", text: "划线" }, { text: "培养" }] });
-check("自动导入：裸 JSON 补齐成合法实验（补 id / 空标题 / 主题）",
+check("下载即导入：裸 JSON 补齐成合法实验（补 id / 空标题 / 主题）",
   A.isValidExp(bareBuilt) === true && bareBuilt.steps.length === 2 &&
   bareBuilt.steps[1].title === "步骤 2" && bareBuilt.theme === "t-mint" &&
   bareBuilt.steps[1].record.note === "");
-check("自动导入：完整实验包原样保留（画布 / 计时器 / 步骤 id 不丢）",
+check("下载即导入：完整实验包原样保留（画布 / 计时器 / 步骤 id 不丢）",
   (() => {
     const full = A.normalizeExp({ id: "e9", name: "完整", steps: [{ id: "s9", title: "a", images: [] }], timer: { mode: "countdown", target: 90 } });
     const back = A.lanAutoBuildExp(full);
     return back.id === "e9" && back.timer.target === 90 && back.steps[0].id === "s9";
   })());
-check("自动导入：上传成功后把指纹记进 self（自动导入不导回自己）",
-  /lanAutoMarkSelf\(init\.id\)/.test(html) &&
-  /if \(lanAutoSelf\(id\)\) \{ lanAutoMarkSeen\(id, "self", 1\); continue; \}/.test(html));
 
-/* 端到端：桩掉 fetch，模拟服务端共享目录里出现几个文件 */
-const autoFiles = [
-  { id: "id-exp", name: "银镜反应-20260101.json", size: 900, time: 1730000000 },
-  { id: "id-bad", name: "损坏.json", size: 20, time: 1730000001 },
-  { id: "id-other", name: "不是实验.json", size: 30, time: 1730000002 },
-  { id: "id-big", name: "太大.json", size: 30 * 1024 * 1024, time: 1730000003 },
-  { id: "id-png", name: "现象照片.png", size: 2048, time: 1730000004 },
-  { id: "id-self", name: "自己传出去的.json", size: 900, time: 1730000005 },
-];
+/* 端到端：桩掉 fetch，模拟「点了下载」之后的读取链路 */
 const autoBodies = {
   "id-exp": JSON.stringify({
     kind: "zhbit-lab-experiment", v: 1,
@@ -858,14 +882,14 @@ const autoBodies = {
   }),
   "id-bad": "{这不是合法 JSON",
   "id-other": JSON.stringify({ foo: 1, bar: [1, 2, 3] }),
-  "id-self": JSON.stringify({ name: "自己传的", subject: "chemistry", theme: "t-sky", steps: [{ title: "a", text: "b" }] }),
+  "id-backup": JSON.stringify({ kind: "zhbit-lab-backup", v: 1, exps: [
+    { id: "b1", name: "备份甲", subject: "biology", steps: [{ id: "s", title: "a", text: "b", images: [] }] },
+    { id: "b2", name: "备份乙", subject: "biochem", steps: [{ id: "s", title: "c", text: "d", images: [] }] },
+  ] }),
 };
 const realFetch2 = globalThis.fetch;
 globalThis.fetch = async (url) => {
   const u = String(url);
-  if (u.indexOf("/api/files") >= 0) {
-    return { ok: true, status: 200, json: async () => ({ ok: true, files: autoFiles, count: autoFiles.length, total: 0 }) };
-  }
   if (u.indexOf("/api/download") >= 0) {
     const mm = /id=([^&]+)/.exec(u);
     const id = mm ? decodeURIComponent(mm[1]) : "";
@@ -877,49 +901,54 @@ globalThis.fetch = async (url) => {
 
 A.LAN.base = "http://127.0.0.1:8000";
 A.LAN.online = true;
-A.LAN.serverMode = true;
-A.lanAutoMarkSelf("id-self");
+A.LAN.files = [
+  { id: "id-exp", name: "银镜反应-20260101.json", size: 900, time: 1730000000 },
+  { id: "id-big", name: "太大.json", size: 30 * 1024 * 1024, time: 1730000003 },
+];
 const expCountBefore = A.Store.listExps().length;
-const run1 = await A.lanAutoSync();
-check("自动导入：实验 .json 自动进「我的实验」（并换新 id，不覆盖同名）",
-  run1.added === 1 && A.Store.listExps().length === expCountBefore + 1 &&
+const r1 = await A.lanImportOnDownload("id-exp", "银镜反应-20260101.json");
+check("下载即导入：实验 .json 下载后进「我的实验」（并换新 id，不覆盖同名）",
+  r1.ok === true && A.Store.listExps().length === expCountBefore + 1 &&
   A.Store.getExp("e1") === null &&
   A.Store.listExps().some((x) => /互传导入/.test(x.name)));
-check("自动导入：损坏 / 认不出 / 超大三类 .json 都报错（共 3 条）",
-  run1.failed === 3 && A.lanAutoErrs().length === 3 &&
-  A.lanAutoErrs().some((x) => /不是合法 JSON/.test(x.msg)) &&
-  A.lanAutoErrs().some((x) => /没有 exp \/ exps \/ steps/.test(x.msg)) &&
-  A.lanAutoErrs().some((x) => /20MB/.test(x.msg)));
-check("自动导入：图片等非 .json 静默跳过（不进记录列表）",
-  A.lanAutoItems().length === 4 && !A.lanAutoItems().some((x) => /现象照片/.test(x.name)));
-check("自动导入：本机自己传出去的文件不导回（self 跳过）",
-  !A.lanAutoItems().some((x) => /自己传出去的/.test(x.name)));
-check("自动导入：互传页有记录列表且成功项能一键打开",
-  /data-lan-auto/.test(html) && /data-act="lan-auto-open"/.test(A.lanAutoHTML()) &&
-  /自动导入/.test(A.lanAutoHTML()));
-check("自动导入：首页横幅只提示无法识别的文件",
+check("下载即导入：记录里能看到「已导入」并能一键打开",
+  A.lanAutoItems().length === 1 && A.lanAutoItems()[0].ok === true &&
+  /data-act="lan-auto-open"/.test(A.lanAutoHTML()) && /下载即导入/.test(A.lanAutoHTML()) &&
+  /data-lan-auto/.test(html));
+
+const rRepeat = await A.lanImportOnDownload("id-exp", "银镜反应-20260101.json");
+check("下载即导入：同一个文件再下一次不会重复导入（按文件指纹去重）",
+  rRepeat.repeated === true && A.Store.listExps().length === expCountBefore + 1 &&
+  A.lanAutoItems().length === 1);
+
+const rBackup = await A.lanImportOnDownload("id-backup", "全部实验.json");
+check("下载即导入：备份包（exps[]）一次导入多个实验",
+  rBackup.ok === true && rBackup.exps.length === 2 && A.Store.listExps().length === expCountBefore + 3);
+
+const rPng = await A.lanImportOnDownload("id-png", "现象照片.png");
+check("下载即导入：非 .json 静默跳过（不导入、不记记录、不报错）",
+  rPng.skipped === true && A.Store.listExps().length === expCountBefore + 3 &&
+  A.lanAutoItems().length === 2 && A.lanAutoErrs().length === 0);
+
+const rBad = await A.lanImportOnDownload("id-bad", "损坏.json");
+check("下载即导入：损坏的 .json 报错（记录 + 文案可读）",
+  rBad.ok === false && /不是合法 JSON/.test(rBad.error) &&
+  A.lanAutoErrs().length === 1 && /损坏\.json/.test(A.lanAutoErrs()[0].name));
+const rOther = await A.lanImportOnDownload("id-other", "不是实验.json");
+check("下载即导入：结构不对的 .json 报错（说清缺什么字段）",
+  rOther.ok === false && /没有 exp \/ exps \/ steps/.test(rOther.error) && A.lanAutoErrs().length === 2);
+const rBig = await A.lanImportOnDownload("id-big", "太大.json");
+check("下载即导入：超过 20MB 的 .json 只下载不解析（明确报错）",
+  rBig.ok === false && /20MB/.test(rBig.error));
+
+check("下载即导入：首页横幅提示无法识别的文件（成功的去列表里看）",
   (A.goTo("home"), /无法识别/.test(main()) && /data-go="lan"/.test(main()) && /去互传页查看/.test(main())));
-check("自动导入：清空记录后首页横幅消失",
+check("下载即导入：清空记录后首页横幅消失",
   (A.lanAutoClear(), A.goTo("home"), A.lanAutoItems().length === 0 && A.lanAutoBanner() === ""));
 
-const run2 = await A.lanAutoSync();
-check("自动导入：同一批文件不会重复导入（按文件指纹去重）",
-  run2.added === 0 && run2.failed === 0 && A.lanAutoItems().length === 0);
-check("自动导入：没连上服务端时不开轮询",
-  (A.lanAutoStop(), A.LAN.online = false, A.lanAutoMaybeStart(), A.LAN.auto.timer === null));
-check("自动导入：当服务端并连上后才有轮询（4s 一次），停止服务端就撤掉",
-  (() => {
-    A.LAN.online = true;
-    A.lanAutoMaybeStart();
-    const on = A.LAN.auto.timer !== null;
-    A.lanAutoStop();
-    return on && A.LAN.auto.timer === null && /LAN_AUTO_POLL_MS = 4000/.test(html) && /lanAutoStop\(\)/.test(html);
-  })());
-
 /* 收尾：还原 fetch 与 LAN 状态，避免影响其它检查 */
-A.lanAutoStop();
 A.LAN.online = false;
-A.LAN.serverMode = false;
+A.LAN.files = [];
 A.LAN.base = "";
 globalThis.fetch = realFetch2;
 

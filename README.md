@@ -27,7 +27,7 @@ start src/index.html          # Windows
 
 ```bash
 node src/tools/check-syntax.mjs  src/index.html   # 内联脚本语法：2 项
-node src/tools/check-page.mjs    src/index.html   # 页面与数据层：231 项（另 7 项依赖 Tauri 工程，本仓库不含时自动跳过）
+node src/tools/check-page.mjs    src/index.html   # 页面与数据层：235 项（另 8 项依赖 Tauri 工程，本仓库不含时自动跳过）
 node src/tools/check-isotope.mjs src/index.html   # 化学式同位素左上标：25 项
 node src/tools/check-lan.mjs     src/index.html   # 局域网互传端到端：44 项（本仓库自动改用 Python 服务端跑同一套契约）
 # 四套都必须「失败 0」（跳过的项是与 Tauri 工程相关的断言，不是失败）
@@ -80,10 +80,12 @@ python src/lan-server.py          # 或双击 src/start-lan.bat
    ├─ lan-server.py           # 可选：局域网互传服务端（零依赖 Python 标准库）
    ├─ start-lan.bat / .sh     # 可选：一键启动互传服务端
    ├─ 局域网互传-使用说明.md    # 互传功能的使用说明、存储位置、接口表、安全边界
+   ├─ tools/app-html.mjs      # 单文件页面的定位（候选名 + mtime 兜底），构建 / 校验脚本共用
    ├─ tools/check-syntax.mjs  # 2 项内联脚本语法校验
-   ├─ tools/check-page.mjs    # 231 项页面与数据层自动校验（+7 项 Tauri 相关断言在本仓库自动跳过）
+   ├─ tools/check-page.mjs    # 235 项页面与数据层自动校验（+8 项 Tauri 相关断言在本仓库自动跳过）
    ├─ tools/check-isotope.mjs # 25 项化学式同位素角标（左上标）校验
    ├─ tools/check-lan.mjs     # 44 项互传端到端校验（真启动服务 + 真跑接口；本仓库自动用 Python 服务端）
+   ├─ tools/check-timer-cdp.js # 真机（CDP）自测脚本：计时器 + 下载即导入（配桌面 App 用）
    └─ README.md               # 源码说明：区段分工、自检命令、十天目标
 ```
 
@@ -110,8 +112,8 @@ python src/lan-server.py          # 或双击 src/start-lan.bat
    反应方程式带所见即所得输入器（元素周期表点选、配平校验、KaTeX + mhchem 渲染，同位素质量数按规范显示在元素**左上角**）
 4. 记录模式：逐步只读播放 + 分步记录 + 总记录；内置**整场实验计时器**（编辑模式预设定时，记录模式手动开始 / 暂停 / 归零 / 记一次，倒计时到点响铃并把用时自动写进当前步骤记录）
 5. 实验报告：LLM（OpenAI 兼容，用户自配）生成，无 API 时本地 markdown 表格兜底（用过计时器时报告自动带「计时」章节）
-6. 局域网互传：同一 Wifi 下手机 / 电脑互传文件与文本，大文件分片 + 断点续传 + 同文件秒传，数据不经云端（可选配套零依赖服务端）
-7. 互传自动导入：本机当服务端时，手机传上来的实验 `.json`（实验包 / 全部备份 / AI 生成的实验 JSON）**自动进入「我的实验」**；图片、文档等其它类型静默跳过，认不出的 `.json` 会在互传页、首页横幅与提示条三处明确报错
+6. 局域网互传：同一 Wifi 下手机 / 电脑互传文件与文本，大文件分片 + 断点续传 + 同文件秒传，数据不经云端（可选配套零依赖服务端）；**手机端支持双指缩放**放大看清单与地址
+7. **下载即导入**：在共享文件列表里点「下载」时，若该文件是实验 `.json`（实验包 / 全部备份 / 大模型生成的实验 JSON），会**同时自动加进「我的实验」**；谁下载谁导入，电脑与手机（接收端）同样生效；图片 / 文档等其它类型不受影响，认不出的 `.json` 会在互传页、首页横幅与提示条三处明确报错；**不做任何后台监听与轮询**，点下载才是触发键
 8. 三端自适应 + 浅色 / 深色 / 跟随系统三态
 
 ---

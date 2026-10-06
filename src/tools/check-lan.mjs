@@ -17,6 +17,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { findAppHtmlOrNull } from "./app-html.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.join(here, "..");
@@ -25,7 +26,7 @@ const projectDir = path.join(here, "..");
 const positional = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const explicitKind = (process.argv.find((a) => a.startsWith("--server=")) || "").split("=")[1];
 
-const appHtml = path.resolve(positional[0] || findAppHtml(projectDir));
+const appHtml = path.resolve(positional[0] || findAppHtmlOrNull(projectDir) || path.join(projectDir, "原型.html"));
 const serverPy = path.join(projectDir, "lan-server.py");
 const rustBin = process.env.LAN_SERVER_BIN || path.join(
   projectDir, "src-tauri", "target", "release",
@@ -41,17 +42,7 @@ if (!explicitKind && serverKind === "python") {
   console.log("提示：没找到 Rust CLI（" + rustBin + "），改用同目录的 lan-server.py 跑同一套契约校验");
 }
 
-/** 自动识别「实验助手」单文件页面（容忍 实验助手v0.1beta.html 这类带版本号的文件名） */
-function findAppHtml(dir) {
-  for (const name of ["实验助手.html", "index.html"]) {
-    if (fs.existsSync(path.join(dir, name))) return path.join(dir, name);
-  }
-  const hit = fs.readdirSync(dir)
-    .filter((f) => f.toLowerCase().endsWith(".html") && f.startsWith("实验助手"))
-    .sort()[0];
-  if (hit) return path.join(dir, hit);
-  return path.join(dir, "实验助手.html");
-}
+/** 自动识别单文件页面：候选名与 mtime 兜底都在 tools/app-html.mjs（文件改过名） */
 
 const results = [];
 const check = (name, cond, extra = "") => {

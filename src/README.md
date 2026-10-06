@@ -51,7 +51,7 @@ python lan-server.py        # 或双击 start-lan.bat（Windows）/ ./start-lan.
 | 11 报告与 LLM | `11. 报告生成` | 👑 队长 | `REPORT_PROMPT` / `callLLM` / `buildLocalMarkdown` |
 | 12 AI 生成实验步骤 | `12. AI 生成实验步骤` | 👑 队长 | `viewAI` / `GEN` / `GEN_PROMPT` / `aiParseJSON` / Office 解析 |
 | 13 局域网互传 | `13. 局域网互传` | 👑 队长 | `viewLan` / `LAN` / `lanAct` / 分片上传 / 轮询 |
-| 13.1 互传自动导入 | `13.1 互传自动导入` | 👑 队长 | `lanAutoDetect` / `lanAutoBuildExp` / `lanAutoSync` / `lanAutoHTML` / `lanAutoBanner` |
+| 13.1 下载即导入 | `13.1 互传「下载即导入」` | 👑 队长 | `lanAutoDetect` / `lanAutoBuildExp` / `lanImportText` / `lanImportOnDownload` / `lanAutoHTML` / `lanAutoBanner` |
 | 14 动作分发 | `14. 动作分发` | 👑 队长 | `handleAct`（唯一动作入口） |
 | 15 启动 | `15. 启动` | 👑 队长 | `boot()` |
 | 样式 | `<style>` 段 | 🧑‍🎓 新手 | 全部 CSS，令牌一律走 `var(--x)` |
@@ -68,7 +68,7 @@ python lan-server.py        # 或双击 start-lan.bat（Windows）/ ./start-lan.
 
 ```bash
 node src/tools/check-syntax.mjs  src/index.html   #   2 项 内联脚本语法
-node src/tools/check-page.mjs    src/index.html   # 231 项 页面与数据层（另 7 项依赖 Tauri 工程，本仓库自动跳过）
+node src/tools/check-page.mjs    src/index.html   # 235 项 页面与数据层（另 8 项依赖 Tauri 工程，本仓库自动跳过）
 node src/tools/check-isotope.mjs src/index.html   #  25 项 化学式同位素左上标
 node src/tools/check-lan.mjs     src/index.html   #  44 项 互传端到端（自动改用同目录 lan-server.py）
 ```
@@ -77,14 +77,16 @@ node src/tools/check-lan.mjs     src/index.html   #  44 项 互传端到端（�
 - `check-page.mjs`：脚本可执行 / 仪器库与替换接口 / 数据模型与持久化 / 画布交互 / 各视图渲染 /
   本地报告与 markdown 渲染 / 注入防护 / 媒体与视频占位 / LLM 约定 / 主题三态 / 令牌完整性 /
   路由回落 / 单文件零外链形态 / AI 页 / 局域网互传页 / **计时器（预设、到点写记录、报告章节）** /
-  **互传自动导入（格式识别、静默跳过、报错、去重）**。
-  其中 7 项断言同时要看 Tauri 工程（`src-tauri/` 的 Rust 与配置），本仓库只放 Web 作品，
-  缺这些文件时它们会显示为 `SKIP` 而不是 `FAIL`。
+  **下载即导入（格式识别、去重、报错、非 .json 不处理）** / 手机端缩放声明。
+  其中 8 项断言同时要看 Tauri 工程（`src-tauri/` 的 Rust 与配置、`gen/android` 的 MainActivity），
+  本仓库只放 Web 作品，缺这些文件时它们会显示为 `SKIP` 而不是 `FAIL`。
 - `check-isotope.mjs`：抽出内联的 chem-input 库，真跑 `smartConvert` 与 KaTeX 渲染，
   断言「质量数一律落在元素符号左上角」（`^18O`、`O^18`、`H2O^18`、`C^14O2`），且不误伤 `Fe^3+` / `SO4^2-` 电荷。
 - `check-lan.mjs`：真启动服务端（默认 Rust 内置服务端；本仓库没有 `src-tauri` 时自动退回同目录的
   `lan-server.py`，两者 1:1 对齐同一套契约），跑通初始化 / 分片 / 状态 / 合并 / 列表 / 下载 / 秒传 /
   断点续传 / 空文件 / 文本互传 / 删除 / 路径穿越 / CORS。
+- `app-html.mjs`：单文件页面的定位（候选名 `原型.html` / `实验助手*.html` / `index.html` + mtime 兜底），
+  上面几个脚本共用；**页面文件改名时只改这里**（本仓库里真源叫 `src/index.html`）。
 
 **四套必须全部 `失败 0` 才算没跑偏。** 这条同时是蓝图 §11 第 10 项验收标准。
 

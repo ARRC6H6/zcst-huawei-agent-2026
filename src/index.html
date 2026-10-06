@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
 <meta name="theme-color" content="#eef3fd" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#10131f" media="(prefers-color-scheme: dark)" />
@@ -455,7 +455,7 @@ chem-input.chem-field:not(:defined) { min-height: 64px; border: 1px solid var(--
 .timer-logs { margin-top: 9px; font-size: 12px; color: var(--ink-faint); }
 .timer-logs b { font-family: var(--mono); color: var(--ink-soft); }
 
-/* ---- 互传自动导入 ---- */
+/* ---- 互传「下载即导入」 ---- */
 .lan-auto-item { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
 .lan-auto-item:last-child { border-bottom: 0; }
 .lan-auto-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
@@ -466,6 +466,13 @@ chem-input.chem-field:not(:defined) { min-height: 64px; border: 1px solid var(--
   border-radius: var(--r-card); border: 1px solid rgba(255,107,129,.35); background: rgba(255,107,129,.10);
   color: var(--danger-ink); font-size: 12.5px; }
 .lan-warn-text { flex: 1; min-width: 0; }
+
+/* ---- 手机端允许双指缩放（页面本身不放大，只让用户能放大看清单/地址）----
+   浏览器侧靠上面的 viewport 声明；Android App 侧 WebView 默认关着内置缩放，
+   由 gen/android 的 MainActivity.kt 里 onWebViewCreate 打开（见 README §3.3）。
+   画布上的仪器另有 touch-action:none（单指拖动不能被缩放手势抢走），不受影响。 */
+html, body { touch-action: pan-x pan-y pinch-zoom; }
+.lan-grid, .lan-list, .lan-drop, .lan-clipbox { touch-action: pan-x pan-y pinch-zoom; }
 
 .md-preview { border-radius: var(--r-card); border: 1px solid var(--line-soft); background: var(--surface-2);
   padding: 22px 24px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); overflow-x: auto; }
@@ -2200,7 +2207,7 @@ function render() {
   hydrateChemInputs();
   /* 计时器：正在跑的续上 tick（切到别的页面也继续走），并把时钟重画一遍 */
   Timer.syncView(state.exp);
-  if (state.view === "lan") { lanBind(); lanSyncServerStatus(); lanMaybeAutoConnect(); lanAutoMaybeStart(); }
+  if (state.view === "lan") { lanBind(); lanSyncServerStatus(); lanMaybeAutoConnect(); }
   else lanStopPoll();
 }
 /* ============================================================
@@ -3016,8 +3023,8 @@ const LAN = {
   serverBusy: false,
   /* 最近一次下载落盘的结果 { path, dir, name, size, desktop }（App 形态才有） */
   saved: null,
-  /* 自动导入：本机当服务端时，别人传上来的实验 .json 直接进「我的实验」 */
-  auto: { timer: null, busy: false, store: null, last: 0 },
+  /* 「下载即导入」：点下载时把实验 .json 加进「我的实验」的记录表（无监听、无轮询） */
+  auto: { store: null },
 };
 
 function lanCfg() {
@@ -3029,7 +3036,11 @@ function lanRemember(base) {
 function lanIsHttp() { return /^https?:$/.test(String((typeof location !== "undefined" && location.protocol) || "")); }
 function lanTrim(u) { return String(u == null ? "" : u).trim().replace(/\/+$/, ""); }
 function lanDefaultBase() {
-  if (lanIsHttp()) return lanTrim(location.origin);
+  /* 浏览器形态：同源直连（服务端托管的页面，origin 就是服务端地址）。
+     App 形态：location.origin 是 http://tauri.localhost —— 那是**内嵌资源**地址，
+     不是互传服务端；拿它去连只会拿回一段 HTML，然后报「不是有效的 JSON」。
+     所以 App 里只认自己记住过的地址（没记住就留空，由用户点「成为服务端」或手填）。 */
+  if (lanIsHttp() && !lanIsTauri()) return lanTrim(location.origin);
   return lanTrim(lanCfg().base);
 }
 function lanUrl(p) { return lanTrim(LAN.base) + p; }
@@ -3201,6 +3212,7 @@ function viewLan() {
       </h3>
       <div data-lan-files>${lanFilesHTML()}</div>
       <div data-lan-saved>${lanSavedHTML()}</div>
+      <p class="msg">点<b>「下载」</b>即下载：若文件是实验 <code class="lan-code">.json</code>，会同时自动加进「我的实验」（见下方「下载即导入」）。</p>
     </div>`;
   const guide = `<details class="card card-fold">
       <summary class="card-title">${ICON.share}<span class="grow">怎么用</span><span class="lan-size">点开查看</span>${ICON.down}</summary>
@@ -3360,7 +3372,6 @@ async function lanBecomeServer() {
     // 本机 App 用回环地址自连（别的设备才走局域网 IP）
     const self = "http://127.0.0.1:" + ((info && info.port) || 8000);
     const ok = await lanConnect(self, true);
-    if (ok) lanAutoMaybeStart();
     const input = document.querySelector('[data-lan="base"]');
     if (input) input.value = LAN.base;
     if (ok) {
@@ -3388,7 +3399,6 @@ async function lanStopServer() {
     LAN.files = [];
     LAN.info = null;
     lanStopPoll();
-    lanAutoStop();
     LAN.msgKind = "ok";
     LAN.msg = "内置服务端已停止，已收到的文件保留在应用数据目录";
   } catch (e) {
@@ -3416,7 +3426,6 @@ async function lanSyncServerStatus() {
         LAN.base = lanTrim(url);
         await lanConnect("http://127.0.0.1:" + (info.port || 8000), true);
       }
-      lanAutoMaybeStart();
       lanPaintStatus();
       lanPaintActions();
     }
@@ -3519,9 +3528,10 @@ async function lanRefresh(withToast) {
 }
 function lanMaybeAutoConnect() {
   if (LAN.autoTried || LAN.online || LAN.checking) return;
-  if (!lanIsHttp() && !LAN.base) return;
+  const target = lanTrim(LAN.base || lanDefaultBase());
+  if (!target) return;   // 没有可用地址（例如 App 里还没记住过）→ 不自动连，也不弹错
   LAN.autoTried = true;
-  lanConnect(LAN.base || lanDefaultBase(), true);
+  lanConnect(target, true);
 }
 
 /* ---------- 上传（分片 / 断点续传 / 秒传） ---------- */
@@ -3557,7 +3567,6 @@ async function lanUploadOne(file, it) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: file.name, size: file.size, lastModified: file.lastModified || 0 }),
   }, 15000);
-  lanAutoMarkSelf(init.id);   // 本机自己传出去的文件指纹：自动导入时要跳过，别又导回来
   const chunkSize = init.chunkSize || 4194304;
   const total = init.totalChunks || 0;
   if (init.done) {
@@ -3641,7 +3650,8 @@ async function lanClipCopy() {
   toast(ok ? "已复制最新文本" : "复制失败，请手动选择");
 }
 /** 浏览器形态的下载：fetch 成 blob 再交给浏览器自己的下载器。
- *  返回 false 表示这条路走不通（CORS / 网络 / 超大文件），由调用方回退到直接导航。 */
+ *  成功返回 blob（供「下载即导入」直接复用，省一次下载）；返回 null 表示这条路走不通
+ *  （CORS / 网络 / 超大文件），由调用方回退到直接导航。 */
 async function lanDownloadBlob(url, name) {
   try {
     const res = await fetch(url, { cache: "no-store" });
@@ -3655,9 +3665,9 @@ async function lanDownloadBlob(url, name) {
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(burl); a.remove(); }, 1500);
-    return true;
+    return blob;
   } catch (e) {
-    return false;
+    return null;
   }
 }
 /** 打开最近一次下载所在目录（App 形态）。 */
@@ -3665,7 +3675,7 @@ async function lanOpenDir(path) {
   try { await lanInvoke("lan_reveal_file", { path: path }); }
   catch (e) { toast("打开失败：" + ((e && e.message) || e)); }
 }
-/** 下载共享文件。
+/** 下载共享文件（**下载即导入**：下完顺手把实验 .json 加进「我的实验」）。
  *
  *  App 形态必须走 Rust 的 `lan_file_download`：Android 的 WebView 根本没有实现下载
  *  （点 <a download> 是**静默无效**），桌面 WebView2 的下载也不可控、自动化点不到 ——
@@ -3690,6 +3700,8 @@ async function lanDownload(id, name) {
       LAN.saved = saved;
       lanPaintSaved();
       toast("已保存：" + ((saved && saved.name) || shown));
+      /* 下载即导入：App 形态拿不到字节（Rust 直接落盘），所以这里自己再读一次内容 */
+      await lanImportOnDownload(id, shown);
     } catch (e) {
       it.err = "失败：" + ((e && e.message) || e);
       it.status = "失败";
@@ -3700,8 +3712,9 @@ async function lanDownload(id, name) {
   }
 
   toast("开始下载 " + shown);
-  if (await lanDownloadBlob(url, shown)) return;
-  // 兜底：直接导航到下载地址，交给浏览器 / 系统下载器
+  const blob = await lanDownloadBlob(url, shown);
+  if (blob) { await lanImportOnDownload(id, shown, blob); return; }
+  // 兜底：直接导航到下载地址，交给浏览器 / 系统下载器（这条路上页面拿不到内容，不导入）
   const a = document.createElement("a");
   a.href = url;
   a.rel = "noopener";
@@ -3743,31 +3756,28 @@ async function lanAct(action, el) {
   if (action === "lan-clip-send") { await lanClipSend(); return; }
   if (action === "lan-clip-copy") { await lanClipCopy(); return; }
   if (action === "lan-auto-open") { goTo("edit", el.dataset.id); return; }
-  if (action === "lan-auto-clear") { lanAutoClear(); render(); toast("已清空自动导入记录"); return; }
+  if (action === "lan-auto-clear") { lanAutoClear(); render(); toast("已清空下载导入记录"); return; }
 }
 
 /* ============================================================
-   13.1 互传自动导入：收到的实验文件直接进「我的实验」
+   13.1 互传「下载即导入」：点下载，实验文件直接进「我的实验」
    ------------------------------------------------------------
-   触发点：**本机正在当服务端**时，别人传上来的文件落进共享目录；
-          前端轮询 /api/files，把新增文件分成四类：
-            · 非 .json        → 静默跳过（互传本来就要传各种文件）
-            · 本机自己上传的   → 跳过（别把自己传出去的文件又导回来）
-            · .json 且能识别   → 自动导入（实验包 / 备份包 / 裸实验 JSON）
-            · .json 但认不出   → 记一条错误（互传页列表 + 首页红色横幅 + toast）
-   去重：按文件指纹 id（md5(name|size|lastModified)）记在 localStorage，同一文件只处理一次；
-        网络类失败最多重试 3 次，格式类错误直接记错不再重试。
+   触发点：**在共享文件列表里点「下载」**（接收端 / 服务端都算，谁下载谁导入）。
+           下载完成后前端就地解析：
+             · 非 .json        → 不处理（互传本来就要传各种文件，静默跳过）
+             · .json 且能识别   → 导入（实验包 / 全部备份 / 裸实验 JSON）
+             · .json 但认不出   → 报错（互传页记录 + 首页红色横幅 + toast）
+   不做后台监听、不轮询 /api/files：下载这个动作本身就是开关，没人点就不动。
+   去重：按文件指纹 id（md5(name|size|lastModified)）记在 localStorage，同一文件只导一次。
    ============================================================ */
 
 const LAN_AUTO_KEY = "zhbit-lab-lan-auto";
-const LAN_AUTO_POLL_MS = 4000;
-const LAN_AUTO_MAX_BYTES = 20 * 1024 * 1024;   // 超过 20MB 不做自动导入
-const LAN_AUTO_MAX_TRY = 3;                    // 网络类失败最多试 3 次
+const LAN_AUTO_MAX_BYTES = 20 * 1024 * 1024;   // 超过 20MB 只下载、不解析导入
 const LAN_AUTO_MAX_ITEMS = 40;                 // 记录列表上限
-const LAN_AUTO_MAX_IDS = 500;                  // 每个服务端地址记住的文件数上限
+const LAN_AUTO_MAX_IDS = 500;                  // 记住的文件数上限
 
 function lanAutoState() {
-  const blank = { seen: {}, items: [], self: [] };
+  const blank = { seen: {}, items: [] };
   try {
     const raw = JSON.parse(localStorage.getItem(LAN_AUTO_KEY) || "null");
     if (!raw || typeof raw !== "object") return blank;
@@ -3779,7 +3789,6 @@ function lanAutoState() {
       });
     }
     if (Array.isArray(raw.items)) blank.items = raw.items.slice(0, LAN_AUTO_MAX_ITEMS);
-    if (Array.isArray(raw.self)) blank.self = raw.self.filter((x) => typeof x === "string").slice(0, LAN_AUTO_MAX_IDS);
   } catch (e) { /* 脏数据按空处理 */ }
   return blank;
 }
@@ -3790,7 +3799,7 @@ function lanAutoStore() {
 function lanAutoPersist() {
   try { localStorage.setItem(LAN_AUTO_KEY, JSON.stringify(lanAutoStore())); } catch (e) { /* 配额满就放弃持久化 */ }
 }
-/** 「已处理文件」表：全局一张（服务端地址 / 端口变了也不会把同一个文件再导一遍） */
+/** 「已导入文件」表：全局一张（服务端地址 / 端口变了也不会把同一个文件再导一遍） */
 function lanAutoSeen() {
   const st = lanAutoStore();
   if (!st.seen || typeof st.seen !== "object") st.seen = {};
@@ -3798,21 +3807,13 @@ function lanAutoSeen() {
 }
 function lanAutoItems() { return lanAutoStore().items || []; }
 function lanAutoErrs() { return lanAutoItems().filter((x) => !x.ok); }
-function lanAutoSelf(id) { return lanAutoStore().self.indexOf(String(id)) >= 0; }
-/** 本机自己上传的文件指纹：自动导入时要跳过 */
-function lanAutoMarkSelf(id) {
-  const fid = String(id || "");
-  if (!fid) return;
-  const st = lanAutoStore();
-  if (st.self.indexOf(fid) < 0) {
-    st.self.unshift(fid);
-    st.self = st.self.slice(0, LAN_AUTO_MAX_IDS);
-  }
-  lanAutoPersist();
+function lanAutoSeenOk(id) {
+  const rec = lanAutoSeen()[String(id)];
+  return !!(rec && rec.s === "ok");
 }
-function lanAutoMarkSeen(id, status, tries) {
+function lanAutoMarkSeen(id, status) {
   const seen = lanAutoSeen();
-  seen[String(id)] = { s: String(status), n: Math.max(0, Number(tries) || 0), at: Date.now() };
+  seen[String(id)] = { s: String(status), at: Date.now() };
   const keys = Object.keys(seen);
   if (keys.length > LAN_AUTO_MAX_IDS) {
     keys.sort((a, b) => (seen[a].at || 0) - (seen[b].at || 0));
@@ -3878,41 +3879,33 @@ function lanAutoBuildExp(raw) {
     log: { total: "", totalImages: [] },
   });
 }
-/** 格式类错误（不再重试）/ 网络类错误（可重试） */
-function lanAutoErr(msg, permanent) {
+/** 格式类错误：只用来给文案分类 */
+function lanAutoErr(msg) {
   const e = new Error(msg);
-  e.permanent = !!permanent;
+  e.permanent = true;
   return e;
 }
-/** 下载并导入一个共享文件；失败抛 Error（permanent 标记格式类错误） */
-async function lanAutoImportFile(f) {
-  const size = Number(f && f.size) || 0;
-  if (size > LAN_AUTO_MAX_BYTES) {
-    throw lanAutoErr("文件超过 " + Math.round(LAN_AUTO_MAX_BYTES / 1048576) + "MB，不做自动导入", true);
-  }
-  const url = lanUrl("/api/download?id=" + encodeURIComponent(f.id));
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res || !res.ok) throw new Error("下载失败 HTTP " + ((res && res.status) || "?"));
-  const text = await res.text();
+/** 把一段文本当实验文件导入；失败抛 Error（消息直接给用户看） */
+function lanImportText(text, name) {
   let data;
   try {
     data = JSON.parse(String(text == null ? "" : text).replace(/^\uFEFF/, ""));
   } catch (e) {
-    throw lanAutoErr("不是合法 JSON（" + ((e && e.message) || e) + "）", true);
+    throw lanAutoErr("不是合法 JSON（" + ((e && e.message) || e) + "）");
   }
   const det = lanAutoDetect(data);
   if (!det || !det.exps.length) {
-    throw lanAutoErr("不是实验助手的实验文件：没有 exp / exps / steps 字段", true);
+    throw lanAutoErr("不是实验助手的实验文件：没有 exp / exps / steps 字段");
   }
   const built = det.exps.map(lanAutoBuildExp).filter(Boolean);
-  if (!built.length) throw lanAutoErr(det.kind + " 里的步骤为空或结构不完整", true);
+  if (!built.length) throw lanAutoErr(det.kind + " 里的步骤为空或结构不完整");
   const saved = [];
   built.forEach((e) => {
     e.id = uid("exp_");   // 换新 id：别覆盖本机可能同名的实验
     e.name = (e.name || "导入实验") + "（互传导入）";
     if (Store.saveExp(e)) saved.push(e);
   });
-  if (!saved.length) throw new Error("写入本地实验失败（本地存储可能已满）");
+  if (!saved.length) throw lanAutoErr("写入本地实验失败（本地存储可能已满）");
   if (det.report && det.report.markdown && saved.length === 1) {
     Store.saveReport(saved[0].id, {
       markdown: String(det.report.markdown),
@@ -3924,64 +3917,51 @@ async function lanAutoImportFile(f) {
   return { kind: det.kind, exps: saved };
 }
 
-/** 扫一遍共享文件列表，把新增的实验 .json 导进来。返回 {added, failed} */
-async function lanAutoSync() {
-  if (LAN.auto.busy || !LAN.online || !LAN.serverMode) return { added: 0, failed: 0, skipped: true };
-  if (typeof fetch !== "function") return { added: 0, failed: 0, skipped: true };
-  LAN.auto.busy = true;
-  let added = 0, failed = 0;
-  try {
-    const res = await lanApi("/api/files", null, 8000);
-    const files = (res && res.files) || [];
-    for (const f of files) {
-      const id = String((f && f.id) || "");
-      if (!id) continue;
-      const seen = lanAutoSeen();
-      const prev = seen[id];
-      if (prev && (prev.s === "ok" || prev.s === "skip" || prev.s === "self" || prev.s === "err")) continue;
-      if (prev && (prev.n || 0) >= LAN_AUTO_MAX_TRY) continue;
-      if (!lanIsExpJson(f.name)) { lanAutoMarkSeen(id, "skip", 1); continue; }   // 其它类型静默跳过
-      if (lanAutoSelf(id)) { lanAutoMarkSeen(id, "self", 1); continue; }          // 本机自己传的
-      try {
-        const r = await lanAutoImportFile(f);
-        lanAutoMarkSeen(id, "ok", 1);
-        added += r.exps.length;
-        const names = r.exps.map((x) => x.name).join("、");
-        lanAutoNote({ name: f.name, ok: true, msg: "已导入 " + r.kind + "：" + names, expId: r.exps[0].id });
-        toast("已自动导入 " + r.exps.length + " 个实验：" + names, 3600);
-      } catch (err) {
-        const msg = (err && err.message) || "未知错误";
-        failed += 1;
-        lanAutoMarkSeen(id, (err && err.permanent) ? "err" : "retry", (err && err.permanent) ? LAN_AUTO_MAX_TRY : ((prev && prev.n) || 0) + 1);
-        lanAutoNote({ name: f.name, ok: false, msg: msg });
-        toast("⚠️ 无法识别《" + f.name + "》：" + msg, 5200);
-      }
-    }
-  } catch (e) {
-    /* 服务端暂时不可达：不算错误，下一轮再试 */
-  } finally {
-    LAN.auto.busy = false;
-    LAN.auto.last = Date.now();
+/** 「下载即导入」的唯一入口：下载完成后调用。
+ *  name 不是 .json → 什么都不做；已导入过 → 只提示；认不出 → 记错并报错。
+ *  blob 可选（浏览器形态已经有下载好的内容就直接用，省一次下载）。 */
+async function lanImportOnDownload(id, name, blob) {
+  const shown = String(name || id || "文件");
+  if (!lanIsExpJson(shown)) return { skipped: true };            // 非 .json：静默跳过
+  const fid = String(id || "");
+  if (fid && lanAutoSeenOk(fid)) {
+    toast("《" + shown + "》之前已导入过，未重复导入", 3000);
+    return { skipped: true, repeated: true };
   }
-  if (added || failed) lanPaintAuto();
-  return { added: added, failed: failed };
-}
-
-/** 本机在当服务端且已连上时才开轮询（互传页之外也要跑，所以不复用 LAN.timer） */
-function lanAutoMaybeStart() {
-  if (LAN.auto.timer || typeof setInterval !== "function") return;
-  if (!LAN.serverMode || !LAN.online) return;
-  LAN.auto.timer = setInterval(() => { lanAutoSync(); }, LAN_AUTO_POLL_MS);
-  setTimeout(() => { lanAutoSync(); }, 600);
-}
-function lanAutoStop() {
-  if (LAN.auto.timer) { clearInterval(LAN.auto.timer); LAN.auto.timer = null; }
+  try {
+    let text;
+    if (blob && typeof blob.text === "function") {
+      text = await blob.text();
+    } else {
+      const size = Number((LAN.files.find((f) => f.id === id) || {}).size) || 0;
+      if (size > LAN_AUTO_MAX_BYTES) {
+        throw lanAutoErr("文件超过 " + Math.round(LAN_AUTO_MAX_BYTES / 1048576) + "MB，只下载不导入");
+      }
+      if (typeof fetch !== "function") throw lanAutoErr("当前环境不支持读取文件内容");
+      const res = await fetch(lanUrl("/api/download?id=" + encodeURIComponent(id)), { cache: "no-store" });
+      if (!res || !res.ok) throw new Error("读取文件内容失败 HTTP " + ((res && res.status) || "?"));
+      text = await res.text();
+    }
+    const r = lanImportText(text, shown);
+    if (fid) lanAutoMarkSeen(fid, "ok");
+    const names = r.exps.map((x) => x.name).join("、");
+    lanAutoNote({ name: shown, ok: true, msg: "已导入 " + r.kind + "：" + names, expId: r.exps[0].id });
+    lanPaintAuto();
+    toast("已导入实验：" + names, 3600);
+    return { ok: true, exps: r.exps };
+  } catch (err) {
+    const msg = (err && err.message) || "未知错误";
+    if (fid) lanAutoMarkSeen(fid, "err");
+    lanAutoNote({ name: shown, ok: false, msg: msg });
+    lanPaintAuto();
+    toast("⚠️ 《" + shown + "》无法识别为实验文件：" + msg, 5200);
+    return { ok: false, error: msg };
+  }
 }
 
 /* ---------- 界面片段 ---------- */
 function lanAutoHTML() {
   const items = lanAutoItems();
-  const on = !!(LAN.serverMode && LAN.online);
   const errs = lanAutoErrs().length;
   const rows = items.length
     ? items.map((x) => `<div class="lan-auto-item">
@@ -3989,14 +3969,14 @@ function lanAutoHTML() {
         <span class="${x.ok ? "lan-auto-ok" : "lan-auto-err"}">${esc(x.msg || (x.ok ? "已导入" : "无法识别"))}</span>
         ${x.ok && x.expId ? `<button class="btn btn-sm" data-act="lan-auto-open" data-id="${esc(x.expId)}" type="button">打开</button>` : ""}
       </div>`).join("")
-    : `<p class="msg" style="margin:0">${on ? "还没有收到实验文件；别人传上来的 .json 会自动导进来。" : "本机点「成为服务端」后，别人传上来的实验 .json 会自动加进「我的实验」。"}</p>`;
+    : `<p class="msg" style="margin:0">还没有通过下载导入过实验。在左边「共享文件」里点<b>下载</b>，实验 <code class="lan-code">.json</code> 就会自动进「我的实验」。</p>`;
   return `<div class="card">
-      <h3 class="card-title">${ICON.sparkle}<span class="grow">自动导入</span>
-        <span class="ai-pill${on ? " on" : ""}">${on ? "监听中" : "未监听"}</span>
+      <h3 class="card-title">${ICON.download}<span class="grow">下载即导入</span>
+        <span class="ai-pill on">点下载触发</span>
         ${errs ? `<span class="lan-size">${errs} 个无法识别</span>` : ""}
         ${items.length ? `<button class="btn btn-sm" data-act="lan-auto-clear" type="button">清空记录</button>` : ""}
       </h3>
-      <p class="msg" style="margin:0 0 8px">本机当服务端时，收到的 <b>.json</b> 若是实验文件会<b>自动加进「我的实验」</b>；图片 / 文档 / 视频等其它类型静默跳过；无法识别的 .json 在这里报错，不会悄悄吞掉。</p>
+      <p class="msg" style="margin:0 0 8px">在共享文件列表里点<b>「下载」</b>时：实验 <code class="lan-code">.json</code>（实验包 / 全部备份 / 大模型生成的实验 JSON）会<b>自动加进「我的实验」</b>；图片 / 文档 / 视频等其它类型不受影响；认不出的 <code class="lan-code">.json</code> 在这里报错，不会悄悄吞掉。谁下载谁导入，<b>接收端（手机 / 另一台电脑）也同样生效</b>。</p>
       <div data-lan-auto-items>${rows}</div>
     </div>`;
 }
@@ -4010,7 +3990,7 @@ function lanAutoBanner() {
   if (!errs.length) return "";
   const names = errs.slice(0, 2).map((x) => x.name).join("、");
   return `<div class="lan-warn">
-      <span class="lan-warn-text">⚠️ 互传自动导入：有 ${errs.length} 个文件无法识别为实验文件（${esc(names)}${errs.length > 2 ? " 等" : ""}）</span>
+      <span class="lan-warn-text">⚠️ 互传下载：有 ${errs.length} 个文件无法识别为实验文件（${esc(names)}${errs.length > 2 ? " 等" : ""}）</span>
       <button class="btn btn-sm" data-go="lan" type="button">去互传页查看</button>
     </div>`;
 }
@@ -4291,8 +4271,6 @@ function boot() {
   winInitFrame();
   renderNav();
   initTheme();
-  /* App 启动时若内置服务端已在跑（重启 / 后台常驻），直接把自动导入接上，不必先打开互传页 */
-  if (lanIsTauri()) lanSyncServerStatus();
 
   document.addEventListener("click", (ev) => {
     const goEl = ev.target.closest("[data-go]");
