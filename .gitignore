@@ -35,6 +35,7 @@ temp/
 *.swp
 .DS_Store
 Thumbs.db
+.lan-check/
 
 # ---- Python ----
 __pycache__/

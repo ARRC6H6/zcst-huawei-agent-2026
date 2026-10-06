@@ -26,10 +26,11 @@ start src/index.html          # Windows
 跑验收自检（需要 Node.js，**仅用于校验，应用本身不依赖 Node**）：
 
 ```bash
-node src/tools/check-page.mjs    src/index.html   # 页面与数据层：153 项（工作区放有课程素材时 155 项）
+node src/tools/check-syntax.mjs  src/index.html   # 内联脚本语法：2 项
+node src/tools/check-page.mjs    src/index.html   # 页面与数据层：231 项（另 7 项依赖 Tauri 工程，本仓库不含时自动跳过）
 node src/tools/check-isotope.mjs src/index.html   # 化学式同位素左上标：25 项
-node src/tools/check-lan.mjs     src/index.html   # 局域网互传服务端端到端：33 项
-# 三套都必须「失败 0」
+node src/tools/check-lan.mjs     src/index.html   # 局域网互传端到端：44 项（本仓库自动改用 Python 服务端跑同一套契约）
+# 四套都必须「失败 0」（跳过的项是与 Tauri 工程相关的断言，不是失败）
 ```
 
 > 应用是**单文件 HTML**：所有 HTML / CSS / JS 内联在一个文件里，零外链、零 CDN、零构建步骤。
@@ -74,14 +75,15 @@ python src/lan-server.py          # 或双击 src/start-lan.bat
 │  ├─ 03-codegen-history/     # 代码生成 / 重构 / 排错过程记录
 │  └─ README.md               # 痕迹材料的整理说明
 └─ src/
-   ├─ index.html              # ⭐ 作品全部源码（单文件，共约 2.4 万行；其中手写业务代码约 3.2 千行 / 15 个区段，
-   │                          #   其余为内联的 React + KaTeX + mhchem 库）
+   ├─ index.html              # ⭐ 作品全部源码（单文件，共约 2.5 万行；其中手写业务代码约 4.3 千行 / 15 个区段，
+   │                          #   含 3.5 计时器、13.1 互传自动导入；其余为内联的 React + KaTeX + mhchem 库）
    ├─ lan-server.py           # 可选：局域网互传服务端（零依赖 Python 标准库）
    ├─ start-lan.bat / .sh     # 可选：一键启动互传服务端
    ├─ 局域网互传-使用说明.md    # 互传功能的使用说明、存储位置、接口表、安全边界
-   ├─ tools/check-page.mjs    # 153 项页面与数据层自动校验
+   ├─ tools/check-syntax.mjs  # 2 项内联脚本语法校验
+   ├─ tools/check-page.mjs    # 231 项页面与数据层自动校验（+7 项 Tauri 相关断言在本仓库自动跳过）
    ├─ tools/check-isotope.mjs # 25 项化学式同位素角标（左上标）校验
-   ├─ tools/check-lan.mjs     # 33 项互传服务端端到端校验（真启动服务 + 真跑接口）
+   ├─ tools/check-lan.mjs     # 44 项互传端到端校验（真启动服务 + 真跑接口；本仓库自动用 Python 服务端）
    └─ README.md               # 源码说明：区段分工、自检命令、十天目标
 ```
 
@@ -96,7 +98,7 @@ python src/lan-server.py          # 或双击 src/start-lan.bat
 | 队伍名称 | 吃白饭的大肥鱼 |
 | 队伍成员 | 待补 |
 | 指导老师 | 杨慧君 |
-| 作品形态 | Web 应用（单文件 HTML，零依赖） |
+| 作品形态 | Web 应用（单文件 HTML，零依赖）；同一份源码可打包为桌面 exe / Android apk（构建产物不入库） |
 | 核心 AI 工具 | 华为云码道 CodeArts |
 | 仓库地址 | <https://github.com/ARRC6H6/zcst-huawei-agent-2026>（GitCode 导入后取地址填写） |
 
@@ -106,10 +108,11 @@ python src/lan-server.py          # 或双击 src/start-lan.bat
 2. AI 生成实验步骤：把课件（`.ppt/.pptx/.doc/.docx/.txt/.md`）交给大模型生成实验文件；也支持「复制提示词 → 粘贴 JSON」的离线通路
 3. 编辑模式：每步五要素（文字 / 图片 / 视频 / 反应方程式 / 安全 TIPS）+ 仪器摆放画布（拖拽 / 缩放 / 旋转 / 连线）；
    反应方程式带所见即所得输入器（元素周期表点选、配平校验、KaTeX + mhchem 渲染，同位素质量数按规范显示在元素**左上角**）
-4. 记录模式：逐步只读播放 + 分步记录 + 总记录
-5. 实验报告：LLM（OpenAI 兼容，用户自配）生成，无 API 时本地 markdown 表格兜底
+4. 记录模式：逐步只读播放 + 分步记录 + 总记录；内置**整场实验计时器**（编辑模式预设定时，记录模式手动开始 / 暂停 / 归零 / 记一次，倒计时到点响铃并把用时自动写进当前步骤记录）
+5. 实验报告：LLM（OpenAI 兼容，用户自配）生成，无 API 时本地 markdown 表格兜底（用过计时器时报告自动带「计时」章节）
 6. 局域网互传：同一 Wifi 下手机 / 电脑互传文件与文本，大文件分片 + 断点续传 + 同文件秒传，数据不经云端（可选配套零依赖服务端）
-7. 三端自适应 + 浅色 / 深色 / 跟随系统三态
+7. 互传自动导入：本机当服务端时，手机传上来的实验 `.json`（实验包 / 全部备份 / AI 生成的实验 JSON）**自动进入「我的实验」**；图片、文档等其它类型静默跳过，认不出的 `.json` 会在互传页、首页横幅与提示条三处明确报错
+8. 三端自适应 + 浅色 / 深色 / 跟随系统三态
 
 ---
 

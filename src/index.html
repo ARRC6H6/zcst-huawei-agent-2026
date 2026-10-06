@@ -22,12 +22,16 @@
   --line-soft: rgba(96, 108, 145, 0.12);
   --ink: #1a1f33;
   --ink-soft: #3f4761;
-  --ink-faint: #6f7893;
+  --ink-faint: #68728c;   /* 比美术参考的 #6f7893 略深一档：4.3:1 → 4.8:1，小字更清楚 */
   --accent: #6a7bff;
   --accent-soft: rgba(106, 123, 255, 0.12);
   --danger: #ff6b81;
   --ok: #2fb98a;
   --warn: #d9a520;
+  /* 马卡龙色只负责「填充/图标/描边」；一旦拿来写文字（提示、删除按钮）就用更深的这一档，
+     否则浅粉 / 浅绿压在白底上只有 2.4~2.9:1，属于「灰蒙蒙」的另一种形态。 */
+  --danger-ink: #c8324c;
+  --ok-ink: #157a52;
   --r-window: 15px;
   --r-card: 13px;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -51,6 +55,13 @@
   --shadow-app: 0 24px 60px rgba(30, 38, 70, 0.13);
   --shadow-icon: inset 0 0 0 1px rgba(255, 255, 255, 0.9), 0 2px 6px rgba(30, 38, 70, 0.07);
   --shadow-tab: 0 10px 30px rgba(30, 38, 70, 0.16);
+
+  /* App 形态（Tauri 无边框窗口）的玻璃底：**必须足够不透明**。
+     窗口本身是透明的，而 Windows 的亚克力/云母在不少机器上其实不生效
+     —— 只靠 var(--bg-a) 那点透明度，背后的桌面（尤其是浅色窗口）会直接透上来，
+     整屏被冲成一层灰雾。这里给到 0.9+，只留一点点「浮在桌面上」的通透感。 */
+  --glass-a: rgba(255, 255, 255, 0.94);
+  --glass-b: rgba(238, 243, 253, 0.90);
 
   --page-a: #f8faff;
   --page-b: #eef3fd;
@@ -77,55 +88,80 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg-a: rgba(40, 47, 70, 0.58);
-  --bg-b: rgba(26, 31, 48, 0.46);
-  --line: rgba(158, 170, 205, 0.22);
-  --line-soft: rgba(158, 170, 205, 0.12);
-  --ink: #eef1f9;
-  --ink-soft: #c4cbdf;
-  --ink-faint: #8a93ae;
-  --accent: #8b98ff;
-  --accent-soft: rgba(139, 152, 255, 0.18);
-  --danger: #ff8095;
-  --ok: #43cfa0;
-  --warn: #e6b845;
-  --surface-1: rgba(255, 255, 255, 0.06);
-  --surface-2: rgba(255, 255, 255, 0.08);
-  --surface-3: rgba(255, 255, 255, 0.12);
-  --surface-hi: rgba(255, 255, 255, 0.14);
-  --surface-low: rgba(255, 255, 255, 0.04);
-  --surface-ghost: rgba(255, 255, 255, 0.03);
-  --surface-bar: rgba(255, 255, 255, 0.10);
-  --hairline: rgba(255, 255, 255, 0.10);
-  --hairline-soft: rgba(255, 255, 255, 0.06);
-  --app-border: rgba(255, 255, 255, 0.12);
-  --shadow-card: 0 8px 20px rgba(0, 0, 0, 0.4);
-  --shadow-pop: 0 8px 20px rgba(0, 0, 0, 0.45);
-  --shadow-app: 0 24px 60px rgba(0, 0, 0, 0.55);
-  --shadow-icon: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.35);
-  --shadow-tab: 0 10px 30px rgba(0, 0, 0, 0.5);
-  --page-a: #171c2c;
-  --page-b: #10131f;
-  --page-c: #181327;
-  --tab-a: rgba(40, 47, 70, 0.82);
-  --tab-b: rgba(22, 26, 42, 0.72);
-  --fallback-app: rgba(26, 31, 48, 0.96);
-  --fallback-tab: rgba(26, 31, 48, 0.97);
-  --hover-soft: rgba(200, 210, 235, 0.10);
-  --track: rgba(200, 210, 235, 0.12);
-  --scroller: rgba(200, 210, 235, 0.22);
-  --scroller-hover: rgba(200, 210, 235, 0.38);
-  --canvas-bg: rgba(255, 255, 255, 0.04);
-  --grid: rgba(200, 210, 235, 0.10);
-  --link-line: rgba(139, 152, 255, 0.6);
+  /* 深色不是「把浅色压暗」，而是**拉开层次**：
+     页面底 → 卡片 → 控件三级递进，文字三档都过 WCAG AA（≥4.5:1），
+     否则整屏都是同一片灰蓝，看着就灰蒙蒙。 */
+  --bg-a: rgba(46, 56, 84, 0.72);
+  --bg-b: rgba(24, 30, 49, 0.62);
+  --line: rgba(186, 199, 235, 0.40);
+  --line-soft: rgba(186, 199, 235, 0.22);
+  --ink: #f7f9ff;
+  --ink-soft: #dbe1f3;
+  --ink-faint: #adb8d4;
+  --accent: #9aa6ff;
+  --accent-soft: rgba(154, 166, 255, 0.24);
+  --danger: #ff8fa3;
+  --ok: #4fd9a8;
+  --warn: #f0c765;
+  --danger-ink: #ff9dad;
+  --ok-ink: #5fe0b0;
+  --surface-1: rgba(255, 255, 255, 0.09);
+  --surface-2: rgba(255, 255, 255, 0.16);
+  --surface-3: rgba(255, 255, 255, 0.21);
+  --surface-hi: rgba(255, 255, 255, 0.24);
+  --surface-low: rgba(255, 255, 255, 0.07);
+  --surface-ghost: rgba(255, 255, 255, 0.04);
+  --surface-bar: rgba(20, 25, 40, 0.86);
+  --hairline: rgba(255, 255, 255, 0.16);
+  --hairline-soft: rgba(255, 255, 255, 0.08);
+  --app-border: rgba(255, 255, 255, 0.18);
+  --shadow-card: 0 10px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --shadow-pop: 0 14px 32px rgba(0, 0, 0, 0.56), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  --shadow-app: 0 30px 70px rgba(0, 0, 0, 0.6);
+  --shadow-icon: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-tab: 0 14px 34px rgba(0, 0, 0, 0.56);
+  --glass-a: rgba(30, 37, 56, 0.96);
+  --glass-b: rgba(18, 23, 37, 0.95);
+  --page-a: #161c2e;
+  --page-b: #0d1120;
+  --page-c: #171430;
+  --tab-a: rgba(48, 57, 82, 0.9);
+  --tab-b: rgba(22, 27, 44, 0.84);
+  --fallback-app: rgba(24, 29, 46, 0.99);
+  --fallback-tab: rgba(24, 29, 46, 0.99);
+  --hover-soft: rgba(206, 218, 245, 0.16);
+  --track: rgba(206, 218, 245, 0.18);
+  --scroller: rgba(206, 218, 245, 0.32);
+  --scroller-hover: rgba(206, 218, 245, 0.52);
+  --canvas-bg: rgba(255, 255, 255, 0.06);
+  --grid: rgba(206, 218, 245, 0.14);
+  --link-line: rgba(154, 166, 255, 0.72);
 }
 
-:root[data-theme="dark"] .t-paper    { --tint:rgba(255,255,255,.06); --tint-2:rgba(255,255,255,.03); --tint-line:rgba(150,162,196,.20); --tone:#a8b0c8; }
-:root[data-theme="dark"] .t-mint     { --tint:rgba(47,185,138,.14);  --tint-2:rgba(47,185,138,.07);  --tint-line:rgba(47,185,138,.30);  --tone:#4fd3a4; }
-:root[data-theme="dark"] .t-peach    { --tint:rgba(244,129,92,.14);  --tint-2:rgba(244,129,92,.07);  --tint-line:rgba(244,129,92,.30);  --tone:#ff9b78; }
-:root[data-theme="dark"] .t-lavender { --tint:rgba(139,124,255,.15); --tint-2:rgba(139,124,255,.08); --tint-line:rgba(139,124,255,.32); --tone:#a79bff; }
-:root[data-theme="dark"] .t-lemon    { --tint:rgba(217,165,32,.14);  --tint-2:rgba(217,165,32,.07);  --tint-line:rgba(217,165,32,.30);  --tone:#e8bd4d; }
-:root[data-theme="dark"] .t-sky      { --tint:rgba(79,155,255,.14);  --tint-2:rgba(79,155,255,.07);  --tint-line:rgba(79,155,255,.30);  --tone:#6eb0ff; }
+/* 马卡龙六色在深色下也要「有色」，不然卡片全是一片灰 */
+:root[data-theme="dark"] .t-paper    { --tint:rgba(255,255,255,.11);   --tint-2:rgba(255,255,255,.05);   --tint-line:rgba(178,190,224,.32); --tone:#c2cbe4; }
+:root[data-theme="dark"] .t-mint     { --tint:rgba(47,185,138,.22);    --tint-2:rgba(47,185,138,.11);    --tint-line:rgba(79,211,164,.52);  --tone:#5fe0b0; }
+:root[data-theme="dark"] .t-peach    { --tint:rgba(244,129,92,.22);    --tint-2:rgba(244,129,92,.11);    --tint-line:rgba(255,155,120,.52); --tone:#ffa385; }
+:root[data-theme="dark"] .t-lavender { --tint:rgba(139,124,255,.24);   --tint-2:rgba(139,124,255,.12);   --tint-line:rgba(167,155,255,.54); --tone:#b3a6ff; }
+:root[data-theme="dark"] .t-lemon    { --tint:rgba(217,165,32,.22);    --tint-2:rgba(217,165,32,.11);    --tint-line:rgba(240,199,101,.52); --tone:#f0c765; }
+:root[data-theme="dark"] .t-sky      { --tint:rgba(79,155,255,.22);    --tint-2:rgba(79,155,255,.11);    --tint-line:rgba(124,186,255,.52); --tone:#7cbaff; }
+
+/* 深色下容器边框统一用更亮的一档，卡片才有「框」 */
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .step-rail,
+:root[data-theme="dark"] .exp-card,
+:root[data-theme="dark"] .md-preview,
+:root[data-theme="dark"] .lan-clipbox,
+:root[data-theme="dark"] .canvas-scroll,
+:root[data-theme="dark"] .player-canvas { border-color: var(--line); }
+/* App 形态下卡片几乎不透明，避免桌面透上来又糊成一片灰 */
+:root[data-theme="dark"] body.wb-on .card,
+:root[data-theme="dark"] body.wb-on .step-rail {
+  background: color-mix(in srgb, var(--surface-2) 96%, transparent);
+}
+:root[data-theme="dark"] .tips-input { background: rgba(240, 199, 101, 0.14); }
+:root[data-theme="dark"] .tips-box { background: rgba(240, 199, 101, 0.16); color: #f4d68a; }
+:root[data-theme="dark"] .tb-mark { color: #9aa6ff; filter: drop-shadow(0 2px 6px rgba(154, 166, 255, 0.45)); }
 
 :root[data-theme="dark"] .blob { opacity: 0.4; }
 :root[data-theme="dark"] .grain { opacity: 0.012; }
@@ -243,7 +279,7 @@ body {
 .btn:active { transform: scale(.96); }
 .btn-primary { border-color: transparent; background: linear-gradient(145deg, #7b8aff, #5f6ef5); color: #fff; box-shadow: 0 4px 12px rgba(95,110,245,.35); }
 .btn-primary:hover { box-shadow: 0 7px 18px rgba(95,110,245,.42); }
-.btn-danger { color: var(--danger); border-color: rgba(255,107,129,.3); }
+.btn-danger { color: var(--danger-ink); border-color: rgba(255,107,129,.3); }
 .btn-danger:hover { background: rgba(255,107,129,.1); }
 .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
 .btn-ghost { background: transparent; border-color: transparent; }
@@ -299,9 +335,11 @@ body {
 .step-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .editor-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.card-title { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; font-weight: 700; }
+.card-title { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; font-weight: 700; flex-wrap: wrap; }
 .card-title svg { width: 16px; height: 16px; color: var(--tone, var(--accent)); }
-.card-title .grow { flex: 1; }
+/* 标题优先在空格处折行（CJK 不在词中间断开），实在放不下才允许任意断点：
+   否则「文本 / 链接互传」会被折成「…链接互」+「传」，很难看 */
+.card-title .grow { flex: 1; word-break: keep-all; overflow-wrap: anywhere; }
 
 .field { margin-bottom: 13px; }
 .field:last-child { margin-bottom: 0; }
@@ -391,10 +429,43 @@ chem-input.chem-field:not(:defined) { min-height: 64px; border: 1px solid var(--
   font-family: var(--mono); font-size: 13.5px; color: var(--ink); overflow-x: auto; }
 .tips-box { padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(217,165,32,.35); background: rgba(255,250,235,.55);
   font-size: 12.5px; line-height: 1.8; color: #8a6a12; }
-:root[data-theme="dark"] .tips-box { background: rgba(217,165,32,.1); color: var(--warn); }
+:root[data-theme="dark"] .tips-box { background: rgba(240,199,101,.16); color: #f4d68a; }
 .player-canvas { border-radius: 11px; border: 1px solid var(--line-soft); background: var(--canvas-bg); overflow: auto; }
 
 .record-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+
+/* ---- 计时器（编辑模式预设 / 记录模式启停） ---- */
+.timer-card { margin-bottom: 16px; }
+.timer-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.timer-clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 700;
+  letter-spacing: -.02em; line-height: 1.1; min-width: 104px; color: var(--ink); }
+.timer-clock.run { color: var(--accent); }
+.timer-clock.warn { color: #c98a12; }
+.timer-clock.done { color: var(--danger-ink); }
+:root[data-theme="dark"] .timer-clock.warn { color: #f0c765; }
+.timer-modes { display: flex; gap: 7px; flex-wrap: wrap; }
+.timer-presets { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.timer-custom { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 12px; }
+.timer-custom .field-label { margin: 0; }
+.timer-num { width: 68px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--surface-2); color: var(--ink); font: inherit; font-size: 13px; }
+.timer-unit { font-size: 12px; color: var(--ink-faint); }
+.timer-hint { font-size: 12px; color: var(--ink-faint); }
+.timer-tag { font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
+.timer-logs { margin-top: 9px; font-size: 12px; color: var(--ink-faint); }
+.timer-logs b { font-family: var(--mono); color: var(--ink-soft); }
+
+/* ---- 互传自动导入 ---- */
+.lan-auto-item { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.lan-auto-item:last-child { border-bottom: 0; }
+.lan-auto-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lan-auto-ok { font-size: 11.5px; color: var(--ok-ink); }
+.lan-auto-err { font-size: 11.5px; color: var(--danger-ink); overflow-wrap: anywhere; }
+.lan-warn { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 11px 13px;
+  border-radius: var(--r-card); border: 1px solid rgba(255,107,129,.35); background: rgba(255,107,129,.10);
+  color: var(--danger-ink); font-size: 12.5px; }
+.lan-warn-text { flex: 1; min-width: 0; }
 
 .md-preview { border-radius: var(--r-card); border: 1px solid var(--line-soft); background: var(--surface-2);
   padding: 22px 24px; font-size: 13.5px; line-height: 1.9; color: var(--ink-soft); overflow-x: auto; }
@@ -413,8 +484,8 @@ chem-input.chem-field:not(:defined) { min-height: 64px; border: 1px solid var(--
 .seg-btn.on { background: var(--surface-hi); color: var(--ink); box-shadow: var(--shadow-card); }
 
 .msg { margin: 10px 0 0; font-size: 12.5px; min-height: 18px; color: var(--ink-faint); }
-.msg.err { color: var(--danger); }
-.msg.ok { color: var(--ok); }
+.msg.err { color: var(--danger-ink); }
+.msg.ok { color: var(--ok-ink); }
 
 /* ---------- AI 生成实验步骤 ---------- */
 a.btn { text-decoration: none; }
@@ -446,6 +517,21 @@ a.btn { text-decoration: none; }
 .lan-url { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
   background: var(--surface-low); border: 1px solid var(--line-soft); border-radius: 8px; padding: 4px 9px;
   max-width: 100%; overflow-wrap: anywhere; }
+.lan-self { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 9px;
+  padding: 8px 10px; border: 1px solid var(--tone, var(--accent)); border-radius: 10px;
+  background: var(--tint, var(--accent-soft)); color: var(--tone, var(--accent));
+  font-size: 13px; font-weight: 600; }
+.lan-self svg { width: 16px; height: 16px; flex: none; }
+/* 折叠卡片（怎么用）：默认收起，只留一行标题，避免一大段说明占满屏幕 */
+.card-fold { padding: 0; overflow: hidden; }
+.card-fold > summary { list-style: none; cursor: pointer; margin: 0; padding: 14px 16px; user-select: none; }
+.card-fold > summary::-webkit-details-marker { display: none; }
+.card-fold > summary:hover { background: var(--surface-low); }
+.card-fold > summary > svg:last-child { transition: transform var(--fast); color: var(--ink-faint); flex: none; }
+.card-fold[open] > summary > svg:last-child { transform: rotate(180deg); }
+.card-fold > ol, .card-fold > p, .card-fold > div { margin-left: 16px; margin-right: 16px; }
+.card-fold > :last-child { margin-bottom: 16px; }
+.card-fold > ol.ai-guide { margin-top: 0; }
 .lan-drop { display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center;
   padding: 24px 16px; border: 1.5px dashed var(--line); border-radius: 13px;
   background: var(--surface-low); color: var(--ink-faint); cursor: pointer;
@@ -461,7 +547,7 @@ a.btn { text-decoration: none; }
 .lan-prog-head, .lan-prog-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
 .lan-prog-head { margin-bottom: 5px; }
 .lan-prog-foot { margin-top: 5px; }
-.lan-prog-foot .err { color: var(--danger); font-size: 12px; }
+.lan-prog-foot .err { color: var(--danger-ink); font-size: 12px; }
 .lan-bar { height: 5px; border-radius: 99px; background: var(--surface-low); overflow: hidden; }
 .lan-bar i { display: block; height: 100%; width: 0; border-radius: 99px;
   background: linear-gradient(90deg, var(--accent), var(--tone, var(--accent))); transition: width var(--fast); }
@@ -474,6 +560,16 @@ a.btn { text-decoration: none; }
 .lan-clipbox { margin-top: 10px; padding: 10px 12px; border-radius: 11px; background: var(--surface-low);
   border: 1px solid var(--line-soft); font-size: 12.5px; line-height: 1.7; color: var(--ink-soft);
   white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow: auto; }
+.lan-saved { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 9px 11px;
+  border-radius: 11px; background: rgba(47,185,138,.1); border: 1px solid rgba(47,185,138,.28);
+  animation: cardIn .3s var(--ease); }
+.lan-saved-ico { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 7px;
+  background: var(--ok); color: #fff; }
+.lan-saved-ico svg { width: 13px; height: 13px; stroke-width: 2.6; }
+.lan-saved-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lan-saved-name { font-size: 12.5px; font-weight: 650; color: var(--ink); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+:root[data-theme="dark"] .lan-saved { background: rgba(79,217,168,.16); border-color: rgba(79,217,168,.45); }
 
 @media (max-width: 1100px) { .lan-grid { grid-template-columns: 1fr; } }
 
@@ -490,7 +586,12 @@ a.btn { text-decoration: none; }
 }
 @media (max-width: 860px) {
   body { padding: 0; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-  .frame { height: 100vh; height: 100dvh; width: 100%; border-radius: 0; grid-template-columns: 1fr; border: 0; }
+  /* 手机端窗口也是透明的（tauri.conf 里 transparent 是全局配置），
+     所以这里必须自己铺一层不透明底色，否则会透出系统桌面 */
+  .frame { height: 100vh; height: 100dvh; width: 100%; border-radius: 0; grid-template-columns: 1fr; border: 0;
+    background: linear-gradient(158deg, var(--page-a) 0%, var(--page-b) 52%, var(--page-c) 100%);
+    backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
+  .titlebar, .rz { display: none; }
   .sidebar { display: none; }
   .main { padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
   .view { padding: calc(18px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 24px calc(16px + env(safe-area-inset-left)); }
@@ -519,13 +620,84 @@ a.btn { text-decoration: none; }
 }
 @media (max-width: 560px) { .exp-grid { grid-template-columns: 1fr; } }
 
+/* ============================================================
+   App 形态（Tauri 桌面）：无边框 + 透明窗口 + 系统亚克力
+   —— 与美术参考项目「鲸鱼便签」同一套形态：一张浮在桌面上的玻璃卡，
+      自绘标题栏 + 自绘缩放把手（不然无边框窗口既不能拖也不能改大小）
+   ============================================================ */
+
+/* 自绘标题栏：默认隐藏，只有 App 形态显示（浏览器 / 手机端不显示） */
+.titlebar { display: none; }
+.rz { display: none; }
+
+body.wb-on { background: transparent; padding: 0; }
+/* 桌面直接透出来：光斑叠在玻璃上会把亚克力糊成一片 */
+body.wb-on .bg { display: none; }
+body.wb-on .frame {
+  width: 100%; height: 100vh; height: 100dvh;
+  grid-template-rows: 44px 1fr;   /* 标题栏一行 + 内容一行 */
+  border-radius: var(--r-window);
+  /* App 形态的底几乎不透明（见 --glass-* 的说明）：不靠系统磨砂也看得清 */
+  background: linear-gradient(158deg, var(--glass-a), var(--glass-b));
+  backdrop-filter: blur(42px) saturate(180%);
+  -webkit-backdrop-filter: blur(42px) saturate(180%);
+  box-shadow: inset 0 1px 0 var(--hairline), inset 0 0 0 1px var(--hairline-soft);
+}
+body.wb-on.wb-max .frame { border-radius: 0; }   /* 最大化时不留圆角 */
+
+body.wb-on .titlebar {
+  grid-column: 1 / -1; height: 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.tb-brand { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+.tb-mark { display: grid; place-items: center; color: #5f6ef5;
+  filter: drop-shadow(0 2px 4px rgba(95, 110, 245, .3)); }
+.tb-mark svg { width: 17px; height: 17px; }
+.tb-actions { display: flex; gap: 2px; }
+.win-btn { width: 34px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink-soft); cursor: pointer;
+  transition: background var(--fast), color var(--fast), transform var(--fast); }
+.win-btn svg { width: 15px; height: 15px; }
+.win-btn:hover { background: var(--hover-soft); color: var(--ink); }
+.win-btn:active { transform: scale(.9); }
+.win-btn.danger:hover { background: rgba(255, 107, 129, .16); color: var(--danger); }
+
+/* 标题栏已经带品牌了，侧栏不再重复一遍 */
+body.wb-on .side-head { display: none; }
+body.wb-on .nav { padding-top: 14px; }
+/* 工作区与侧栏不再各自叠背景，统一由 .frame 那层玻璃决定 */
+body.wb-on .main,
+body.wb-on .view,
+body.wb-on .sidebar { background: transparent; }
+/* 卡片保持可读的薄雾 */
+body.wb-on .card,
+body.wb-on .step-rail {
+  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+}
+
+/* 无边框窗口的 8 个缩放把手 */
+body.wb-on .rz { display: block; position: absolute; z-index: 5; }
+body.wb-on .rz-n { top: 0; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+body.wb-on .rz-s { bottom: 0; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+body.wb-on .rz-w { left: 0; top: 10px; bottom: 10px; width: 6px; cursor: ew-resize; }
+body.wb-on .rz-e { right: 0; top: 10px; bottom: 10px; width: 6px; cursor: ew-resize; }
+body.wb-on .rz-nw { left: 0; top: 0; width: 11px; height: 11px; cursor: nwse-resize; }
+body.wb-on .rz-ne { right: 0; top: 0; width: 11px; height: 11px; cursor: nesw-resize; }
+body.wb-on .rz-sw { left: 0; bottom: 0; width: 11px; height: 11px; cursor: nesw-resize; }
+body.wb-on .rz-se { right: 0; bottom: 0; width: 11px; height: 11px; cursor: nwse-resize; }
+
 @media (prefers-reduced-transparency: reduce) {
   .frame { backdrop-filter: none; background: var(--fallback-app); }
   .tabbar { backdrop-filter: none; background: var(--fallback-tab); }
+  body.wb-on .frame { background: var(--fallback-app); backdrop-filter: none; }
+  body.wb-on .card, body.wb-on .step-rail { background: var(--surface-2); }
 }
 @supports not (backdrop-filter: blur(1px)) {
   .frame { background: var(--fallback-app); }
   .tabbar { background: var(--fallback-tab); }
+  body.wb-on .frame { background: var(--fallback-app); }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -544,6 +716,23 @@ a.btn { text-decoration: none; }
 </div>
 
 <div class="frame">
+  <!-- App 形态（Tauri 桌面）的自绘标题栏：只有 body.wb-on 才显示。
+       拖动与双击最大化由 Tauri 的 data-tauri-drag-region 负责：
+       标题栏本体（空白处）+ 品牌区（deep，子元素也算）都是拖动区，
+       右侧按钮是 button，drag.js 会主动跳过，不影响点击。 -->
+  <header class="titlebar" id="titlebar" data-tauri-drag-region>
+    <div class="tb-brand" data-tauri-drag-region="deep">
+      <span class="tb-mark" id="tbMark"></span>
+      <span class="brand-text">实验助手</span>
+      <span class="brand-tag">Lab Studio</span>
+    </div>
+    <div class="tb-actions">
+      <button class="win-btn" data-act="win-min" type="button" title="最小化" aria-label="最小化" id="winMin"></button>
+      <button class="win-btn" data-act="win-max" type="button" title="最大化" aria-label="最大化" id="winMax"></button>
+      <button class="win-btn danger" data-act="win-close" type="button" title="关闭" aria-label="关闭" id="winClose"></button>
+    </div>
+  </header>
+
   <aside class="sidebar">
     <div class="side-head">
       <div class="brand">
@@ -565,6 +754,12 @@ a.btn { text-decoration: none; }
   </aside>
 
   <main class="main" id="main"></main>
+
+  <!-- 无边框窗口没有系统缩放边，自己放 8 个把手（只在 App 形态可见） -->
+  <i class="rz rz-n" data-resize="n"></i><i class="rz rz-s" data-resize="s"></i>
+  <i class="rz rz-w" data-resize="w"></i><i class="rz rz-e" data-resize="e"></i>
+  <i class="rz rz-nw" data-resize="nw"></i><i class="rz rz-ne" data-resize="ne"></i>
+  <i class="rz rz-sw" data-resize="sw"></i><i class="rz rz-se" data-resize="se"></i>
 </div>
 
 <nav class="tabbar" id="tabbar" aria-label="底部导航"></nav>
@@ -609,6 +804,13 @@ const ICON = {
   text: `<svg ${SVG}><path d="M5 6h14M5 12h14M5 18h9"/></svg>`,
   share: `<svg ${SVG}><circle cx="6" cy="12" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M7.9 10.9 16.1 7.1M7.9 13.1l8.2 3.8"/></svg>`,
   refresh: `<svg ${SVG}><path d="M20 11a8 8 0 1 0-2.3 6"/><path d="M20 5v6h-6"/></svg>`,
+  server: `<svg ${SVG}><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>`,
+  stop: `<svg ${SVG}><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`,
+  down: `<svg ${SVG}><path d="M6 9l6 6 6-6"/></svg>`,
+  folder: `<svg ${SVG}><path d="M3 7.5A2 2 0 0 1 5 5.5h3.6a2 2 0 0 1 1.5.7l.9 1.1H19a2 2 0 0 1 2 2v7.2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
+  min: `<svg ${SVG}><path d="M6 12h12"/></svg>`,
+  max: `<svg ${SVG}><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>`,
+  restore: `<svg ${SVG}><rect x="8" y="8" width="10" height="10" rx="2"/><path d="M6 15V8a2 2 0 0 1 2-2h7"/></svg>`,
 };
 
 const NAV = [
@@ -659,13 +861,14 @@ function debounce(fn, ms) {
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 let toastTimer;
-function toast(msg) {
+/** ms 可选：互传自动导入的报错信息较长，需要多留一会儿（默认仍是 1.9s） */
+function toast(msg, ms) {
   const el = $("toast");
   if (!el) return;
   el.textContent = msg;
   el.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 1900);
+  toastTimer = setTimeout(() => el.classList.remove("show"), Math.max(900, Number(ms) || 1900));
 }
 function fmtDate(ts) {
   if (!ts) return "—";
@@ -769,6 +972,30 @@ function normalizeStep(s) {
     },
   };
 }
+/** 计时器挂在**整个实验**上（exp.timer），不是某一步：
+ *  mode      stopwatch 正计时 / countdown 倒计时
+ *  target    倒计时目标秒数（正计时为 0）
+ *  startAt   本轮开始时间戳（暂停后归 0）
+ *  accumulated 已累计毫秒（暂停保留）
+ *  rang      本轮是否已响过（到点只响一次）
+ *  logs      每次「记一次」留下的记录 [{at, ms}]，最多 20 条
+ *  旧数据没有 timer 字段 → 补一份默认值，向后兼容。 */
+function normalizeTimer(t) {
+  const o = (t && typeof t === "object") ? t : {};
+  const logs = Array.isArray(o.logs) ? o.logs : [];
+  return {
+    mode: o.mode === "countdown" ? "countdown" : "stopwatch",
+    target: Math.max(0, Math.round(Number(o.target) || 0)),
+    running: !!o.running,
+    startAt: Math.max(0, Number(o.startAt) || 0),
+    accumulated: Math.max(0, Number(o.accumulated) || 0),
+    rang: !!o.rang,
+    logs: logs
+      .filter((x) => x && typeof x === "object" && Number(x.ms) > 0)
+      .slice(0, 20)
+      .map((x) => ({ at: Number(x.at) || 0, ms: Math.round(Number(x.ms)) })),
+  };
+}
 function normalizeExp(e) {
   return {
     v: EXP_VERSION,
@@ -781,6 +1008,7 @@ function normalizeExp(e) {
     updatedAt: e.updatedAt || Date.now(),
     rev: e.rev || 1,
     steps: (e.steps || []).map(normalizeStep),
+    timer: normalizeTimer(e.timer),
     log: { total: (e.log && e.log.total) || "", totalImages: (e.log && e.log.totalImages) || [] },
   };
 }
@@ -893,6 +1121,329 @@ function compressImage(file, max) {
 }
 
 /* ============================================================
+   3.5 计时器（整个实验一个全局计时器）
+   —— 状态机参考《实验助手-计时模块》（正计时 / 倒计时、累计、记一次、蜂鸣），
+      但挂载点从「每个 step」改成「整个实验的 exp.timer」：
+        · 编辑模式：预置模式 + 目标时长（6 个快捷预设 + 自定义分 / 秒）
+        · 记录模式：手动开始 / 暂停 / 继续 / 归零 / 记一次
+        · 倒计时到点：蜂鸣 + 震动 + 提示，并往**当前步骤**的「现象 / 数据」写一行 [计时]
+   ============================================================ */
+
+const TIMER_PRESETS = [30, 60, 120, 300, 600, 1800];   // 30s ~ 30min
+const TIMER_TICK_MS = 200;
+
+/** 已经规范化过的 timer（判断用，避免每次 attach 都重建对象：
+ *  elapsed/tick 里会频繁调 attach，重建会让「刚写进去的 logs / rang」丢在旧对象上） */
+function timerIsNormalized(t) {
+  return !!t && typeof t === "object"
+    && (t.mode === "countdown" || t.mode === "stopwatch")
+    && typeof t.target === "number" && Number.isFinite(t.target) && t.target >= 0
+    && typeof t.accumulated === "number" && Number.isFinite(t.accumulated) && t.accumulated >= 0
+    && typeof t.startAt === "number" && Number.isFinite(t.startAt)
+    && typeof t.running === "boolean" && typeof t.rang === "boolean"
+    && Array.isArray(t.logs);
+}
+
+/** 秒数 → 预设 chip 标签：30s / 5min */
+function timerLabel(sec) {
+  const n = Number(sec) || 0;
+  if (n < 60) return n + "s";
+  return (n % 60 === 0 ? n / 60 : (n / 60).toFixed(1)) + "min";
+}
+
+const Timer = {
+  _iv: null,
+  _ctx: null,
+  /** 正在跑的那个实验对象：就算切到别的页面，到点也照样响 */
+  _exp: null,
+  /** 到点写记录落在第几步（跟随记录模式当前步） */
+  _step: 0,
+
+  attach(e) {
+    if (!e || typeof e !== "object") return null;
+    if (!timerIsNormalized(e.timer)) e.timer = normalizeTimer(e.timer);
+    return e.timer;
+  },
+  /** 记录模式翻页时同步「当前步」；只有正在跑的那个实验才更新 */
+  trackStep(e, idx) {
+    const n = Number(idx);
+    if (e && e === this._exp && Number.isFinite(n)) this._step = Math.max(0, Math.round(n));
+  },
+  /** 实验被删除 / 清空时断开：别让还在跑的计时器把数据又写回本地存储 */
+  detach(e) {
+    if (!this._exp) return;
+    const id = typeof e === "string" ? e : (e && e.id);
+    if (!id || this._exp.id === id) { this._exp = null; this.stopTick(); }
+  },
+  elapsed(e) {
+    const t = this.attach(e);
+    if (!t) return 0;
+    return t.accumulated + (t.running ? Math.max(0, Date.now() - t.startAt) : 0);
+  },
+  remaining(e) {
+    const t = this.attach(e);
+    if (!t || t.mode !== "countdown" || t.target <= 0) return 0;
+    return t.target * 1000 - this.elapsed(e);
+  },
+  isOver(e) {
+    const t = this.attach(e);
+    return !!t && t.mode === "countdown" && t.target > 0 && this.elapsed(e) >= t.target * 1000;
+  },
+  /** 这个实验的计时器是否被用过（用过才进报告） */
+  hasData(e) {
+    const t = e && e.timer;
+    return !!(t && (t.running || t.accumulated > 0 || (t.logs || []).length));
+  },
+  /** 毫秒 → "MM:SS" / "H:MM:SS" */
+  fmt(ms) {
+    const s = Math.max(0, Math.floor(Math.abs(Number(ms) || 0) / 1000));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+    const p = (n) => String(n).padStart(2, "0");
+    return (h > 0 ? h + ":" + p(m) : p(m)) + ":" + p(ss);
+  },
+  /** 预设按钮上的短标签：30s / 5min */
+  label(sec) { return timerLabel(sec); },
+  /** 目标时长的中文简述（编辑 / 记录页都用它） */
+  targetText(e) {
+    const t = this.attach(e);
+    if (!t) return "—";
+    if (t.mode !== "countdown" || t.target <= 0) return "正计时（不限时）";
+    return "倒计时 " + this.fmt(t.target * 1000);
+  },
+
+  setMode(e, mode) {
+    const t = this.attach(e);
+    if (!t) return null;
+    t.mode = mode === "countdown" ? "countdown" : "stopwatch";
+    this._stopRun(e, t);
+    if (t.mode === "countdown" && !t.target) t.target = 300;   // 默认 5 分钟
+    return t;
+  },
+  setTarget(e, sec) {
+    const t = this.attach(e);
+    if (!t) return null;
+    t.target = Math.max(0, Math.round(Number(sec) || 0));
+    if (t.target > 0 && t.mode !== "countdown") t.mode = "countdown";
+    this._stopRun(e, t);
+    return t;
+  },
+  start(e) {
+    const t = this.attach(e);
+    if (!t || t.running) return false;
+    if (t.mode === "countdown" && t.target > 0 && t.accumulated >= t.target * 1000) t.accumulated = 0;
+    t.running = true;
+    t.startAt = Date.now();
+    t.rang = false;
+    this._exp = e;
+    this.startTick();
+    return true;
+  },
+  pause(e) {
+    const t = this.attach(e);
+    if (!t || !t.running) return false;
+    t.accumulated += Math.max(0, Date.now() - t.startAt);
+    t.running = false;
+    t.startAt = 0;
+    if (this._exp === e) this.stopTick();
+    return true;
+  },
+  reset(e) {
+    const t = this.attach(e);
+    if (!t) return false;
+    this._stopRun(e, t);
+    return true;
+  },
+  _stopRun(e, t) {
+    t.running = false;
+    t.startAt = 0;
+    t.accumulated = 0;
+    t.rang = false;
+    if (this._exp === e) this.stopTick();
+  },
+
+  /** 记一次用时 → 写进当前步的「现象 / 数据」 */
+  log(e, idx) {
+    if (!this.attach(e)) return { ok: false, reason: "没有可计时的实验" };
+    const ms = this.elapsed(e);
+    if (ms < 1000) return { ok: false, reason: "还没开始计时" };
+    const t = this.attach(e);
+    t.logs.unshift({ at: Date.now(), ms: Math.round(ms) });
+    t.logs = t.logs.slice(0, 20);
+    const line = "[计时] " + (t.mode === "countdown" ? "倒计时" : "用时") + " " + this.fmt(ms);
+    timerWriteNote(e, Number.isFinite(Number(idx)) ? Number(idx) : this._step, line);
+    return { ok: true, ms: ms, line: line };
+  },
+
+  /* ---- 定时器生命周期 ---- */
+  startTick() {
+    if (this._iv || typeof setInterval !== "function") return;
+    this._iv = setInterval(() => { this.tick(); }, TIMER_TICK_MS);
+  },
+  stopTick() { if (this._iv) { clearInterval(this._iv); this._iv = null; } },
+  /** 每次 render() 之后调用：正在跑就续上 tick，并把时钟重画一遍 */
+  syncView(exp) {
+    if (exp) {
+      this.attach(exp);
+      if (exp.timer.running) this._exp = exp;
+      if (this._exp === exp) this.trackStep(exp, ui.playIndex);
+    }
+    if (this._exp && this._exp.timer && this._exp.timer.running) this.startTick();
+    this.paint();
+  },
+  /** 只改时钟 DOM，不整页重绘（整页重绘会让 textarea 失焦） */
+  paint() {
+    const clock = document.querySelector("[data-timer-clock]");
+    if (!clock) return;
+    const e = state.exp;
+    if (!e || !e.timer) return;
+    const t = this.attach(e);
+    const isCount = t.mode === "countdown" && t.target > 0;
+    clock.textContent = isCount ? this.fmt(Math.max(0, this.remaining(e))) : this.fmt(this.elapsed(e));
+    let cls = "timer-clock";
+    if (t.running) cls += this.isOver(e) ? " done" : (isCount && this.remaining(e) < 10000 ? " warn" : " run");
+    clock.className = cls;
+  },
+  tick() {
+    this.paint();
+    const e = this._exp;
+    if (!e || !e.timer || !e.timer.running) { this.stopTick(); return; }
+    const over = e.timer.mode === "countdown" && e.timer.target > 0 && this.elapsed(e) >= e.timer.target * 1000;
+    const t = this.attach(e);   // elapsed 之后重新取：保证改的是当前那份 timer
+    if (over && !t.rang) {
+      t.rang = true;
+      const ms = this.elapsed(e);
+      timerWriteNote(e, this._step, "[计时] 倒计时结束 " + this.fmt(ms));
+      Store.saveExp(e);
+      this.paint();
+      this.beep(3);
+      toast("⏰ 倒计时结束：" + this.fmt(ms) + "（已写入第 " + (this._step + 1) + " 步记录）", 4200);
+    }
+    if (!over) t.rang = false;
+  },
+
+  /** 蜂鸣 + 震动（移植自参考计时模块；失败静默） */
+  beep(times) {
+    try {
+      const Ctx = (typeof window !== "undefined") && (window.AudioContext || window.webkitAudioContext);
+      if (Ctx) {
+        if (!this._ctx) this._ctx = new Ctx();
+        const ctx = this._ctx;
+        if (ctx.state === "suspended" && ctx.resume) ctx.resume();
+        const n = Math.max(1, Number(times) || 3);
+        for (let i = 0; i < n; i++) {
+          const t0 = ctx.currentTime + i * 0.34;
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.type = "sine";
+          o.frequency.setValueAtTime(880, t0);
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(0.22, t0 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+          o.start(t0); o.stop(t0 + 0.28);
+        }
+      }
+      if (typeof navigator !== "undefined" && navigator && typeof navigator.vibrate === "function") {
+        navigator.vibrate([130, 80, 130, 80, 130]);
+      }
+    } catch (err) { /* 静音失败无所谓 */ }
+  },
+
+  /** 给报告用的计时汇总 */
+  summary(e) {
+    if (!e || !e.timer) return null;
+    const ms = this.elapsed(e);
+    return {
+      mode: e.timer.mode,
+      modeText: e.timer.mode === "countdown" ? "倒计时" : "正计时",
+      targetText: this.targetText(e),
+      elapsedMs: ms,
+      elapsedText: this.fmt(ms),
+      logs: (e.timer.logs || []).map((l) => ({ at: l.at, ms: l.ms, text: this.fmt(l.ms) })),
+    };
+  },
+};
+
+/** 把一行 [计时] 记录追加到第 idx 步的「现象 / 数据」，并同步正在显示的 textarea */
+function timerWriteNote(e, idx, line) {
+  if (!e || !Array.isArray(e.steps) || !e.steps.length || !line) return false;
+  const i = clamp(Math.round(Number(idx) || 0), 0, e.steps.length - 1);
+  const s = e.steps[i];
+  if (!s) return false;
+  if (!s.record) s.record = { note: "", images: [] };
+  s.record.note = (s.record.note ? String(s.record.note).replace(/\s+$/, "") + "\n" : "") + line;
+  const box = document.querySelector('[data-field="record"][data-scope="record"]');
+  if (box && state.exp === e && ui.playIndex === i && typeof box.value === "string") box.value = s.record.note;
+  return true;
+}
+
+/** 编辑模式：计时器预设卡片（只预置，不在这里开始） */
+function timerEditHTML(e) {
+  const t = Timer.attach(e);
+  if (!t) return "";
+  const isCount = t.mode === "countdown";
+  const presets = TIMER_PRESETS.map((sec) =>
+    `<button class="chip${isCount && t.target === sec ? " on" : ""}" data-act="timer-target" data-v="${sec}" type="button">${Timer.label(sec)}</button>`
+  ).join("");
+  const mins = Math.floor(t.target / 60), secs = t.target % 60;
+  const logs = (t.logs || []).length
+    ? `<div class="timer-logs">已记录：${t.logs.slice(0, 5).map((l) => `<b>${Timer.fmt(l.ms)}</b>`).join("　")}</div>`
+    : "";
+  return `<div class="card">
+      <h3 class="card-title">${ICON.target}<span class="grow">计时器预设</span>
+        <span class="timer-tag">当前：${esc(Timer.targetText(e))}</span>
+      </h3>
+      <p class="msg" style="margin:0 0 10px">计时器跟随<b>整个实验</b>（不绑定单步）：这里预置模式与时长，到「记录模式」再手动开始 / 暂停。</p>
+      <div class="timer-modes">
+        <button class="chip${!isCount ? " on" : ""}" data-act="timer-mode" data-v="stopwatch" type="button">正计时</button>
+        <button class="chip${isCount ? " on" : ""}" data-act="timer-mode" data-v="countdown" type="button">倒计时</button>
+      </div>
+      <div class="timer-presets">
+        ${presets}
+        <button class="chip${isCount && TIMER_PRESETS.indexOf(t.target) < 0 && t.target > 0 ? " on" : ""}" data-act="timer-clear-target" type="button">关闭倒计时</button>
+      </div>
+      <div class="timer-custom">
+        <span class="field-label">自定义时长</span>
+        <input type="number" class="timer-num" data-timer="min" min="0" max="600" step="1" value="${mins}" aria-label="分" />
+        <span class="timer-unit">分</span>
+        <input type="number" class="timer-num" data-timer="sec" min="0" max="59" step="1" value="${secs}" aria-label="秒" />
+        <span class="timer-unit">秒</span>
+        <button class="btn btn-sm" data-act="timer-custom" type="button">应用</button>
+      </div>
+      <div class="timer-row">
+        <span class="timer-clock" data-timer-clock>${Timer.fmt(isCount ? t.target * 1000 : Timer.elapsed(e))}</span>
+        <span class="timer-hint">${isCount ? "倒计时到点会响铃，并自动写入当前步记录" : "正计时可随时「记一次」"}</span>
+      </div>
+      ${logs}
+    </div>`;
+}
+
+/** 记录模式：手动启停的计时条 */
+function timerRecordHTML(e) {
+  const t = Timer.attach(e);
+  if (!t) return "";
+  const ms = Timer.elapsed(e);
+  const isCount = t.mode === "countdown" && t.target > 0;
+  const cls = t.running ? (Timer.isOver(e) ? " done" : (isCount && Timer.remaining(e) < 10000 ? " warn" : " run")) : "";
+  const logs = (t.logs || []).length
+    ? `<div class="timer-logs">已记录：${t.logs.slice(0, 5).map((l) => `<b>${Timer.fmt(l.ms)}</b>`).join("　")}</div>`
+    : "";
+  return `<div class="card timer-card">
+      <h3 class="card-title">${ICON.target}<span class="grow">计时器 · ${esc(Timer.targetText(e))}</span>
+        <button class="btn btn-sm" data-act="go-edit-timer" type="button">去编辑预设</button>
+      </h3>
+      <div class="timer-row">
+        <span class="timer-clock${cls}" data-timer-clock>${Timer.fmt(isCount ? Math.max(0, Timer.remaining(e)) : ms)}</span>
+        <button class="btn ${t.running ? "" : "btn-primary"}" data-act="timer-toggle" type="button">${t.running ? "暂停" : (ms > 0 ? "继续" : "开始")}</button>
+        <button class="btn" data-act="timer-reset" type="button">归零</button>
+        <button class="btn" data-act="timer-log" type="button">记一次</button>
+        <span class="timer-hint">${isCount ? "剩余 " + Timer.fmt(Math.max(0, Timer.remaining(e))) : "已用 " + Timer.fmt(ms)}</span>
+      </div>
+      ${logs}
+    </div>`;
+}
+
+/* ============================================================
    4. 主题
    ============================================================ */
 
@@ -905,6 +1456,7 @@ function applyTheme(choice) {
   document.documentElement.setAttribute("data-theme", t);
   localStorage.setItem(KEYS.theme, THEME_CHOICE);
   paintThemeIcons();
+  winSyncTint();   // 玻璃色调跟着主题走（仅 App 桌面形态）
 }
 function toggleTheme() {
   const next = resolvedTheme() === "dark" ? "light" : "dark";
@@ -1365,7 +1917,7 @@ function viewHome() {
   const body = list.length
     ? `<div class="exp-grid">${list.map(expCardHTML).join("")}</div>`
     : emptyHTML(ICON.flask, "还没有实验，点「新建实验」开始吧～");
-  return `<section class="view">${pageHead("我的实验", "共 " + list.length + " 个实验 · 数据保存在本机", actions)}${body}</section>`;
+  return `<section class="view">${pageHead("我的实验", "共 " + list.length + " 个实验 · 数据保存在本机", actions)}${lanAutoBanner()}${body}</section>`;
 }
 
 function viewEdit() {
@@ -1443,7 +1995,7 @@ function viewEdit() {
         <div class="rail-head"><span>反应步骤</span><span>${ui.step + 1}/${e.steps.length}</span></div>
         <div class="step-list">${steps}</div>
       </aside>
-      <div class="editor-main">${meta}${editor}${images}${videos}${canvas}</div>
+      <div class="editor-main">${meta}${editor}${timerEditHTML(e)}${images}${videos}${canvas}</div>
     </div>
   </section>`;
 }
@@ -1494,6 +2046,7 @@ function viewRecord() {
       <span class="player-step">步骤 ${ui.playIndex + 1} / ${e.steps.length}</span>
       <div class="player-dots">${dots}</div>
     </div>
+    ${timerRecordHTML(e)}
     <div class="player-stage">${read}${canvas}</div>
     ${records}
   </section>`;
@@ -1645,7 +2198,9 @@ function render() {
   refreshCanvas();
   hydrateMedia();
   hydrateChemInputs();
-  if (state.view === "lan") { lanBind(); lanMaybeAutoConnect(); }
+  /* 计时器：正在跑的续上 tick（切到别的页面也继续走），并把时钟重画一遍 */
+  Timer.syncView(state.exp);
+  if (state.view === "lan") { lanBind(); lanSyncServerStatus(); lanMaybeAutoConnect(); lanAutoMaybeStart(); }
   else lanStopPoll();
 }
 /* ============================================================
@@ -1707,7 +2262,9 @@ function collectReportData(e) {
       instruments: s.canvas.items.map((it) => instName(it)),
       observed: s.record.note,
       images: s.record.images.length,
+      timer: Timer.hasData(e) ? Timer.fmt(Timer.elapsed(e)) : "",
     })),
+    timer: Timer.hasData(e) ? Timer.summary(e) : null,
     totalLog: e.log.total,
   };
 }
@@ -1741,6 +2298,20 @@ function buildLocalMarkdown(e) {
 
   const tips = e.steps.map((s, i) => ({ s, i })).filter((x) => has(x.s.tips));
   if (tips.length) { L.push("## 注意事项"); tips.forEach((x) => L.push(`- **${stepTitle(x.s, x.i)}**：${cell(x.s.tips)}`)); L.push(""); }
+
+  /* 计时器：用过才写，避免给没计时的实验塞空章节 */
+  if (Timer.hasData(e)) {
+    const sum = Timer.summary(e);
+    L.push("## 计时");
+    L.push("- 计时模式：" + sum.modeText);
+    if (sum.mode === "countdown" && sum.targetText.indexOf("倒计时") === 0) L.push("- 目标时长：" + sum.targetText.replace(/^倒计时\s*/, ""));
+    L.push("- 本次总用时：" + sum.elapsedText);
+    if (sum.logs.length) {
+      L.push("", "| 记录时间 | 用时 |", "| --- | --- |");
+      sum.logs.forEach((l) => L.push("| " + cell(fmtDate(l.at)) + " | " + l.text + " |"));
+    }
+    L.push("");
+  }
 
   if (has(e.log.total)) L.push("## 总记录", e.log.total, "");
   return L.join("\n");
@@ -2439,6 +3010,14 @@ const LAN = {
   fails: 0,
   timer: null,
   lastPaint: 0,
+  /* Tauri 内置服务端（点「成为服务端」后启动） */
+  serverMode: false,
+  serverInfo: null,
+  serverBusy: false,
+  /* 最近一次下载落盘的结果 { path, dir, name, size, desktop }（App 形态才有） */
+  saved: null,
+  /* 自动导入：本机当服务端时，别人传上来的实验 .json 直接进「我的实验」 */
+  auto: { timer: null, busy: false, store: null, last: 0 },
 };
 
 function lanCfg() {
@@ -2489,6 +3068,11 @@ function lanPaintStatus() {
   const host = document.querySelector("[data-lan-status]");
   if (host) host.innerHTML = lanStatusHTML();
 }
+/** 服务端启停后按钮要跟着换（成为服务端 ⇄ 停止服务端），不能整页重绘 */
+function lanPaintActions() {
+  const host = document.querySelector("[data-lan-actions]");
+  if (host) host.innerHTML = lanActionsHTML();
+}
 function lanPaintFiles() {
   const host = document.querySelector("[data-lan-files]");
   if (host) host.innerHTML = lanFilesHTML();
@@ -2513,18 +3097,30 @@ function lanClipInfo() {
 }
 
 /* ---------- 视图片段 ---------- */
+/* ---------- 动作按钮（服务端启停后单独重绘，不整页重绘） ---------- */
+function lanActionsHTML() {
+  return `<button class="btn" data-act="lan-refresh">${ICON.refresh}<span>刷新</span></button>
+    <button class="btn" data-act="lan-connect">${ICON.link}<span>${LAN.online ? "重新连接" : "连接服务端"}</span></button>
+    ${LAN.serverMode
+      ? `<button class="btn btn-danger" data-act="lan-stop-server" ${LAN.serverBusy ? "disabled" : ""}>${ICON.stop}<span>停止服务端</span></button>`
+      : `<button class="btn btn-primary" data-act="lan-become-server" ${LAN.serverBusy ? "disabled" : ""}>${ICON.server}<span>${LAN.serverBusy ? "启动中…" : "成为服务端"}</span></button>`}`;
+}
 function lanStatusHTML() {
-  const badge = LAN.checking ? "连接中…" : LAN.online ? "已连接" : "未连接";
+  const badge = LAN.serverBusy ? "启动中…" : LAN.checking ? "连接中…" : LAN.online ? "已连接" : "未连接";
   const share = LAN.online && LAN.info && (LAN.info.urls || []).length ? LAN.info.urls[0] : LAN.base;
   const meta = LAN.online && LAN.info
     ? `服务端 ${esc(LAN.info.host || "-")} · ${LAN.info.files || 0} 个文件 · 分片 ${lanSize(LAN.info.chunkSize)}`
     : "同一 Wifi 下的手机 / 电脑都能访问";
+  const mine = LAN.serverMode
+    ? `<div class="lan-self">${ICON.server}<span class="grow">本机正在当服务端</span>${LAN.base ? `<span class="lan-url">${esc(LAN.base)}</span>` : ""}</div>`
+    : "";
   return `<div class="lan-status">
       <span class="ai-pill${LAN.online ? " on" : ""}"><i class="lan-dot"></i>${esc(badge)}</span>
       ${LAN.online ? `<span class="lan-url">${esc(share)}</span>
         <button class="btn btn-sm" data-act="lan-copy" data-v="${esc(share)}" type="button">${ICON.copy}<span>复制地址</span></button>` : ""}
       <span class="lan-size">${meta}</span>
     </div>
+    ${mine}
     ${LAN.msg ? `<p class="msg ${LAN.msgKind === "err" ? "err" : LAN.msgKind === "ok" ? "ok" : ""}">${esc(LAN.msg)}</p>` : ""}`;
 }
 function lanProgHTML() {
@@ -2546,6 +3142,23 @@ function lanProgHTML() {
     </div>`;
   }).join("");
 }
+function lanSavedHTML() {
+  const s = LAN.saved;
+  if (!s) return "";
+  return `<div class="lan-saved">
+      <span class="lan-saved-ico">${ICON.check}</span>
+      <span class="lan-saved-text">
+        <b class="lan-saved-name" title="${esc(s.name)}">${esc(s.name)}</b>
+        <span class="lan-size">已保存到 ${esc(s.dir)}</span>
+      </span>
+      ${s.desktop ? `<button class="btn btn-sm" data-act="lan-open-dir" data-path="${esc(s.path)}" type="button">${ICON.folder}<span>打开文件夹</span></button>` : ""}
+      <button class="btn btn-sm btn-ghost" data-act="lan-saved-clear" type="button" title="收起">${ICON.close}</button>
+    </div>`;
+}
+function lanPaintSaved() {
+  const host = document.querySelector("[data-lan-saved]");
+  if (host) host.innerHTML = lanSavedHTML();
+}
 function lanFilesHTML() {
   if (!LAN.online) return `<p class="msg" style="margin:0">连接服务端后，这里会列出同一 Wifi 下所有设备共享的文件。</p>`;
   if (!LAN.files.length) return `<p class="msg" style="margin:0">还没有共享文件，先上传一个试试～</p>`;
@@ -2553,7 +3166,7 @@ function lanFilesHTML() {
   const rows = LAN.files.map((f) => `<div class="lan-row">
       <span class="lan-name" title="${esc(f.name)}">${esc(f.name)}</span>
       <span class="lan-size">${lanSize(f.size)} · ${esc(lanTime(f.time))}</span>
-      <button class="btn btn-sm" data-act="lan-dl" data-id="${esc(f.id)}" type="button">${ICON.download}<span>下载</span></button>
+      <button class="btn btn-sm" data-act="lan-dl" data-id="${esc(f.id)}" data-name="${esc(f.name)}" type="button">${ICON.download}<span>下载</span></button>
       <button class="btn btn-sm btn-danger" data-act="lan-del" data-id="${esc(f.id)}" data-name="${esc(f.name)}" type="button" title="删除">${ICON.trash}</button>
     </div>`).join("");
   return `<div class="lan-list">${rows}</div>
@@ -2561,8 +3174,7 @@ function lanFilesHTML() {
 }
 function viewLan() {
   if (!LAN.base) LAN.base = lanDefaultBase();
-  const actions = `<button class="btn" data-act="lan-refresh">${ICON.refresh}<span>刷新</span></button>
-    <button class="btn btn-primary" data-act="lan-connect">${ICON.link}<span>${LAN.online ? "重新连接" : "连接服务端"}</span></button>`;
+  const actions = `<span data-lan-actions style="display:contents">${lanActionsHTML()}</span>`;
   const conn = `<div class="card">
       <h3 class="card-title">${ICON.link}<span class="grow">连接状态</span>${LAN.online ? `<span class="lan-size">轮询刷新中</span>` : ""}</h3>
       <div data-lan-status>${lanStatusHTML()}</div>
@@ -2570,7 +3182,7 @@ function viewLan() {
         <label class="field-label">服务端地址（本机双击打开 HTML 时填这里）</label>
         <input type="text" data-lan="base" value="${esc(LAN.base)}" placeholder="http://192.168.1.23:8000" spellcheck="false" />
       </div>
-      <p class="msg">在运行 <code class="lan-code">lan-server.py</code> 的那台设备上，这份页面的地址就是「服务端地址」；同一 Wifi 下的其他设备直接用它打开本页，会自动连接。</p>
+      <p class="msg">App 里点上面的<b>「成为服务端」</b>，本机立刻变成服务端：复制地址给同一 Wifi 下的手机 / 电脑，浏览器打开即可互传。没装 App 时才用 <code class="lan-code">lan-server.py</code>（<code class="lan-code">start-lan.bat</code>）跑同样的服务。</p>
     </div>`;
   const upload = `<div class="card">
       <h3 class="card-title">${ICON.upload}<span class="grow">上传到局域网</span>
@@ -2588,18 +3200,20 @@ function viewLan() {
         <button class="btn btn-sm" data-act="lan-refresh">${ICON.refresh}<span>刷新</span></button>
       </h3>
       <div data-lan-files>${lanFilesHTML()}</div>
+      <div data-lan-saved>${lanSavedHTML()}</div>
     </div>`;
-  const guide = `<div class="card">
-      <h3 class="card-title">${ICON.share}<span class="grow">怎么用</span></h3>
+  const guide = `<details class="card card-fold">
+      <summary class="card-title">${ICON.share}<span class="grow">怎么用</span><span class="lan-size">点开查看</span>${ICON.down}</summary>
       <ol class="ai-guide">
-        <li>在<b>任意一台</b>设备上运行服务端：双击 <code class="lan-code">start-lan.bat</code>（或执行 <code class="lan-code">python lan-server.py</code>）。</li>
-        <li>终端会打印「同一Wifi下其他设备访问：<code class="lan-code">http://192.168.x.x:8000</code>」。</li>
-        <li>手机 / 平板 / 另一台电脑连同一个 Wifi，浏览器打开这个地址，进入的就是这份实验助手。</li>
-        <li>收到的文件保存在运行服务端那台设备的 <code class="lan-code">lan-transfer/uploads/</code> 里。</li>
+        <li><b>有 App（推荐）</b>：在当前设备上点<b>「成为服务端」</b>，本机内置的 Rust 服务端立刻启动，无需 Python。</li>
+        <li>页面会显示本机局域网地址（<code class="lan-code">http://192.168.x.x:8000</code>），点「复制地址」发给其他设备。</li>
+        <li>手机 / 平板 / 另一台电脑连同一个 Wifi，浏览器打开这个地址，进入的就是这份实验助手；本机会自动连上。</li>
+        <li>收到的文件保存在运行服务端那台设备的应用数据目录 <code class="lan-code">lan-transfer/uploads/</code> 里。</li>
+        <li><b>没有 App 时（备选）</b>：在任意设备上运行 <code class="lan-code">start-lan.bat</code> 或 <code class="lan-code">python lan-server.py</code>，效果一样。</li>
         <li>Windows 首次运行会弹防火墙提示，请选「允许访问专用网络」；用局域网 IP，不要用 127.0.0.1。</li>
       </ol>
       <p class="msg">数据只在你自己的局域网内流动，不经过任何云服务；本工具无鉴权，请勿把端口暴露到公网。</p>
-    </div>`;
+    </details>`;
   const clip = `<div class="card">
       <h3 class="card-title">${ICON.text}<span class="grow">文本 / 链接互传</span>
         <button class="btn btn-sm btn-primary" data-act="lan-clip-send">${ICON.upload}<span>发送</span></button>
@@ -2614,15 +3228,206 @@ function viewLan() {
     </div>`;
   return `<section class="view">${pageHead("局域网互传", "同一 Wifi 下，手机 / 电脑用浏览器互传文件与文本 · 数据不经云端", actions)}
     <div class="lan-grid">
-      <div class="lan-col">${conn}${upload}${files}</div>
+      <div class="lan-col">${conn}${upload}${files}<span data-lan-auto style="display:contents">${lanAutoHTML()}</span></div>
       <div class="lan-col">${guide}${clip}</div>
     </div>
   </section>`;
 }
+/* ---------- Tauri 内置服务端（成为服务端 / 停止服务端） ---------- */
+function lanIsTauri() {
+  return !!(window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke);
+}
+function lanInvoke(cmd, args) {
+  if (!lanIsTauri()) return Promise.reject(new Error("当前不是 App 环境"));
+  return window.__TAURI__.core.invoke(cmd, args || {});
+}
+
+/* ============================================================
+   App 形态（Tauri 桌面）：无边框玻璃卡 + 自绘标题栏 + 自绘缩放把手
+   —— 形态与美术参考项目「鲸鱼便签」一致；手机端不走这一套（仍是原生全屏页）
+   ============================================================ */
+/** 手机 / 平板形态：自绘标题栏与缩放把手都不该出现 */
+function isMobileApp() {
+  const ua = String((typeof navigator !== "undefined" && navigator.userAgent) || "");
+  return /Android|iPhone|iPad|iPod|Mobile|HarmonyOS/i.test(ua);
+}
+function winApi() {
+  try { return (window.__TAURI__ && window.__TAURI__.window) || null; } catch (e) { return null; }
+}
+function winCurrent() {
+  const api = winApi();
+  if (!api || typeof api.getCurrentWindow !== "function") return null;
+  try { return api.getCurrentWindow(); } catch (e) { return null; }
+}
+let winMaximized = false;
+/** 最大化 / 还原后换按钮图标，并把窗口圆角去掉 */
+async function winSyncMaximized() {
+  const w = winCurrent();
+  if (!w || typeof w.isMaximized !== "function") return;
+  try {
+    winMaximized = !!(await w.isMaximized());
+  } catch (e) { return; }
+  const btn = document.getElementById("winMax");
+  if (btn) {
+    btn.innerHTML = winMaximized ? ICON.restore : ICON.max;
+    btn.title = winMaximized ? "还原" : "最大化";
+    btn.setAttribute("aria-label", winMaximized ? "还原" : "最大化");
+  }
+  document.body.classList.toggle("wb-max", winMaximized);
+}
+/** 标题栏三个按钮 */
+async function winAction(action) {
+  const w = winCurrent();
+  if (!w) return;
+  try {
+    if (action === "min" && w.minimize) await w.minimize();
+    else if (action === "max" && w.toggleMaximize) { await w.toggleMaximize(); await winSyncMaximized(); }
+    else if (action === "close" && w.close) await w.close();
+  } catch (e) { toast("窗口操作失败：" + ((e && e.message) || e)); }
+}
+/** 无边框窗口没有系统缩放边：8 个把手各自调 startResizeDragging */
+function winBindResizeHandles() {
+  const map = { n: "North", s: "South", w: "West", e: "East", nw: "NorthWest", ne: "NorthEast", sw: "SouthWest", se: "SouthEast" };
+  Object.keys(map).forEach((key) => {
+    const el = document.querySelector('[data-resize="' + key + '"]');
+    if (!el) return;
+    el.addEventListener("mousedown", (ev) => {
+      if (ev.button !== 0) return;
+      ev.preventDefault();
+      const w = winCurrent();
+      if (w && typeof w.startResizeDragging === "function") {
+        w.startResizeDragging(map[key]).catch(() => {});
+      }
+    });
+  });
+}
+/** 主题切换时把窗口磨砂色调也跟着换（深色用暗色调；非 Windows 是空实现） */
+function winSyncTint() {
+  if (!lanIsTauri() || !document.body.classList.contains("wb-on")) return;
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  lanInvoke("lan_set_window_tint", { dark: dark }).catch(() => {});
+}
+/** 只有 App 桌面形态才切换成无边框玻璃形态（浏览器 / 手机端不受影响） */
+function winInitFrame() {
+  if (!lanIsTauri() || isMobileApp()) return;
+  document.body.classList.add("wb-on");
+  const mark = document.getElementById("tbMark");
+  if (mark) mark.innerHTML = ICON.logo;
+  const btns = { winMin: ICON.min, winMax: ICON.max, winClose: ICON.close };
+  Object.keys(btns).forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = btns[id];
+  });
+  winBindResizeHandles();
+  winSyncMaximized();
+  winSyncTint();
+  const w = winCurrent();
+  if (w && typeof w.onResized === "function") {
+    w.onResized(() => { winSyncMaximized(); }).catch(() => {});
+  }
+}
+/** 连接失败时的分场景提示：App 内可一键成为服务端，浏览器模式只能手填地址 / 跑 Python 版。 */
+function lanServerHint() {
+  return lanIsTauri()
+    ? "请点「成为服务端」把本机变成服务端，或确认地址与两台设备在同一个 Wifi"
+    : "请确认那台设备已运行服务端（App 内点「成为服务端」，或运行 lan-server.py），且两台设备在同一个 Wifi";
+}
+function lanServerBusy(on) {
+  LAN.serverBusy = !!on;
+  lanPaintStatus();
+  lanPaintActions();
+}
+async function lanBecomeServer() {
+  if (LAN.serverBusy) return;
+  if (!lanIsTauri()) {
+    LAN.msgKind = "err";
+    LAN.msg = "当前为浏览器模式，无法启动内置服务端；请使用桌面 / 手机 App，或运行 start-lan.bat（python lan-server.py）";
+    lanPaintStatus();
+    toast("浏览器模式无法启动内置服务端");
+    return;
+  }
+  lanServerBusy(true);
+  LAN.msgKind = ""; LAN.msg = "";
+  try {
+    const info = await lanInvoke("lan_server_start", { port: 8000 });
+    LAN.serverMode = true;
+    LAN.serverInfo = info;
+    // 基址就填服务端自己报的地址，别让 lanConnect 回落到 page origin
+    // （App 内 origin 是 http://tauri.localhost，不是 HTTP 服务端）
+    const base = (info && info.urls && info.urls[0]) || ("http://127.0.0.1:" + ((info && info.port) || 8000));
+    LAN.base = lanTrim(base);
+    LAN.autoTried = true;
+    // 本机 App 用回环地址自连（别的设备才走局域网 IP）
+    const self = "http://127.0.0.1:" + ((info && info.port) || 8000);
+    const ok = await lanConnect(self, true);
+    if (ok) lanAutoMaybeStart();
+    const input = document.querySelector('[data-lan="base"]');
+    if (input) input.value = LAN.base;
+    if (ok) {
+      LAN.msgKind = "ok";
+      LAN.msg = "内置服务端已启动：" + LAN.base + "　同一 Wifi 的设备用浏览器打开这个地址即可互传";
+    }
+  } catch (e) {
+    LAN.msgKind = "err";
+    LAN.msg = "启动内置服务端失败：" + ((e && e.message) || e);
+  } finally {
+    lanServerBusy(false);
+    lanPaintStatus();
+    lanPaintActions();
+  }
+}
+async function lanStopServer() {
+  if (LAN.serverBusy) return;
+  if (!lanIsTauri()) return;
+  lanServerBusy(true);
+  try {
+    await lanInvoke("lan_server_stop", {});
+    LAN.serverMode = false;
+    LAN.serverInfo = null;
+    LAN.online = false;
+    LAN.files = [];
+    LAN.info = null;
+    lanStopPoll();
+    lanAutoStop();
+    LAN.msgKind = "ok";
+    LAN.msg = "内置服务端已停止，已收到的文件保留在应用数据目录";
+  } catch (e) {
+    LAN.msgKind = "err";
+    LAN.msg = "停止服务端失败：" + ((e && e.message) || e);
+  } finally {
+    lanServerBusy(false);
+    lanPaintStatus(); lanPaintFiles();
+    lanPaintActions();
+  }
+}
+/** 进入互传页 / 启动时恢复「是否已在当服务端」的状态，并把自动导入接上。
+ *  服务端在本机跑着时顺带自连回环地址：这样没打开互传页，自动导入也在工作。 */
+async function lanSyncServerStatus() {
+  if (!lanIsTauri() || LAN.serverMode || LAN.serverBusy) return;
+  try {
+    const info = await lanInvoke("lan_server_status", {});
+    if (info && info.running) {
+      LAN.serverMode = true;
+      LAN.serverInfo = info;
+      const url = (info.urls && info.urls[0]) || ("http://127.0.0.1:" + info.port);
+      LAN.msgKind = "ok";
+      LAN.msg = "内置服务端已在运行：" + url;
+      if (!LAN.online) {
+        LAN.base = lanTrim(url);
+        await lanConnect("http://127.0.0.1:" + (info.port || 8000), true);
+      }
+      lanAutoMaybeStart();
+      lanPaintStatus();
+      lanPaintActions();
+    }
+  } catch (e) { /* 状态查询失败不影响页面 */ }
+}
+
 function lanBind() {
   const drop = document.querySelector("[data-lan-drop]");
   if (!drop || drop.__lanBound) return;
   drop.__lanBound = true;
+
   drop.addEventListener("click", () => lanPickFiles());
   drop.addEventListener("dragover", (ev) => { ev.preventDefault(); drop.classList.add("on"); });
   drop.addEventListener("dragleave", () => drop.classList.remove("on"));
@@ -2682,7 +3487,7 @@ async function lanConnect(base, silent) {
   } catch (e) {
     LAN.online = false; LAN.info = null; LAN.files = [];
     LAN.msgKind = "err";
-    LAN.msg = "连不上 " + next + "（" + ((e && e.message) || "网络错误") + "）：请确认那台设备已运行 lan-server.py，且两台设备在同一个 Wifi";
+    LAN.msg = "连不上 " + next + "（" + ((e && e.message) || "网络错误") + "）。" + lanServerHint();
     lanStopPoll();
   } finally {
     LAN.checking = false;
@@ -2706,7 +3511,7 @@ async function lanRefresh(withToast) {
     if (LAN.fails >= 2) {
       LAN.online = false;
       LAN.msgKind = "err";
-      LAN.msg = "连接已断开：" + ((e && e.message) || "网络错误");
+      LAN.msg = "连接已断开：" + ((e && e.message) || "网络错误") + "。" + lanServerHint();
       lanStopPoll();
     }
     lanPaintStatus(); lanPaintFiles();
@@ -2752,6 +3557,7 @@ async function lanUploadOne(file, it) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: file.name, size: file.size, lastModified: file.lastModified || 0 }),
   }, 15000);
+  lanAutoMarkSelf(init.id);   // 本机自己传出去的文件指纹：自动导入时要跳过，别又导回来
   const chunkSize = init.chunkSize || 4194304;
   const total = init.totalChunks || 0;
   if (init.done) {
@@ -2834,11 +3640,72 @@ async function lanClipCopy() {
   const ok = await copyText(LAN.clip);
   toast(ok ? "已复制最新文本" : "复制失败，请手动选择");
 }
-function lanDownload(id) {
+/** 浏览器形态的下载：fetch 成 blob 再交给浏览器自己的下载器。
+ *  返回 false 表示这条路走不通（CORS / 网络 / 超大文件），由调用方回退到直接导航。 */
+async function lanDownloadBlob(url, name) {
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const blob = await res.blob();
+    const burl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = burl;
+    a.download = name || "";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(burl); a.remove(); }, 1500);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+/** 打开最近一次下载所在目录（App 形态）。 */
+async function lanOpenDir(path) {
+  try { await lanInvoke("lan_reveal_file", { path: path }); }
+  catch (e) { toast("打开失败：" + ((e && e.message) || e)); }
+}
+/** 下载共享文件。
+ *
+ *  App 形态必须走 Rust 的 `lan_file_download`：Android 的 WebView 根本没有实现下载
+ *  （点 <a download> 是**静默无效**），桌面 WebView2 的下载也不可控、自动化点不到 ——
+ *  这正是「能连上、能看见文件、就是下不下来」的根因。
+ *  纯浏览器形态仍用浏览器自己的下载器：先 fetch+blob（报错看得见），失败再直接导航。
+ */
+async function lanDownload(id, name) {
+  if (!LAN.online) { toast("先连接局域网互传服务"); return; }
+  const url = lanUrl("/api/download?id=" + encodeURIComponent(id));
+  const shown = name || id;
+  const meta = LAN.files.find((f) => f.id === id);
+
+  if (lanIsTauri()) {
+    const it = lanProgAdd(shown, meta ? meta.size : 0);
+    it.t0 = Date.now();
+    it.status = "下载中…";
+    lanPaintProg(true);
+    try {
+      const saved = await lanInvoke("lan_file_download", { url: url, name: shown });
+      it.sent = Number(saved && saved.size) || it.size;
+      it.status = "已保存";
+      LAN.saved = saved;
+      lanPaintSaved();
+      toast("已保存：" + ((saved && saved.name) || shown));
+    } catch (e) {
+      it.err = "失败：" + ((e && e.message) || e);
+      it.status = "失败";
+      toast("下载失败：" + ((e && e.message) || e));
+    }
+    lanPaintProg(true);
+    return;
+  }
+
+  toast("开始下载 " + shown);
+  if (await lanDownloadBlob(url, shown)) return;
+  // 兜底：直接导航到下载地址，交给浏览器 / 系统下载器
   const a = document.createElement("a");
-  a.href = lanUrl("/api/download?id=" + encodeURIComponent(id));
+  a.href = url;
   a.rel = "noopener";
-  a.download = "";
+  a.download = shown;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => a.remove(), 500);
@@ -2853,6 +3720,8 @@ async function lanDelete(id, name) {
   } catch (e) { toast("删除失败：" + ((e && e.message) || "网络错误")); }
 }
 async function lanAct(action, el) {
+  if (action === "lan-become-server") { await lanBecomeServer(); return; }
+  if (action === "lan-stop-server") { await lanStopServer(); return; }
   if (action === "lan-connect") {
     const input = document.querySelector('[data-lan="base"]');
     await lanConnect(input ? input.value : LAN.base);
@@ -2867,10 +3736,283 @@ async function lanAct(action, el) {
     toast("已清理已完成的传输");
     return;
   }
-  if (action === "lan-dl") { lanDownload(el.dataset.id); return; }
+  if (action === "lan-dl") { await lanDownload(el.dataset.id, el.dataset.name); return; }
+  if (action === "lan-open-dir") { await lanOpenDir(el.dataset.path); return; }
+  if (action === "lan-saved-clear") { LAN.saved = null; lanPaintSaved(); return; }
   if (action === "lan-del") { await lanDelete(el.dataset.id, el.dataset.name); return; }
   if (action === "lan-clip-send") { await lanClipSend(); return; }
   if (action === "lan-clip-copy") { await lanClipCopy(); return; }
+  if (action === "lan-auto-open") { goTo("edit", el.dataset.id); return; }
+  if (action === "lan-auto-clear") { lanAutoClear(); render(); toast("已清空自动导入记录"); return; }
+}
+
+/* ============================================================
+   13.1 互传自动导入：收到的实验文件直接进「我的实验」
+   ------------------------------------------------------------
+   触发点：**本机正在当服务端**时，别人传上来的文件落进共享目录；
+          前端轮询 /api/files，把新增文件分成四类：
+            · 非 .json        → 静默跳过（互传本来就要传各种文件）
+            · 本机自己上传的   → 跳过（别把自己传出去的文件又导回来）
+            · .json 且能识别   → 自动导入（实验包 / 备份包 / 裸实验 JSON）
+            · .json 但认不出   → 记一条错误（互传页列表 + 首页红色横幅 + toast）
+   去重：按文件指纹 id（md5(name|size|lastModified)）记在 localStorage，同一文件只处理一次；
+        网络类失败最多重试 3 次，格式类错误直接记错不再重试。
+   ============================================================ */
+
+const LAN_AUTO_KEY = "zhbit-lab-lan-auto";
+const LAN_AUTO_POLL_MS = 4000;
+const LAN_AUTO_MAX_BYTES = 20 * 1024 * 1024;   // 超过 20MB 不做自动导入
+const LAN_AUTO_MAX_TRY = 3;                    // 网络类失败最多试 3 次
+const LAN_AUTO_MAX_ITEMS = 40;                 // 记录列表上限
+const LAN_AUTO_MAX_IDS = 500;                  // 每个服务端地址记住的文件数上限
+
+function lanAutoState() {
+  const blank = { seen: {}, items: [], self: [] };
+  try {
+    const raw = JSON.parse(localStorage.getItem(LAN_AUTO_KEY) || "null");
+    if (!raw || typeof raw !== "object") return blank;
+    if (raw.seen && typeof raw.seen === "object") blank.seen = raw.seen;
+    else if (raw.ids && typeof raw.ids === "object") {
+      // 兼容早期「按服务端地址分表」的写法：合并成一张全局表
+      Object.keys(raw.ids).forEach((base) => {
+        if (raw.ids[base] && typeof raw.ids[base] === "object") Object.assign(blank.seen, raw.ids[base]);
+      });
+    }
+    if (Array.isArray(raw.items)) blank.items = raw.items.slice(0, LAN_AUTO_MAX_ITEMS);
+    if (Array.isArray(raw.self)) blank.self = raw.self.filter((x) => typeof x === "string").slice(0, LAN_AUTO_MAX_IDS);
+  } catch (e) { /* 脏数据按空处理 */ }
+  return blank;
+}
+function lanAutoStore() {
+  if (!LAN.auto.store) LAN.auto.store = lanAutoState();
+  return LAN.auto.store;
+}
+function lanAutoPersist() {
+  try { localStorage.setItem(LAN_AUTO_KEY, JSON.stringify(lanAutoStore())); } catch (e) { /* 配额满就放弃持久化 */ }
+}
+/** 「已处理文件」表：全局一张（服务端地址 / 端口变了也不会把同一个文件再导一遍） */
+function lanAutoSeen() {
+  const st = lanAutoStore();
+  if (!st.seen || typeof st.seen !== "object") st.seen = {};
+  return st.seen;
+}
+function lanAutoItems() { return lanAutoStore().items || []; }
+function lanAutoErrs() { return lanAutoItems().filter((x) => !x.ok); }
+function lanAutoSelf(id) { return lanAutoStore().self.indexOf(String(id)) >= 0; }
+/** 本机自己上传的文件指纹：自动导入时要跳过 */
+function lanAutoMarkSelf(id) {
+  const fid = String(id || "");
+  if (!fid) return;
+  const st = lanAutoStore();
+  if (st.self.indexOf(fid) < 0) {
+    st.self.unshift(fid);
+    st.self = st.self.slice(0, LAN_AUTO_MAX_IDS);
+  }
+  lanAutoPersist();
+}
+function lanAutoMarkSeen(id, status, tries) {
+  const seen = lanAutoSeen();
+  seen[String(id)] = { s: String(status), n: Math.max(0, Number(tries) || 0), at: Date.now() };
+  const keys = Object.keys(seen);
+  if (keys.length > LAN_AUTO_MAX_IDS) {
+    keys.sort((a, b) => (seen[a].at || 0) - (seen[b].at || 0));
+    keys.slice(0, keys.length - LAN_AUTO_MAX_IDS).forEach((k) => { delete seen[k]; });
+  }
+  lanAutoPersist();
+}
+function lanAutoNote(rec) {
+  const st = lanAutoStore();
+  st.items.unshift(Object.assign({ at: Date.now() }, rec));
+  st.items = st.items.slice(0, LAN_AUTO_MAX_ITEMS);
+  lanAutoPersist();
+}
+function lanAutoClear() {
+  const st = lanAutoStore();
+  st.items = [];
+  lanAutoPersist();
+  lanPaintAuto();
+}
+/** 只要 .json —— 其它类型按「静默跳过」处理 */
+function lanIsExpJson(name) { return /\.json$/i.test(String(name == null ? "" : name)); }
+
+/** 识别实验文件：本应用实验包 / 全部实验备份 / 裸实验 JSON（AI 生成那种） */
+function lanAutoDetect(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
+  if (obj.exp && typeof obj.exp === "object" && !Array.isArray(obj.exp)) {
+    return { kind: "实验包", exps: [obj.exp], report: (obj.report && typeof obj.report === "object") ? obj.report : null };
+  }
+  if (Array.isArray(obj.exps)) {
+    return { kind: "全部实验备份", exps: obj.exps.filter((x) => x && typeof x === "object"), report: null };
+  }
+  if (Array.isArray(obj.steps) && obj.steps.length) return { kind: "实验 JSON", exps: [obj], report: null };
+  return null;
+}
+/** 落到本地实验结构：完整格式原样保留（画布 / 计时器 / 记录），裸 JSON 走宽松补齐 */
+function lanAutoBuildExp(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  if (isValidExp(raw)) return normalizeExp(raw);
+  if (!Array.isArray(raw.steps) || !raw.steps.length) return null;
+  const subject = SUBJECTS.some((x) => x.id === raw.subject) ? raw.subject : "chemistry";
+  const theme = ["t-sky", "t-mint", "t-lavender"].indexOf(raw.theme) >= 0
+    ? raw.theme
+    : ({ chemistry: "t-sky", biology: "t-mint", biochem: "t-lavender" }[subject] || "t-sky");
+  return normalizeExp({
+    id: uid("exp_"),
+    name: String(raw.name || "互传导入实验").slice(0, 80),
+    subject: subject,
+    theme: theme,
+    desc: String(raw.desc || ""),
+    createdAt: Date.now(), updatedAt: Date.now(), rev: 1,
+    steps: raw.steps.map((s, i) => {
+      const o = (s && typeof s === "object") ? s : {};
+      return normalizeStep({
+        id: uid("s_"),
+        title: String(o.title || ("步骤 " + (i + 1))),
+        text: String(o.text || ""),
+        equation: String(o.equation || ""),
+        tips: String(o.tips || ""),
+        record: { note: String((o.record && o.record.note) || ""), images: [] },
+      });
+    }),
+    timer: raw.timer,
+    log: { total: "", totalImages: [] },
+  });
+}
+/** 格式类错误（不再重试）/ 网络类错误（可重试） */
+function lanAutoErr(msg, permanent) {
+  const e = new Error(msg);
+  e.permanent = !!permanent;
+  return e;
+}
+/** 下载并导入一个共享文件；失败抛 Error（permanent 标记格式类错误） */
+async function lanAutoImportFile(f) {
+  const size = Number(f && f.size) || 0;
+  if (size > LAN_AUTO_MAX_BYTES) {
+    throw lanAutoErr("文件超过 " + Math.round(LAN_AUTO_MAX_BYTES / 1048576) + "MB，不做自动导入", true);
+  }
+  const url = lanUrl("/api/download?id=" + encodeURIComponent(f.id));
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res || !res.ok) throw new Error("下载失败 HTTP " + ((res && res.status) || "?"));
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(String(text == null ? "" : text).replace(/^\uFEFF/, ""));
+  } catch (e) {
+    throw lanAutoErr("不是合法 JSON（" + ((e && e.message) || e) + "）", true);
+  }
+  const det = lanAutoDetect(data);
+  if (!det || !det.exps.length) {
+    throw lanAutoErr("不是实验助手的实验文件：没有 exp / exps / steps 字段", true);
+  }
+  const built = det.exps.map(lanAutoBuildExp).filter(Boolean);
+  if (!built.length) throw lanAutoErr(det.kind + " 里的步骤为空或结构不完整", true);
+  const saved = [];
+  built.forEach((e) => {
+    e.id = uid("exp_");   // 换新 id：别覆盖本机可能同名的实验
+    e.name = (e.name || "导入实验") + "（互传导入）";
+    if (Store.saveExp(e)) saved.push(e);
+  });
+  if (!saved.length) throw new Error("写入本地实验失败（本地存储可能已满）");
+  if (det.report && det.report.markdown && saved.length === 1) {
+    Store.saveReport(saved[0].id, {
+      markdown: String(det.report.markdown),
+      mode: det.report.mode || "local",
+      model: det.report.model || "",
+      generatedAt: det.report.generatedAt || Date.now(),
+    });
+  }
+  return { kind: det.kind, exps: saved };
+}
+
+/** 扫一遍共享文件列表，把新增的实验 .json 导进来。返回 {added, failed} */
+async function lanAutoSync() {
+  if (LAN.auto.busy || !LAN.online || !LAN.serverMode) return { added: 0, failed: 0, skipped: true };
+  if (typeof fetch !== "function") return { added: 0, failed: 0, skipped: true };
+  LAN.auto.busy = true;
+  let added = 0, failed = 0;
+  try {
+    const res = await lanApi("/api/files", null, 8000);
+    const files = (res && res.files) || [];
+    for (const f of files) {
+      const id = String((f && f.id) || "");
+      if (!id) continue;
+      const seen = lanAutoSeen();
+      const prev = seen[id];
+      if (prev && (prev.s === "ok" || prev.s === "skip" || prev.s === "self" || prev.s === "err")) continue;
+      if (prev && (prev.n || 0) >= LAN_AUTO_MAX_TRY) continue;
+      if (!lanIsExpJson(f.name)) { lanAutoMarkSeen(id, "skip", 1); continue; }   // 其它类型静默跳过
+      if (lanAutoSelf(id)) { lanAutoMarkSeen(id, "self", 1); continue; }          // 本机自己传的
+      try {
+        const r = await lanAutoImportFile(f);
+        lanAutoMarkSeen(id, "ok", 1);
+        added += r.exps.length;
+        const names = r.exps.map((x) => x.name).join("、");
+        lanAutoNote({ name: f.name, ok: true, msg: "已导入 " + r.kind + "：" + names, expId: r.exps[0].id });
+        toast("已自动导入 " + r.exps.length + " 个实验：" + names, 3600);
+      } catch (err) {
+        const msg = (err && err.message) || "未知错误";
+        failed += 1;
+        lanAutoMarkSeen(id, (err && err.permanent) ? "err" : "retry", (err && err.permanent) ? LAN_AUTO_MAX_TRY : ((prev && prev.n) || 0) + 1);
+        lanAutoNote({ name: f.name, ok: false, msg: msg });
+        toast("⚠️ 无法识别《" + f.name + "》：" + msg, 5200);
+      }
+    }
+  } catch (e) {
+    /* 服务端暂时不可达：不算错误，下一轮再试 */
+  } finally {
+    LAN.auto.busy = false;
+    LAN.auto.last = Date.now();
+  }
+  if (added || failed) lanPaintAuto();
+  return { added: added, failed: failed };
+}
+
+/** 本机在当服务端且已连上时才开轮询（互传页之外也要跑，所以不复用 LAN.timer） */
+function lanAutoMaybeStart() {
+  if (LAN.auto.timer || typeof setInterval !== "function") return;
+  if (!LAN.serverMode || !LAN.online) return;
+  LAN.auto.timer = setInterval(() => { lanAutoSync(); }, LAN_AUTO_POLL_MS);
+  setTimeout(() => { lanAutoSync(); }, 600);
+}
+function lanAutoStop() {
+  if (LAN.auto.timer) { clearInterval(LAN.auto.timer); LAN.auto.timer = null; }
+}
+
+/* ---------- 界面片段 ---------- */
+function lanAutoHTML() {
+  const items = lanAutoItems();
+  const on = !!(LAN.serverMode && LAN.online);
+  const errs = lanAutoErrs().length;
+  const rows = items.length
+    ? items.map((x) => `<div class="lan-auto-item">
+        <span class="lan-auto-name" title="${esc(x.name)}">${esc(x.name)}</span>
+        <span class="${x.ok ? "lan-auto-ok" : "lan-auto-err"}">${esc(x.msg || (x.ok ? "已导入" : "无法识别"))}</span>
+        ${x.ok && x.expId ? `<button class="btn btn-sm" data-act="lan-auto-open" data-id="${esc(x.expId)}" type="button">打开</button>` : ""}
+      </div>`).join("")
+    : `<p class="msg" style="margin:0">${on ? "还没有收到实验文件；别人传上来的 .json 会自动导进来。" : "本机点「成为服务端」后，别人传上来的实验 .json 会自动加进「我的实验」。"}</p>`;
+  return `<div class="card">
+      <h3 class="card-title">${ICON.sparkle}<span class="grow">自动导入</span>
+        <span class="ai-pill${on ? " on" : ""}">${on ? "监听中" : "未监听"}</span>
+        ${errs ? `<span class="lan-size">${errs} 个无法识别</span>` : ""}
+        ${items.length ? `<button class="btn btn-sm" data-act="lan-auto-clear" type="button">清空记录</button>` : ""}
+      </h3>
+      <p class="msg" style="margin:0 0 8px">本机当服务端时，收到的 <b>.json</b> 若是实验文件会<b>自动加进「我的实验」</b>；图片 / 文档 / 视频等其它类型静默跳过；无法识别的 .json 在这里报错，不会悄悄吞掉。</p>
+      <div data-lan-auto-items>${rows}</div>
+    </div>`;
+}
+function lanPaintAuto() {
+  const host = document.querySelector("[data-lan-auto]");
+  if (host) host.innerHTML = lanAutoHTML();
+}
+/** 首页横幅：只提示「无法识别」的错误（成功的实验已经出现在列表里了） */
+function lanAutoBanner() {
+  const errs = lanAutoErrs();
+  if (!errs.length) return "";
+  const names = errs.slice(0, 2).map((x) => x.name).join("、");
+  return `<div class="lan-warn">
+      <span class="lan-warn-text">⚠️ 互传自动导入：有 ${errs.length} 个文件无法识别为实验文件（${esc(names)}${errs.length > 2 ? " 等" : ""}）</span>
+      <button class="btn btn-sm" data-go="lan" type="button">去互传页查看</button>
+    </div>`;
 }
 
 /* ============================================================
@@ -2910,6 +4052,7 @@ function expDel(id) {
   const m = Store.listExps().find((x) => x.id === id);
   if (!confirm("确定删除「" + ((m && m.name) || "该实验") + "」？此操作不可恢复。")) return;
   Store.removeExp(id);
+  Timer.detach(id);
   if (state.exp && state.exp.id === id) { state.exp = null; goTo("home"); }
   else render();
   toast("已删除");
@@ -2960,6 +4103,7 @@ function exportAll() {
 function clearAll() {
   if (!confirm("确定清空全部实验与报告？主题与 LLM 配置会保留。")) return;
   Store.listExps().forEach((m) => Store.removeExp(m.id));
+  Timer.detach();
   state.exp = null;
   goTo("home");
   toast("已清空全部数据");
@@ -3007,6 +4151,9 @@ async function handleAct(action, el) {
   const e = state.exp;
   switch (action) {
     case "theme": toggleTheme(); return;
+    case "win-min": await winAction("min"); return;
+    case "win-max": await winAction("max"); return;
+    case "win-close": await winAction("close"); return;
 
     case "exp-new": expNew(); return;
     case "exp-open": goTo("edit", el.dataset.id); return;
@@ -3052,6 +4199,47 @@ async function handleAct(action, el) {
     case "play-prev": ui.playIndex = Math.max(0, ui.playIndex - 1); render(); return;
     case "play-next": ui.playIndex = Math.min((e ? e.steps.length : 1) - 1, ui.playIndex + 1); render(); return;
     case "play-go": ui.playIndex = Number(el.dataset.step); render(); return;
+
+    /* ---- 计时器（整个实验一个） ---- */
+    case "timer-toggle": {
+      if (!e) return;
+      const t = Timer.attach(e);
+      if (t.running) { Timer.pause(e); persistExp(); }
+      else { Timer.trackStep(e, ui.playIndex); Timer.start(e); }
+      render(); return;
+    }
+    case "timer-reset": { if (!e) return; Timer.reset(e); persistExp(); render(); return; }
+    case "timer-log": {
+      if (!e) return;
+      const r = Timer.log(e, ui.playIndex);
+      if (r.ok) { persistExp(); render(); toast("已记录 " + Timer.fmt(r.ms)); }
+      else toast(r.reason);
+      return;
+    }
+    case "timer-mode": { if (!e) return; Timer.setMode(e, el.dataset.v); persistExp(); render(); return; }
+    case "timer-target": {
+      if (!e) return;
+      const v = Number(el.dataset.v) || 0;
+      const cur = Timer.attach(e);
+      Timer.setTarget(e, cur.target === v ? 0 : v);
+      persistExp(); render(); return;
+    }
+    case "timer-clear-target": {
+      if (!e) return;
+      Timer.setTarget(e, 0);
+      Timer.attach(e).mode = "stopwatch";
+      persistExp(); render(); return;
+    }
+    case "timer-custom": {
+      if (!e) return;
+      const mi = document.querySelector('[data-timer="min"]');
+      const se = document.querySelector('[data-timer="sec"]');
+      const sec = Math.max(0, Math.round((Number(mi && mi.value) || 0) * 60 + (Number(se && se.value) || 0)));
+      if (!sec) { toast("请填写大于 0 的分 / 秒"); return; }
+      Timer.setTarget(e, sec);
+      persistExp(); render(); toast("倒计时已设为 " + Timer.fmt(sec * 1000)); return;
+    }
+    case "go-edit-timer": goTo("edit", e && e.id); return;
 
     case "go-edit": goTo("edit", e && e.id); return;
     case "go-record": goTo("record", e && e.id); return;
@@ -3100,8 +4288,11 @@ async function handleAct(action, el) {
 
 function boot() {
   $("brandMark").innerHTML = ICON.logo;
+  winInitFrame();
   renderNav();
   initTheme();
+  /* App 启动时若内置服务端已在跑（重启 / 后台常驻），直接把自动导入接上，不必先打开互传页 */
+  if (lanIsTauri()) lanSyncServerStatus();
 
   document.addEventListener("click", (ev) => {
     const goEl = ev.target.closest("[data-go]");

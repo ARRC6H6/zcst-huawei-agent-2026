@@ -1,9 +1,29 @@
 import fs from "node:fs";
 import zlib from "node:zlib";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const file = process.argv[2];
 if (!file) { console.error("用法: node tools/check-page.mjs <实验助手.html>"); process.exit(2); }
 const html = fs.readFileSync(file, "utf8");
+
+/* 窗口形态的断言要同时看 Rust 侧与 tauri 配置（单文件页面只是其中一半） */
+const here = path.dirname(fileURLToPath(import.meta.url));
+const readIf = (p) => { try { return fs.readFileSync(p, "utf8"); } catch (e) { return ""; } };
+const rust = readIf(path.join(here, "..", "src-tauri", "src", "commands.rs"));
+const rustClient = readIf(path.join(here, "..", "src-tauri", "src", "client.rs"));
+const tauriConf = readIf(path.join(here, "..", "src-tauri", "tauri.conf.json"));
+const capabilities = readIf(path.join(here, "..", "src-tauri", "capabilities", "default.json"));
+
+/* 作品仓库（zcst-huawei-agent-2026/src）里只有单文件页面 + Python 服务端、没有 src-tauri：
+ * Rust / Tauri 配置相关的断言在那里按「跳过」处理，免得把「工程不在这」误报成「功能坏了」。
+ * 在正式项目里 src-tauri 存在，这些断言照常全跑。 */
+const hasRustSide = !!(rust || rustClient || tauriConf || capabilities);
+const skips = [];
+const checkRust = (name, cond) => {
+  if (!hasRustSide) { skips.push(name); return; }
+  check(name, cond);
+};
 
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
 if (!m) { console.error("FAIL: 未找到内联 script"); process.exit(1); }
@@ -18,7 +38,12 @@ const code = m[1] + `
   aiApplyJSON, aiImport, aiExtOf, aiZipEntries, aiDocxText, aiPptxText, aiDecodeText,
   aiLegacyPptText, aiLegacyDocText, aiZipRead, aiReadFile,
   viewLan, LAN, LAN_KEY, lanAct, lanConnect, lanRefresh, lanStatusHTML, lanFilesHTML,
-  lanProgHTML, lanClipInfo, lanSize, lanTime, lanDefaultBase, lanUrl };
+  lanProgHTML, lanClipInfo, lanSize, lanTime, lanDefaultBase, lanUrl,
+  lanIsTauri, lanInvoke, lanServerHint, lanBecomeServer, lanStopServer, lanSyncServerStatus,
+  handleAct, Timer, TIMER_PRESETS, normalizeTimer, timerEditHTML, timerRecordHTML, timerWriteNote,
+  lanAutoDetect, lanAutoBuildExp, lanAutoSync, lanAutoHTML, lanAutoBanner, lanAutoClear,
+  lanAutoItems, lanAutoErrs, lanAutoMarkSelf, lanAutoMaybeStart, lanAutoStop, lanIsExpJson, lanPaintAuto,
+  winInitFrame };
 `;
 
 /* ---------------- 最小 DOM 桩 ---------------- */
@@ -486,6 +511,87 @@ check("互传页：含共享文件区与文本互传",
 check("互传页：含服务端启动指引", /lan-server\.py/.test(main()) && /start-lan\.bat/.test(main()));
 check("互传页：说明数据不经云端、无鉴权边界",
   /不经过任何云服务/.test(main()) && /公网/.test(main()));
+check("互传页：「怎么用」默认折叠（只留一行标题，不占屏）",
+  /<details class="card card-fold">/.test(main()) && !/<details[^>]*\sopen/.test(main()) &&
+  /<summary class="card-title">/.test(main()) && /点开查看/.test(main()));
+
+/* ---- 14.1 Tauri 内置服务端（成为服务端 / 停止服务端） ---- */
+check("互传页：动作区含「成为服务端」按钮",
+  /data-act="lan-become-server"/.test(main()) && /成为服务端/.test(main()));
+check("互传页：成为服务端按钮用主按钮样式",
+  /class="btn btn-primary" data-act="lan-become-server"/.test(main()));
+check("互传页：未启动内置服务端时不显示停止按钮",
+  !/data-act="lan-stop-server"/.test(main()));
+check("互传页：非 App 环境检测为 false（浏览器降级）", A.lanIsTauri() === false);
+check("互传页：浏览器模式提示语区分 App 与 Python 两种方式",
+  /成为服务端/.test(A.lanServerHint()) && /lan-server\.py/.test(A.lanServerHint()));
+
+const savedLanMsg = A.LAN.msg;
+A.LAN.msg = ""; A.LAN.msgKind = "";
+await A.lanBecomeServer();
+check("互传页：浏览器模式点「成为服务端」给出明确提示且不崩",
+  /浏览器模式/.test(A.LAN.msg) && A.LAN.msgKind === "err" && A.LAN.serverMode === false);
+check("互传页：降级提示同时指出 App 与 start-lan 两条路",
+  /App/.test(A.LAN.msg) && /start-lan\.bat/.test(A.LAN.msg));
+
+/* 模拟 Tauri 环境：invoke 返回服务端信息，验证「成为服务端」前后端桥接 */
+const invoked = [];
+globalThis.window.__TAURI__ = {
+  core: {
+    invoke: async (cmd, args) => {
+      invoked.push(cmd);
+      if (cmd === "lan_server_start") {
+        return { running: true, host: "PC", ip: "192.168.1.23", ips: ["192.168.1.23"],
+          port: 8000, urls: ["http://192.168.1.23:8000"], chunkSize: 4194304,
+          dataDir: "C:/data/lan-transfer", files: 0 };
+      }
+      if (cmd === "lan_server_status") return null;
+      return null;
+    },
+  },
+};
+check("互传页：App 环境下检测到 Tauri", A.lanIsTauri() === true);
+A.LAN.msg = ""; A.LAN.msgKind = "";
+// 不真的去连局域网地址（测试环境无网络），只验证命令被正确调用与状态落位
+const realFetch = globalThis.fetch;
+globalThis.fetch = async () => { throw new Error("stub: 测试环境不联网"); };
+await A.lanBecomeServer();
+globalThis.fetch = realFetch;
+check("互传页：成为服务端调用 lan_server_start", invoked.indexOf("lan_server_start") >= 0, invoked.join(","));
+check("互传页：启动成功后用回环地址自连（避免走 App 的 tauri:// origin）",
+  A.LAN.serverMode === true && A.LAN.serverInfo && A.LAN.serverInfo.port === 8000 &&
+  /^http:\/\/127\.0\.0\.1:8000$/.test(A.LAN.base) && A.LAN.serverBusy === false,
+  A.LAN.base);
+check("互传页：局域网地址保存在 serverInfo.urls 里（展示给其他设备）",
+  Array.isArray(A.LAN.serverInfo.urls) && A.LAN.serverInfo.urls[0] === "http://192.168.1.23:8000",
+  JSON.stringify(A.LAN.serverInfo.urls));
+A.goTo("lan");
+check("互传页：服务端已启动时按钮变为「停止服务端」",
+  /data-act="lan-stop-server"/.test(main()) && /停止服务端/.test(main()) &&
+  !/data-act="lan-become-server"/.test(main()));
+const wasOnline = A.LAN.online;
+const wasInfo = A.LAN.info;
+A.LAN.online = true;
+A.LAN.info = A.LAN.serverInfo;
+const selfStatus = A.lanStatusHTML();
+A.LAN.online = wasOnline;
+A.LAN.info = wasInfo;
+check("互传页：状态区显示本机正在当服务端（并给出局域网地址）",
+  /本机正在当服务端/.test(selfStatus) && /192\.168\.1\.23:8000/.test(selfStatus) &&
+  !/data-act="lan-become-server"/.test(main()), selfStatus.replace(/\s+/g, " ").slice(0, 120));
+await A.lanStopServer();
+check("互传页：停止服务端调用 lan_server_stop 并复位状态",
+  invoked.indexOf("lan_server_stop") >= 0 && A.LAN.serverMode === false && A.LAN.serverInfo === null);
+A.goTo("lan");
+check("互传页：停止后按钮回到「成为服务端」",
+  /data-act="lan-become-server"/.test(main()) && !/data-act="lan-stop-server"/.test(main()));
+await A.lanSyncServerStatus();
+check("互传页：进入页面时查询 lan_server_status 不报错",
+  invoked.indexOf("lan_server_status") >= 0 && A.LAN.serverMode === false);
+delete globalThis.window.__TAURI__;
+check("互传页：移除 Tauri 对象后回到浏览器降级", A.lanIsTauri() === false);
+A.LAN.msg = savedLanMsg;
+
 check("互传页：未连接时不启动轮询定时器", A.LAN.timer === null && A.LAN.online === false);
 check("互传页：未连接时文件区给出提示", /连接服务端后/.test(A.lanFilesHTML()));
 check("互传页：无上传任务时给出空态", /还没有上传任务/.test(A.lanProgHTML()));
@@ -514,9 +620,317 @@ check("互传页：断网后不再轮询", A.LAN.timer === null);
 const lan2 = html.match(/<script id="chem-input-lib">/);
 check("形态：内联库带 id 属性（不影响首个无属性 script 校验）", !!lan2);
 
+/* ---------------- 15. App 桌面形态（无边框 + 透明玻璃，对齐美术参考项目） ---------------- */
+check("形态：App 形态样式存在（wb-on 透明窗口 + 玻璃卡片）",
+  /body\.wb-on \{ background: transparent; padding: 0; \}/.test(html) &&
+  /body\.wb-on \.frame \{[\s\S]{0,600}background: linear-gradient\(158deg, var\(--glass-a\), var\(--glass-b\)\)/.test(html));
+check("形态：玻璃底足够不透明（系统磨砂不生效时不会透成一层灰雾）",
+  /--glass-a: rgba\(255, 255, 255, 0\.9\d\)/.test(html) &&
+  /:root\[data-theme="dark"\][\s\S]{0,1600}--glass-a: rgba\(30, 37, 56, 0\.9\d\)/.test(html));
+check("可读性：提示/删除按钮的文字用更深一档的 ink 色（浅马卡龙压白底只有 2.4~2.9:1）",
+  /--ok-ink: #157a52/.test(html) && /--danger-ink: #c8324c/.test(html) &&
+  /\.msg\.ok \{ color: var\(--ok-ink\)/.test(html) &&
+  /\.msg\.err \{ color: var\(--danger-ink\)/.test(html) &&
+  /\.btn-danger \{ color: var\(--danger-ink\)/.test(html));
+checkRust("形态：玻璃卡自带系统亚克力（window-vibrancy 上磨砂，失败退回 CSS 玻璃）",
+  /apply_acrylic\(&win, Some\(acrylic\)\)/.test(rust) &&
+  /apply_blur\(&win, Some\(blur\)\)/.test(rust) &&
+  /fn apply_window_glass/.test(rust));
+checkRust("形态：无边框窗口 + 透明（tauri.conf.json）",
+  /"decorations": false/.test(tauriConf) && /"transparent": true/.test(tauriConf));
+check("形态：自绘标题栏（品牌 + 最小化/最大化/关闭，交给 data-tauri-drag-region 拖动）",
+  /<header class="titlebar" id="titlebar" data-tauri-drag-region>/.test(html) &&
+  /class="tb-brand" data-tauri-drag-region="deep"/.test(html) &&
+  /data-act="win-min"/.test(html) && /data-act="win-max"/.test(html) && /data-act="win-close"/.test(html));
+check("形态：标题栏空白处也能拖（本体带拖动区，不能只标品牌区）",
+  /<header class="titlebar"[^>]*data-tauri-drag-region[^>]*>/.test(html));
+check("形态：无边框窗口补回缩放能力（8 个把手 → startResizeDragging）",
+  /data-resize="nw"/.test(html) && /data-resize="se"/.test(html) &&
+  /startResizeDragging/.test(html));
+checkRust("形态：缩放权限已在 capabilities 里放行",
+  /allow-start-resize-dragging/.test(capabilities));
+check("形态：App 形态下玻璃铺满窗体（不再是一张浮起的小卡片）",
+  /body\.wb-on \.frame \{[\s\S]{0,220}height: 100vh/.test(html));
+check("形态：标题栏只占一行，内容区仍在第二行（grid-template-rows）",
+  /body\.wb-on \.frame \{[\s\S]{0,260}grid-template-rows: 44px 1fr/.test(html));
+check("形态：手机端铺不透明底色（窗口是透明的，不铺会透出系统桌面）",
+  /@media \(max-width: 860px\)[\s\S]{0,600}\.frame \{[\s\S]{0,300}background: linear-gradient\(158deg, var\(--page-a\)/.test(html) &&
+  /\.titlebar, \.rz \{ display: none; \}/.test(html));
+check("形态：手机端不启用 App 形态（winInitFrame 判定移动 UA）",
+  /function isMobileApp\(\)/.test(html) && /if \(!lanIsTauri\(\) \|\| isMobileApp\(\)\) return;/.test(html));
+check("形态：减少透明度偏好下退回不透明底色（可读性兜底）",
+  /prefers-reduced-transparency: reduce[\s\S]{0,400}body\.wb-on \.frame \{ background: var\(--fallback-app\)/.test(html));
+check("形态：浏览器模式不启用 App 形态（winInitFrame 依赖 Tauri 检测）",
+  A.lanIsTauri() === false && (A.winInitFrame(), !/wb-on/.test(document.body.className || "")));
+
+/* ---------------- 16. 互传下载（回归：「能连上、能看见文件、下不下来」） ---------------- */
+check("互传：App 形态的下载走 Rust 落盘命令（Android WebView 自身没有下载器）",
+  /lanInvoke\("lan_file_download", \{ url: url, name: shown \}\)/.test(html));
+checkRust("互传：Rust 侧有 lan_file_download + download_url_to_dir",
+  /pub async fn lan_file_download/.test(rust) &&
+  /pub fn download_url_to_dir/.test(rust));
+check("互传：下载按钮带文件名，且点击走统一动作分发",
+  /data-act="lan-dl" data-id="\$\{esc\(f\.id\)\}" data-name="\$\{esc\(f\.name\)\}"/.test(html) &&
+  /action === "lan-dl"\) \{ await lanDownload\(el\.dataset\.id, el\.dataset\.name\)/.test(html));
+check("互传：浏览器形态有 fetch+blob 兜底（失败再直接导航）",
+  /async function lanDownloadBlob/.test(html) &&
+  /URL\.createObjectURL\(blob\)/.test(html) &&
+  /a\.download = shown/.test(html));
+checkRust("互传：Rust 侧下载是流式落盘 + 长度校验（截断不放行）",
+  /pub fn download_to\(&self, path_and_query: &str, tmp: &Path\)/.test(rustClient) &&
+  /下载不完整/.test(rustClient));
+check("互传：下载完能一键定位文件（lan-open-dir 按钮）",
+  /data-act="lan-open-dir"/.test(html));
+checkRust("互传：Rust 侧 lan_reveal_file 只开自己下载目录里的文件",
+  /pub async fn lan_reveal_file/.test(rust) &&
+  /只能打开本应用下载目录里的文件/.test(rust));
+checkRust("互传：落盘目录逐个探针试写（系统下载目录 → 应用数据目录）",
+  /fn pick_save_dir/.test(rust) && /LAB_LAN_SAVE_DIR/.test(rust) && /\.write-probe-/.test(rust));
+
+/* ---------------- 17. 计时器（整个实验一个：编辑预设 + 记录启停） ---------------- */
+
+const tSeed = A.newExp("计时器测试", "chemistry");
+tSeed.steps[0].title = "加热";
+A.Store.saveExp(tSeed);
+
+check("计时器：旧实验没有 timer 字段也能读（向后兼容）",
+  !!A.normalizeExp({ id: "x", steps: [{ id: "s1", images: [] }] }).timer &&
+  A.normalizeExp({ id: "x", steps: [] }).timer.mode === "stopwatch");
+check("计时器：脏数据被规范化（mode / target / accumulated / logs）",
+  (() => {
+    const t = A.normalizeTimer({ mode: "zzz", target: "-5", accumulated: "abc", running: 1, logs: [{ ms: -3 }, { ms: 1500 }] });
+    return t.mode === "stopwatch" && t.target === 0 && t.accumulated === 0 && t.running === true && t.logs.length === 1;
+  })());
+check("计时器：预设 6 档（30s ~ 30min）",
+  A.TIMER_PRESETS.length === 6 && A.TIMER_PRESETS[0] === 30 && A.TIMER_PRESETS[5] === 1800);
+check("计时器：时长格式化 MM:SS / H:MM:SS",
+  A.Timer.fmt(0) === "00:00" && A.Timer.fmt(65000) === "01:05" && A.Timer.fmt(3661000) === "1:01:01");
+check("计时器：预设标签 30s / 5min / 30min",
+  A.Timer.label(30) === "30s" && A.Timer.label(300) === "5min" && A.Timer.label(1800) === "30min");
+
+/* goTo 会从本地存储重新载入一份实验，所以页面相关的断言一律操作 state.exp */
+A.goTo("edit", tSeed.id);
+const tExp = A.state.exp;
+check("计时器：默认正计时、不限时",
+  A.Timer.attach(tExp).mode === "stopwatch" && A.Timer.targetText(tExp) === "正计时（不限时）");
+A.Timer.setTarget(tExp, 120);
+check("计时器：设置目标时长即切到倒计时",
+  A.Timer.attach(tExp).mode === "countdown" && A.Timer.targetText(tExp) === "倒计时 02:00");
+A.render();
+check("计时器：编辑页给全部预设 chip + 自定义分 / 秒输入",
+  /data-act="timer-mode" data-v="countdown"/.test(A.timerEditHTML(tExp)) &&
+  A.TIMER_PRESETS.every((sec) => A.timerEditHTML(tExp).indexOf('data-v="' + sec + '"') >= 0) &&
+  /data-timer="min"/.test(A.timerEditHTML(tExp)) && /data-timer="sec"/.test(A.timerEditHTML(tExp)) &&
+  /data-act="timer-custom"/.test(A.timerEditHTML(tExp)));
+check("计时器：编辑模式页面就位（预设卡片 + 时钟）",
+  /timer-presets/.test(main()) && /data-timer-clock/.test(main()) && /计时器预设/.test(main()));
+
+/* 自定义分 / 秒 → 应用（走真实动作分发） */
+const realQS = document.querySelector;
+globalThis.document.querySelector = (sel) => {
+  if (sel === '[data-timer="min"]') return { value: "3" };
+  if (sel === '[data-timer="sec"]') return { value: "30" };
+  return null;
+};
+await A.handleAct("timer-custom", { dataset: {} });
+globalThis.document.querySelector = realQS;
+check("计时器：自定义 3 分 30 秒被应用（210s）",
+  A.Timer.attach(tExp).target === 210 && A.Timer.attach(tExp).mode === "countdown");
+
+/* 记录模式：手动启停 / 归零 / 记一次 */
+A.Timer.setTarget(tExp, 300);            // 切回 5 分钟倒计时，离开编辑页时会存进本地存储
+A.goTo("record", tExp.id);
+const tRec = A.state.exp;
+check("计时器：记录页有手动开始 / 归零 / 记一次",
+  /data-act="timer-toggle"/.test(main()) && /data-act="timer-reset"/.test(main()) && /data-act="timer-log"/.test(main()));
+check("计时器：记录页显示目标时长与时钟",
+  /data-timer-clock/.test(main()) && /倒计时 05:00/.test(main()));
+
+await A.handleAct("timer-toggle", { dataset: {} });
+check("计时器：开始后 running=true 且 tick 已挂上",
+  A.Timer.attach(tRec).running === true && A.Timer._iv !== null && A.Timer.elapsed(tRec) >= 0);
+check("计时器：未到点时不算结束", A.Timer.isOver(tRec) === false && A.Timer.remaining(tRec) > 0);
+await A.handleAct("timer-toggle", { dataset: {} });
+check("计时器：暂停后累计保留且 tick 已停",
+  A.Timer.attach(tRec).running === false && A.Timer._iv === null && A.Timer.attach(tRec).accumulated >= 0);
+A.Timer.reset(tRec);
+check("计时器：归零清空累计与响铃标记",
+  A.Timer.elapsed(tRec) === 0 && A.Timer.attach(tRec).rang === false);
+
+/* 记一次 / 到点自动写入「现象 / 数据」 */
+A.ui.playIndex = 0;
+const noteBeforeLog = tRec.steps[0].record.note;
+A.Timer.attach(tRec).accumulated = 65000;
+const rlog = A.Timer.log(tRec, 0);
+check("计时器：记一次写入步骤记录并留 log",
+  rlog.ok === true && tRec.steps[0].record.note.indexOf("[计时]") >= 0 &&
+  tRec.steps[0].record.note.indexOf("01:05") >= 0 && A.Timer.attach(tRec).logs.length === 1);
+check("计时器：原本没记录时不留空行",
+  noteBeforeLog === "" && tRec.steps[0].record.note.split("\n")[0].indexOf("[计时]") === 0);
+
+A.Timer.attach(tRec).accumulated = 0;
+A.Timer.attach(tRec).mode = "countdown";
+A.Timer.attach(tRec).target = 60;
+A.Timer.attach(tRec).running = true;
+A.Timer.attach(tRec).startAt = Date.now() - 61000;   // 假装已经跑了 61 秒
+A.Timer.attach(tRec).rang = false;
+A.Timer._exp = tRec;
+A.Timer._step = 0;
+const noteBeforeOver = tRec.steps[0].record.note;
+A.Timer.tick();
+check("计时器：倒计时到点自动写入当前步记录",
+  A.Timer.attach(tRec).rang === true && A.Timer.isOver(tRec) === true &&
+  tRec.steps[0].record.note.indexOf("倒计时结束") >= 0 &&
+  tRec.steps[0].record.note.length > noteBeforeOver.length);
+const noteAfterOver = tRec.steps[0].record.note;
+A.Timer.tick();
+check("计时器：到点只写一次（rang 抑制重复响铃）", tRec.steps[0].record.note === noteAfterOver);
+A.Timer.stopTick();
+
+/* 报告：用过计时器才有「## 计时」 */
+const mdTimer = A.buildLocalMarkdown(tRec);
+check("计时器：报告里出现过计时器才有「## 计时」章节",
+  mdTimer.indexOf("## 计时") >= 0 && mdTimer.indexOf("本次总用时") >= 0);
+const plainTimerExp = A.normalizeExp({ id: "p1", name: "没计时", steps: [{ id: "sp", title: "a", images: [] }] });
+check("计时器：没计时的实验报告不带空章节", A.buildLocalMarkdown(plainTimerExp).indexOf("## 计时") < 0);
+check("计时器：分发给 LLM 的数据带计时汇总",
+  !!A.collectReportData(tRec).timer && A.collectReportData(tRec).timer.elapsedText !== "" &&
+  A.collectReportData(plainTimerExp).timer === null);
+
+/* 结构：新卡片必须标签闭合、记录页计时条位置正确（否则真机布局会塌） */
+const balanced = (s) => (s.match(/<div\b/g) || []).length === (s.match(/<\/div>/g) || []).length &&
+  (s.match(/<span\b/g) || []).length === (s.match(/<\/span>/g) || []).length;
+check("新卡片：计时器 / 自动导入的标签闭合（div + span 配平）",
+  balanced(A.timerEditHTML(tRec)) && balanced(A.timerRecordHTML(tRec)) &&
+  balanced(A.lanAutoHTML()) && balanced(A.lanAutoBanner() || "<div></div>"));
+check("计时器：记录页计时条夹在导航条与正文之间",
+  (A.goTo("record", tRec.id),
+    main().indexOf('class="player-bar"') < main().indexOf("timer-card") &&
+    main().indexOf("timer-card") < main().indexOf('class="player-stage"')));
+
+/* ---------------- 18. 互传自动导入（本机当服务端，收到的实验 .json 直接进列表） ---------------- */
+
+check("自动导入：只认 .json（图片 / 文档 / PDF 静默跳过）",
+  A.lanIsExpJson("实验.json") === true && A.lanIsExpJson("报告.PDF") === false &&
+  A.lanIsExpJson("照片.png") === false && A.lanIsExpJson("") === false);
+check("自动导入：识别本应用实验包（kind=zhbit-lab-experiment / exp）",
+  (A.lanAutoDetect({ kind: "zhbit-lab-experiment", exp: { id: "e", steps: [] } }) || {}).kind === "实验包");
+check("自动导入：识别「导出全部实验」备份（exps[]）",
+  (A.lanAutoDetect({ kind: "zhbit-lab-backup", exps: [{ id: "a" }, { id: "b" }] }) || {}).exps.length === 2);
+check("自动导入：识别 AI 生成的裸实验 JSON（steps）",
+  (A.lanAutoDetect({ name: "n", subject: "chemistry", steps: [{ title: "a" }] }) || {}).kind === "实验 JSON");
+check("自动导入：认不出的 JSON 返回 null（留给报错）",
+  A.lanAutoDetect({ foo: 1 }) === null && A.lanAutoDetect([1, 2]) === null && A.lanAutoDetect("x") === null);
+check("自动导入：只有本机当服务端时才扫（浏览器纯下载不导）",
+  /LAN\.auto\.busy \|\| !LAN\.online \|\| !LAN\.serverMode/.test(html) &&
+  /if \(ok\) lanAutoMaybeStart\(\)/.test(html) &&
+  /if \(lanIsTauri\(\)\) lanSyncServerStatus\(\)/.test(html));
+
+const bareBuilt = A.lanAutoBuildExp({ name: "裸实验", subject: "biology", steps: [{ title: "接种", text: "划线" }, { text: "培养" }] });
+check("自动导入：裸 JSON 补齐成合法实验（补 id / 空标题 / 主题）",
+  A.isValidExp(bareBuilt) === true && bareBuilt.steps.length === 2 &&
+  bareBuilt.steps[1].title === "步骤 2" && bareBuilt.theme === "t-mint" &&
+  bareBuilt.steps[1].record.note === "");
+check("自动导入：完整实验包原样保留（画布 / 计时器 / 步骤 id 不丢）",
+  (() => {
+    const full = A.normalizeExp({ id: "e9", name: "完整", steps: [{ id: "s9", title: "a", images: [] }], timer: { mode: "countdown", target: 90 } });
+    const back = A.lanAutoBuildExp(full);
+    return back.id === "e9" && back.timer.target === 90 && back.steps[0].id === "s9";
+  })());
+check("自动导入：上传成功后把指纹记进 self（自动导入不导回自己）",
+  /lanAutoMarkSelf\(init\.id\)/.test(html) &&
+  /if \(lanAutoSelf\(id\)\) \{ lanAutoMarkSeen\(id, "self", 1\); continue; \}/.test(html));
+
+/* 端到端：桩掉 fetch，模拟服务端共享目录里出现几个文件 */
+const autoFiles = [
+  { id: "id-exp", name: "银镜反应-20260101.json", size: 900, time: 1730000000 },
+  { id: "id-bad", name: "损坏.json", size: 20, time: 1730000001 },
+  { id: "id-other", name: "不是实验.json", size: 30, time: 1730000002 },
+  { id: "id-big", name: "太大.json", size: 30 * 1024 * 1024, time: 1730000003 },
+  { id: "id-png", name: "现象照片.png", size: 2048, time: 1730000004 },
+  { id: "id-self", name: "自己传出去的.json", size: 900, time: 1730000005 },
+];
+const autoBodies = {
+  "id-exp": JSON.stringify({
+    kind: "zhbit-lab-experiment", v: 1,
+    exp: { id: "e1", name: "互传实验", subject: "chemistry", theme: "t-sky",
+      steps: [{ id: "s1", title: "混合", text: "搅拌", images: [] }] },
+  }),
+  "id-bad": "{这不是合法 JSON",
+  "id-other": JSON.stringify({ foo: 1, bar: [1, 2, 3] }),
+  "id-self": JSON.stringify({ name: "自己传的", subject: "chemistry", theme: "t-sky", steps: [{ title: "a", text: "b" }] }),
+};
+const realFetch2 = globalThis.fetch;
+globalThis.fetch = async (url) => {
+  const u = String(url);
+  if (u.indexOf("/api/files") >= 0) {
+    return { ok: true, status: 200, json: async () => ({ ok: true, files: autoFiles, count: autoFiles.length, total: 0 }) };
+  }
+  if (u.indexOf("/api/download") >= 0) {
+    const mm = /id=([^&]+)/.exec(u);
+    const id = mm ? decodeURIComponent(mm[1]) : "";
+    if (!(id in autoBodies)) return { ok: false, status: 404, text: async () => "" };
+    return { ok: true, status: 200, text: async () => autoBodies[id] };
+  }
+  return { ok: true, status: 200, json: async () => ({ ok: true, text: "" }) };
+};
+
+A.LAN.base = "http://127.0.0.1:8000";
+A.LAN.online = true;
+A.LAN.serverMode = true;
+A.lanAutoMarkSelf("id-self");
+const expCountBefore = A.Store.listExps().length;
+const run1 = await A.lanAutoSync();
+check("自动导入：实验 .json 自动进「我的实验」（并换新 id，不覆盖同名）",
+  run1.added === 1 && A.Store.listExps().length === expCountBefore + 1 &&
+  A.Store.getExp("e1") === null &&
+  A.Store.listExps().some((x) => /互传导入/.test(x.name)));
+check("自动导入：损坏 / 认不出 / 超大三类 .json 都报错（共 3 条）",
+  run1.failed === 3 && A.lanAutoErrs().length === 3 &&
+  A.lanAutoErrs().some((x) => /不是合法 JSON/.test(x.msg)) &&
+  A.lanAutoErrs().some((x) => /没有 exp \/ exps \/ steps/.test(x.msg)) &&
+  A.lanAutoErrs().some((x) => /20MB/.test(x.msg)));
+check("自动导入：图片等非 .json 静默跳过（不进记录列表）",
+  A.lanAutoItems().length === 4 && !A.lanAutoItems().some((x) => /现象照片/.test(x.name)));
+check("自动导入：本机自己传出去的文件不导回（self 跳过）",
+  !A.lanAutoItems().some((x) => /自己传出去的/.test(x.name)));
+check("自动导入：互传页有记录列表且成功项能一键打开",
+  /data-lan-auto/.test(html) && /data-act="lan-auto-open"/.test(A.lanAutoHTML()) &&
+  /自动导入/.test(A.lanAutoHTML()));
+check("自动导入：首页横幅只提示无法识别的文件",
+  (A.goTo("home"), /无法识别/.test(main()) && /data-go="lan"/.test(main()) && /去互传页查看/.test(main())));
+check("自动导入：清空记录后首页横幅消失",
+  (A.lanAutoClear(), A.goTo("home"), A.lanAutoItems().length === 0 && A.lanAutoBanner() === ""));
+
+const run2 = await A.lanAutoSync();
+check("自动导入：同一批文件不会重复导入（按文件指纹去重）",
+  run2.added === 0 && run2.failed === 0 && A.lanAutoItems().length === 0);
+check("自动导入：没连上服务端时不开轮询",
+  (A.lanAutoStop(), A.LAN.online = false, A.lanAutoMaybeStart(), A.LAN.auto.timer === null));
+check("自动导入：当服务端并连上后才有轮询（4s 一次），停止服务端就撤掉",
+  (() => {
+    A.LAN.online = true;
+    A.lanAutoMaybeStart();
+    const on = A.LAN.auto.timer !== null;
+    A.lanAutoStop();
+    return on && A.LAN.auto.timer === null && /LAN_AUTO_POLL_MS = 4000/.test(html) && /lanAutoStop\(\)/.test(html);
+  })());
+
+/* 收尾：还原 fetch 与 LAN 状态，避免影响其它检查 */
+A.lanAutoStop();
+A.LAN.online = false;
+A.LAN.serverMode = false;
+A.LAN.base = "";
+globalThis.fetch = realFetch2;
+
 /* ---------------- 输出 ---------------- */
 
 const pass = results.filter(([ok]) => ok).length;
 results.forEach(([ok, n]) => console.log((ok ? "  OK   " : "  FAIL ") + n));
-console.log("\n共 " + results.length + " 项，通过 " + pass + "，失败 " + (results.length - pass));
+if (skips.length) {
+  console.log("\n跳过 " + skips.length + " 项（本目录不含 src-tauri / Tauri 配置，纯 Web 形态）：");
+  skips.forEach((n) => console.log("  SKIP  " + n));
+}
+console.log("\n共 " + results.length + " 项，通过 " + pass + "，失败 " + (results.length - pass) +
+  (skips.length ? "，跳过 " + skips.length : ""));
 process.exit(pass === results.length ? 0 : 1);
