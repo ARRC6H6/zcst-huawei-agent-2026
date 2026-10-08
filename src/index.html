@@ -74,9 +74,6 @@
   --track: rgba(120, 132, 165, 0.14);
   --scroller: rgba(120, 132, 165, 0.24);
   --scroller-hover: rgba(120, 132, 165, 0.42);
-  --canvas-bg: rgba(255, 255, 255, 0.5);
-  --grid: rgba(120, 132, 165, 0.14);
-  --link-line: rgba(106, 123, 255, 0.6);
 }
 
 .t-paper   { --tint:#ffffff; --tint-2:#f4f6fb; --tint-line:rgba(130,142,175,.20); --tone:#8d97b4; }
@@ -133,9 +130,6 @@
   --track: rgba(206, 218, 245, 0.18);
   --scroller: rgba(206, 218, 245, 0.32);
   --scroller-hover: rgba(206, 218, 245, 0.52);
-  --canvas-bg: rgba(255, 255, 255, 0.06);
-  --grid: rgba(206, 218, 245, 0.14);
-  --link-line: rgba(154, 166, 255, 0.72);
 }
 
 /* 马卡龙六色在深色下也要「有色」，不然卡片全是一片灰 */
@@ -151,9 +145,7 @@
 :root[data-theme="dark"] .step-rail,
 :root[data-theme="dark"] .exp-card,
 :root[data-theme="dark"] .md-preview,
-:root[data-theme="dark"] .lan-clipbox,
-:root[data-theme="dark"] .canvas-scroll,
-:root[data-theme="dark"] .player-canvas { border-color: var(--line); }
+:root[data-theme="dark"] .lan-clipbox { border-color: var(--line); }
 /* App 形态下卡片几乎不透明，避免桌面透上来又糊成一片灰 */
 :root[data-theme="dark"] body.wb-on .card,
 :root[data-theme="dark"] body.wb-on .step-rail {
@@ -381,47 +373,14 @@ chem-input.chem-field:not(:defined) { min-height: 64px; border: 1px solid var(--
 .media-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .media-add svg { width: 20px; height: 20px; }
 
-.canvas-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-.canvas-tools { display: flex; gap: 5px; margin-left: auto; flex-wrap: wrap; }
-.canvas-scroll { overflow: auto; border-radius: 11px; border: 1px solid var(--line-soft); background: var(--canvas-bg); }
-.canvas-stage { position: relative; transform-origin: top left; }
-.cv-grid { position: absolute; inset: 0;
-  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 20px 20px; border-radius: 11px; }
-.cv-item { position: absolute; display: grid; place-items: center; cursor: grab; touch-action: none;
-  border-radius: 10px; transition: box-shadow var(--fast), background var(--fast); }
-.cv-item svg { width: 100%; height: 100%; stroke: var(--ink-soft); }
-.cv-item img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-.cv-item .cv-label { position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%);
-  font-size: 10px; color: var(--ink-faint); white-space: nowrap; pointer-events: none; }
-.cv-item:hover { background: var(--hover-soft); }
-.cv-item.on { box-shadow: 0 0 0 1.6px var(--accent), 0 8px 18px rgba(30,38,70,.14); }
-.cv-item.dragging { cursor: grabbing; opacity: .9; }
-.cv-item .cv-op { position: absolute; width: 13px; height: 13px; border-radius: 50%; background: var(--surface-hi);
-  border: 1.6px solid var(--accent); display: none; }
-.cv-item.on .cv-op { display: block; }
-.cv-op.rot { top: -9px; left: 50%; transform: translateX(-50%); cursor: grab; }
-.cv-op.scl { right: -8px; bottom: -8px; cursor: nwse-resize; }
-.cv-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.cv-svg line { stroke: var(--link-line); stroke-width: 2; stroke-dasharray: 7 5; }
-.cv-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-faint); font-size: 12.5px; pointer-events: none; }
-.inst-panel { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.inst-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 9px;
-  border: 1px solid var(--line-soft); background: var(--surface-2); color: var(--ink-soft);
-  font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all var(--fast); }
-.inst-chip svg { width: 17px; height: 17px; stroke: var(--ink-faint); }
-.inst-chip:hover { background: var(--surface-hi); border-color: var(--accent); transform: translateY(-1px); }
-.inst-chip:active { transform: scale(.95); }
-.inst-cat { font-size: 10.5px; font-weight: 700; color: var(--ink-faint); letter-spacing: .06em; margin: 10px 0 4px; width: 100%; }
-
 .player-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .player-nav { display: flex; gap: 6px; }
 .player-step { font-size: 13px; font-weight: 700; color: var(--ink-soft); }
 .player-dots { display: flex; gap: 5px; margin-left: auto; flex-wrap: wrap; }
 .player-dot { width: 9px; height: 9px; border-radius: 50%; border: 0; background: var(--track); cursor: pointer; transition: all var(--fast); }
 .player-dot.on { background: var(--accent); transform: scale(1.25); }
-.player-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 360px); gap: 16px; align-items: start; }
-.canvas-card { max-width: 380px; }
+/* 仪器摆放已移除：播放区只剩「步骤正文」一列 */
+.player-stage { display: block; }
 .read-block { margin-bottom: 12px; }
 .read-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; color: var(--ink-faint); margin-bottom: 5px; }
 .read-text { font-size: 13.5px; line-height: 1.85; color: var(--ink-soft); white-space: pre-wrap; word-break: break-word; }
@@ -430,7 +389,6 @@ chem-input.chem-field:not(:defined) { min-height: 64px; border: 1px solid var(--
 .tips-box { padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(217,165,32,.35); background: rgba(255,250,235,.55);
   font-size: 12.5px; line-height: 1.8; color: #8a6a12; }
 :root[data-theme="dark"] .tips-box { background: rgba(240,199,101,.16); color: #f4d68a; }
-.player-canvas { border-radius: 11px; border: 1px solid var(--line-soft); background: var(--canvas-bg); overflow: auto; }
 
 .record-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
 
@@ -469,8 +427,7 @@ chem-input.chem-field:not(:defined) { min-height: 64px; border: 1px solid var(--
 
 /* ---- 手机端允许双指缩放（页面本身不放大，只让用户能放大看清单/地址）----
    浏览器侧靠上面的 viewport 声明；Android App 侧 WebView 默认关着内置缩放，
-   由 gen/android 的 MainActivity.kt 里 onWebViewCreate 打开（见 README §3.3）。
-   画布上的仪器另有 touch-action:none（单指拖动不能被缩放手势抢走），不受影响。 */
+   由 gen/android 的 MainActivity.kt 里 onWebViewCreate 打开（见 README §3.3）。 */
 html, body { touch-action: pan-x pan-y pinch-zoom; }
 .lan-grid, .lan-list, .lan-drop, .lan-clipbox { touch-action: pan-x pan-y pinch-zoom; }
 
@@ -622,7 +579,7 @@ a.btn { text-decoration: none; }
   .tab:active { transform: scale(.94); }
   body, input, textarea, select, button { font-size: 14px; }
   .btn { min-height: 40px; }
-  .chip, .inst-chip { min-height: 36px; }
+  .chip { min-height: 36px; }
   .step-item { min-height: 42px; }
 }
 @media (max-width: 560px) { .exp-grid { grid-template-columns: 1fr; } }
@@ -969,24 +926,26 @@ function normalizeStep(s) {
     tips: s.tips || "",
     images: Array.isArray(s.images) ? s.images : [],
     videos: Array.isArray(s.videos) ? s.videos : [],
-    canvas: s.canvas && Array.isArray(s.canvas.items) ? {
-      w: s.canvas.w || 1000, h: s.canvas.h || 620,
-      items: s.canvas.items, links: Array.isArray(s.canvas.links) ? s.canvas.links : [],
-    } : { w: 1000, h: 620, items: [], links: [] },
+    /* 每步一个独立计时器（编辑模式逐步预置 / 记录模式播放到本步时启停） */
+    timer: normalizeTimer(s.timer),
     record: {
       note: (s.record && s.record.note) || "",
       images: (s.record && Array.isArray(s.record.images)) ? s.record.images : [],
     },
   };
 }
-/** 计时器挂在**整个实验**上（exp.timer），不是某一步：
+/** 计时器数据结构（step.timer 与 exp.timer 同构）：
  *  mode      stopwatch 正计时 / countdown 倒计时
  *  target    倒计时目标秒数（正计时为 0）
  *  startAt   本轮开始时间戳（暂停后归 0）
  *  accumulated 已累计毫秒（暂停保留）
  *  rang      本轮是否已响过（到点只响一次）
- *  logs      每次「记一次」留下的记录 [{at, ms}]，最多 20 条
- *  旧数据没有 timer 字段 → 补一份默认值，向后兼容。 */
+ *  logs      每次「记一次」留下的记录 [{at, ms, step}]，最多 20 条
+ *
+ *  挂载点有两个：
+ *    · step.timer —— 每个步骤一个（**主用法**）
+ *    · exp.timer  —— 自由计时器（不绑定步骤，只在记录模式出现）
+ *  两个挂载点都用本函数规范化。 */
 function normalizeTimer(t) {
   const o = (t && typeof t === "object") ? t : {};
   const logs = Array.isArray(o.logs) ? o.logs : [];
@@ -1000,11 +959,40 @@ function normalizeTimer(t) {
     logs: logs
       .filter((x) => x && typeof x === "object" && Number(x.ms) > 0)
       .slice(0, 20)
-      .map((x) => ({ at: Number(x.at) || 0, ms: Math.round(Number(x.ms)) })),
+      .map((x) => ({ at: Number(x.at) || 0, ms: Math.round(Number(x.ms)), step: Math.max(0, Math.round(Number(x.step) || 0)) })),
   };
 }
+/** 把 2026-10-06～10-08 期间「整个实验一个」的旧计时器迁移到新模型。
+ *
+ *  旧数据只有一个 exp.timer（全局）。新模型是「每步一个 + 自由计时器」。
+ *  迁移规则：旧 exp.timer 如果有实际使用痕迹（跑过 / 累计过 / 记过），
+ *  就**下放一份副本到第一步**，让「每步独立」立刻有内容；exp.timer 本身保留，
+ *  正好成为「自由计时器」—— 旧数据两边都不丢。
+ *
+ *  幂等：只看「第一步的 timer 是否还是全新」，所以重复调用不会重复迁移。 */
+function migrateTimers(exp) {
+  const old = exp.timer;
+  if (!old || !Array.isArray(exp.steps) || !exp.steps.length) return exp;
+  const used = !!(old.running || old.accumulated > 0 || (old.logs || []).length);
+  if (!used) return exp;
+  const first = exp.steps[0];
+  const ft = first.timer;
+  const firstPristine = !ft || (!ft.running && !ft.accumulated && !(ft.logs || []).length);
+  if (firstPristine) {
+    first.timer = {
+      mode: old.mode,
+      target: old.target,
+      running: false,          // 迁移只搬「预置与记录」，不搬运行态（旧 startAt 早已过期）
+      startAt: 0,
+      accumulated: old.accumulated,
+      rang: false,
+      logs: (old.logs || []).map((l) => ({ at: l.at, ms: l.ms, step: 1 })),
+    };
+  }
+  return exp;
+}
 function normalizeExp(e) {
-  return {
+  return migrateTimers({
     v: EXP_VERSION,
     id: e.id,
     name: e.name || "未命名实验",
@@ -1017,7 +1005,7 @@ function normalizeExp(e) {
     steps: (e.steps || []).map(normalizeStep),
     timer: normalizeTimer(e.timer),
     log: { total: (e.log && e.log.total) || "", totalImages: (e.log && e.log.totalImages) || [] },
-  };
+  });
 }
 function newExp(name, subject) {
   const th = { chemistry: "t-sky", biology: "t-mint", biochem: "t-lavender" };
@@ -1029,7 +1017,7 @@ function newExp(name, subject) {
     desc: "",
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    steps: [{ id: uid("s_"), title: "步骤 1", text: "", equation: "", tips: "", images: [], videos: [], canvas: null, record: null }],
+    steps: [{ id: uid("s_"), title: "步骤 1", text: "", equation: "", tips: "", images: [], videos: [], record: null }],
   });
 }
 
@@ -1128,16 +1116,29 @@ function compressImage(file, max) {
 }
 
 /* ============================================================
-   3.5 计时器（整个实验一个全局计时器）
-   —— 状态机参考《实验助手-计时模块》（正计时 / 倒计时、累计、记一次、蜂鸣），
-      但挂载点从「每个 step」改成「整个实验的 exp.timer」：
-        · 编辑模式：预置模式 + 目标时长（6 个快捷预设 + 自定义分 / 秒）
-        · 记录模式：手动开始 / 暂停 / 继续 / 归零 / 记一次
-        · 倒计时到点：蜂鸣 + 震动 + 提示，并往**当前步骤**的「现象 / 数据」写一行 [计时]
+   3.5 计时器（每步一个 + 一个「自由计时器」）
+   —— 状态机参考《实验助手-计时模块》（正计时 / 倒计时、累计、记一次、蜂鸣）。
+
+   两个挂载点，互不干扰、可同时运行：
+     · step.timer —— **每个步骤一个独立计时器**
+         · 编辑模式：在「当前步骤」的计时卡里预置模式 + 目标时长
+         · 记录模式：在播放当前步时手动开始 / 暂停 / 继续 / 归零 / 记一次
+         · 倒计时到点：蜂鸣 + 震动 + 提示，并往**这一步**的「现象 / 数据」写一行 [计时]
+     · exp.timer  —— **自由计时器**（不绑定任何步骤）
+         · 只在记录模式出现，随时可开始 / 暂停 / 归零，也能随时改模式与时长
+         · 倒计时到点：蜂鸣 + 震动 + 提示（**不写记录**，因为它不属于某一步）
+         · 「记一次」写进当前步的备注，并留一条带步号的自有 logs
+
+   为什么 exp.timer 还沿用旧字段名：它在 2026-10-06～10-08 期间是「整个实验一个」的
+   全局计时器。沿用同一个字段，旧实验的计时器数据就会**自动变成自由计时器**，
+   不丢数据；旧的 accumulated / logs 通过 migrateTimers() 下放到各步，两边都保住。
    ============================================================ */
 
 const TIMER_PRESETS = [30, 60, 120, 300, 600, 1800];   // 30s ~ 30min
 const TIMER_TICK_MS = 200;
+
+/** 计时器归属标识：写进 data-timer-src，动作分发时用它判断改的是哪个计时器 */
+const TIMER_FREE = "free";
 
 /** 已经规范化过的 timer（判断用，避免每次 attach 都重建对象：
  *  elapsed/tick 里会频繁调 attach，重建会让「刚写进去的 logs / rang」丢在旧对象上） */
@@ -1161,27 +1162,42 @@ function timerLabel(sec) {
 const Timer = {
   _iv: null,
   _ctx: null,
-  /** 正在跑的那个实验对象：就算切到别的页面，到点也照样响 */
-  _exp: null,
-  /** 到点写记录落在第几步（跟随记录模式当前步） */
-  _step: 0,
+  /** 正在跑的计时器集合：元素 = { exp, step, timer }（step 为 null 表示自由计时器） */
+  _active: [],
 
+  /** 规范化某个挂载点（exp 或 step）的 timer 字段并返回它
+   *  —— 参数名沿用 e，但它可以是实验对象，也可以是单个步骤对象。 */
   attach(e) {
     if (!e || typeof e !== "object") return null;
     if (!timerIsNormalized(e.timer)) e.timer = normalizeTimer(e.timer);
     return e.timer;
   },
-  /** 记录模式翻页时同步「当前步」；只有正在跑的那个实验才更新 */
-  trackStep(e, idx) {
-    const n = Number(idx);
-    if (e && e === this._exp && Number.isFinite(n)) this._step = Math.max(0, Math.round(n));
+  /** 记一次用时该写进哪一步（自由计时器的记一次也写当前步） */
+  _noteStep(exp, step) {
+    if (step) { const i = exp.steps.indexOf(step); if (i >= 0) return i; }
+    return clamp(ui.playIndex, 0, Math.max(0, exp.steps.length - 1));
+  },
+
+  /* ---- 运行期集合 ---- */
+  /** 把一个计时器放进待刷新集合；非 running 的会被移出 */
+  track(exp, step, timer) {
+    if (!exp || !timer) return;
+    const i = this._active.findIndex((a) => a.exp === exp && a.step === step);
+    if (timer.running) {
+      if (i >= 0) this._active[i].timer = timer;
+      else this._active.push({ exp: exp, step: step, timer: timer });
+    } else if (i >= 0) this._active.splice(i, 1);
+    if (this._active.length) this.startTick();
+    else this.stopTick();
   },
   /** 实验被删除 / 清空时断开：别让还在跑的计时器把数据又写回本地存储 */
   detach(e) {
-    if (!this._exp) return;
     const id = typeof e === "string" ? e : (e && e.id);
-    if (!id || this._exp.id === id) { this._exp = null; this.stopTick(); }
+    this._active = id ? this._active.filter((a) => !a.exp || a.exp.id !== id) : [];
+    if (!this._active.length) this.stopTick();
   },
+
+  /* ---- 时间计算 ---- */
   elapsed(e) {
     const t = this.attach(e);
     if (!t) return 0;
@@ -1196,10 +1212,15 @@ const Timer = {
     const t = this.attach(e);
     return !!t && t.mode === "countdown" && t.target > 0 && this.elapsed(e) >= t.target * 1000;
   },
-  /** 这个实验的计时器是否被用过（用过才进报告） */
+  /** 「用过」判据：跑过 / 累计过 / 记过一次 */
+  _used(t) { return !!(t && (t.running || t.accumulated > 0 || (t.logs || []).length)); },
+  /** 这个计时器是否被用过 */
   hasData(e) {
-    const t = e && e.timer;
-    return !!(t && (t.running || t.accumulated > 0 || (t.logs || []).length));
+    if (!e) return false;
+    if (Array.isArray(e.steps)) {
+      return e.steps.some((s) => this._used(s && s.timer)) || this._used(e.timer);
+    }
+    return this._used(e.timer);
   },
   /** 毫秒 → "MM:SS" / "H:MM:SS" */
   fmt(ms) {
@@ -1218,6 +1239,7 @@ const Timer = {
     return "倒计时 " + this.fmt(t.target * 1000);
   },
 
+  /* ---- 状态操作（e 同样可以是实验或步骤） ---- */
   setMode(e, mode) {
     const t = this.attach(e);
     if (!t) return null;
@@ -1234,51 +1256,52 @@ const Timer = {
     this._stopRun(e, t);
     return t;
   },
-  start(e) {
-    const t = this.attach(e);
+  /** 开始。exp 是所属实验，t 是那个 timer，step 为 null 表示自由计时器。
+   *  三个都显式传，是为了能同时跑多个计时器（每步一个 + 自由计时器）。 */
+  start(exp, t, step) {
     if (!t || t.running) return false;
     if (t.mode === "countdown" && t.target > 0 && t.accumulated >= t.target * 1000) t.accumulated = 0;
     t.running = true;
     t.startAt = Date.now();
     t.rang = false;
-    this._exp = e;
-    this.startTick();
+    this.track(exp, step || null, t);
     return true;
   },
-  pause(e) {
-    const t = this.attach(e);
+  pause(t) {
     if (!t || !t.running) return false;
     t.accumulated += Math.max(0, Date.now() - t.startAt);
     t.running = false;
     t.startAt = 0;
-    if (this._exp === e) this.stopTick();
+    this._active = this._active.filter((a) => a.timer !== t);
+    if (!this._active.length) this.stopTick();
     return true;
   },
-  reset(e) {
-    const t = this.attach(e);
+  reset(t) {
     if (!t) return false;
-    this._stopRun(e, t);
+    this._stopRun(null, t);
     return true;
   },
-  _stopRun(e, t) {
+  _stopRun(_e, t) {
+    if (!t) return;
     t.running = false;
     t.startAt = 0;
     t.accumulated = 0;
     t.rang = false;
-    if (this._exp === e) this.stopTick();
+    this._active = this._active.filter((a) => a.timer !== t);
+    if (!this._active.length) this.stopTick();
   },
 
-  /** 记一次用时 → 写进当前步的「现象 / 数据」 */
-  log(e, idx) {
-    if (!this.attach(e)) return { ok: false, reason: "没有可计时的实验" };
-    const ms = this.elapsed(e);
+  /** 记一次用时 → 写进当前步的「现象 / 数据」，并在该计时器上留一条 log */
+  log(exp, t, step) {
+    if (!t) return { ok: false, reason: "没有可计时的计时器" };
+    const ms = t.accumulated + (t.running ? Math.max(0, Date.now() - t.startAt) : 0);
     if (ms < 1000) return { ok: false, reason: "还没开始计时" };
-    const t = this.attach(e);
-    t.logs.unshift({ at: Date.now(), ms: Math.round(ms) });
+    const idx = exp ? this._noteStep(exp, step) : 0;
+    t.logs.unshift({ at: Date.now(), ms: Math.round(ms), step: step ? idx + 1 : 0 });
     t.logs = t.logs.slice(0, 20);
     const line = "[计时] " + (t.mode === "countdown" ? "倒计时" : "用时") + " " + this.fmt(ms);
-    timerWriteNote(e, Number.isFinite(Number(idx)) ? Number(idx) : this._step, line);
-    return { ok: true, ms: ms, line: line };
+    if (exp) timerWriteNote(exp, idx, line);
+    return { ok: true, ms: ms, line: line, step: idx };
   },
 
   /* ---- 定时器生命周期 ---- */
@@ -1287,45 +1310,61 @@ const Timer = {
     this._iv = setInterval(() => { this.tick(); }, TIMER_TICK_MS);
   },
   stopTick() { if (this._iv) { clearInterval(this._iv); this._iv = null; } },
-  /** 每次 render() 之后调用：正在跑就续上 tick，并把时钟重画一遍 */
+  /** 每次 render() 之后调用：把页面上真实存在、且正在跑的计时器续上 tick */
   syncView(exp) {
-    if (exp) {
-      this.attach(exp);
-      if (exp.timer.running) this._exp = exp;
-      if (this._exp === exp) this.trackStep(exp, ui.playIndex);
+    if (exp && Array.isArray(exp.steps)) {
+      exp.steps.forEach((s) => { if (s) this.track(exp, s, this.attach(s)); });
+      this.track(exp, null, this.attach(exp));
     }
-    if (this._exp && this._exp.timer && this._exp.timer.running) this.startTick();
+    if (this._active.length) this.startTick();
+    else this.stopTick();
     this.paint();
   },
-  /** 只改时钟 DOM，不整页重绘（整页重绘会让 textarea 失焦） */
+  /** 局部刷新所有时钟 DOM（不整页重绘，避免 textarea 失焦） */
   paint() {
-    const clock = document.querySelector("[data-timer-clock]");
-    if (!clock) return;
-    const e = state.exp;
-    if (!e || !e.timer) return;
-    const t = this.attach(e);
-    const isCount = t.mode === "countdown" && t.target > 0;
-    clock.textContent = isCount ? this.fmt(Math.max(0, this.remaining(e))) : this.fmt(this.elapsed(e));
-    let cls = "timer-clock";
-    if (t.running) cls += this.isOver(e) ? " done" : (isCount && this.remaining(e) < 10000 ? " warn" : " run");
-    clock.className = cls;
+    const clocks = document.querySelectorAll("[data-timer-clock]");
+    if (!clocks.length) return;
+    clocks.forEach((clock) => {
+      const src = clock.getAttribute("data-timer-src") || TIMER_FREE;
+      const step = src === TIMER_FREE ? null : (state.exp && state.exp.steps[Number(src)]);
+      const owner = step || state.exp;
+      if (!owner) return;
+      const t = this.attach(owner);
+      const isCount = t.mode === "countdown" && t.target > 0;
+      clock.textContent = isCount ? this.fmt(Math.max(0, this.remaining(owner))) : this.fmt(this.elapsed(owner));
+      let cls = "timer-clock";
+      if (t.running) cls += this.isOver(owner) ? " done" : (isCount && this.remaining(owner) < 10000 ? " warn" : " run");
+      clock.className = cls;
+    });
   },
   tick() {
+    const alive = [];
+    this._active.forEach((a) => {
+      const t = this.attach(a.step || a.exp);
+      if (!t || !t.running) return;      // 已被暂停 / 归零
+      alive.push(a);
+      const over = t.mode === "countdown" && t.target > 0
+        && t.accumulated + Math.max(0, Date.now() - t.startAt) >= t.target * 1000;
+      if (over && !t.rang) {
+        t.rang = true;
+        const ms = t.accumulated + Math.max(0, Date.now() - t.startAt);
+        this.beep(3);
+        if (a.step && a.exp) {
+          /* 步骤计时器：写进这一步的记录 */
+          const idx = this._noteStep(a.exp, a.step);
+          timerWriteNote(a.exp, idx, "[计时] 倒计时结束 " + this.fmt(ms));
+          Store.saveExp(a.exp);
+          toast("⏰ 第 " + (idx + 1) + " 步倒计时结束：" + this.fmt(ms) + "（已写入该步记录）", 4200);
+        } else {
+          /* 自由计时器：不属于任何步骤，不写记录 */
+          toast("⏰ 自由计时器倒计时结束：" + this.fmt(ms), 4200);
+        }
+      }
+      if (!over) t.rang = false;
+    });
+    this._active = alive;
+    if (!alive.length) this.stopTick();
     this.paint();
-    const e = this._exp;
-    if (!e || !e.timer || !e.timer.running) { this.stopTick(); return; }
-    const over = e.timer.mode === "countdown" && e.timer.target > 0 && this.elapsed(e) >= e.timer.target * 1000;
-    const t = this.attach(e);   // elapsed 之后重新取：保证改的是当前那份 timer
-    if (over && !t.rang) {
-      t.rang = true;
-      const ms = this.elapsed(e);
-      timerWriteNote(e, this._step, "[计时] 倒计时结束 " + this.fmt(ms));
-      Store.saveExp(e);
-      this.paint();
-      this.beep(3);
-      toast("⏰ 倒计时结束：" + this.fmt(ms) + "（已写入第 " + (this._step + 1) + " 步记录）", 4200);
-    }
-    if (!over) t.rang = false;
   },
 
   /** 蜂鸣 + 震动（移植自参考计时模块；失败静默） */
@@ -1356,17 +1395,53 @@ const Timer = {
     } catch (err) { /* 静音失败无所谓 */ }
   },
 
-  /** 给报告用的计时汇总 */
+  /** 给报告用的计时汇总：各步计时器 + 自由计时器 */
   summary(e) {
-    if (!e || !e.timer) return null;
-    const ms = this.elapsed(e);
+    if (!e) return null;
+    const fmtLogs = (logs) => (logs || []).map((l) => ({ at: l.at, ms: l.ms, text: this.fmt(l.ms), step: l.step || 0 }));
+
+    const steps = (e.steps || []).map((s, i) => {
+      const owner = s || {};
+      const t = this.attach(owner);
+      const ms = this.elapsed(owner);
+      return {
+        no: i + 1,
+        title: stepTitle(s, i),
+        used: this._used(t),
+        mode: t.mode,
+        modeText: t.mode === "countdown" ? "倒计时" : "正计时",
+        targetText: this.targetText(owner),
+        elapsedMs: ms,
+        elapsedText: this.fmt(ms),
+        logs: fmtLogs(t.logs),
+      };
+    }).filter((x) => x.used);
+
+    const freeOwner = { timer: e.timer };
+    const freeT = this.attach(freeOwner);
+    const freeUsed = this._used(freeT);
+    const freeMs = this.elapsed(freeOwner);
+    const free = freeUsed ? {
+      mode: freeT.mode,
+      modeText: freeT.mode === "countdown" ? "倒计时" : "正计时",
+      targetText: this.targetText(freeOwner),
+      elapsedMs: freeMs,
+      elapsedText: this.fmt(freeMs),
+      logs: fmtLogs(freeT.logs),
+    } : null;
+
     return {
-      mode: e.timer.mode,
-      modeText: e.timer.mode === "countdown" ? "倒计时" : "正计时",
-      targetText: this.targetText(e),
-      elapsedMs: ms,
-      elapsedText: this.fmt(ms),
-      logs: (e.timer.logs || []).map((l) => ({ at: l.at, ms: l.ms, text: this.fmt(l.ms) })),
+      /* 兼容旧字段：取「主要那个」（有步骤计时就用第一步的，否则用自由计时器） */
+      mode: (steps[0] || free || {}).mode || "stopwatch",
+      modeText: (steps[0] || free || {}).modeText || "正计时",
+      targetText: (steps[0] || free || {}).targetText || "正计时（不限时）",
+      elapsedMs: (steps[0] || free || {}).elapsedMs || 0,
+      elapsedText: (steps[0] || free || {}).elapsedText || "00:00",
+      logs: (steps[0] || free || {}).logs || [],
+      /* 新增 */
+      steps: steps,
+      free: free,
+      hasFree: freeUsed,
     };
   },
 };
@@ -1384,10 +1459,12 @@ function timerWriteNote(e, idx, line) {
   return true;
 }
 
-/** 编辑模式：计时器预设卡片（只预置，不在这里开始） */
-function timerEditHTML(e) {
-  const t = Timer.attach(e);
+/** 编辑模式：**当前步骤**的计时器预设卡片（只预置，不在这里开始）
+ *  src = "free" 时是自由计时器（但编辑模式不显示自由计时器，这里只兜底）。 */
+function timerEditHTML(owner, src) {
+  const t = Timer.attach(owner);
   if (!t) return "";
+  const srcAttr = src == null ? String(ui.step) : String(src);
   const isCount = t.mode === "countdown";
   const presets = TIMER_PRESETS.map((sec) =>
     `<button class="chip${isCount && t.target === sec ? " on" : ""}" data-act="timer-target" data-v="${sec}" type="button">${Timer.label(sec)}</button>`
@@ -1396,11 +1473,11 @@ function timerEditHTML(e) {
   const logs = (t.logs || []).length
     ? `<div class="timer-logs">已记录：${t.logs.slice(0, 5).map((l) => `<b>${Timer.fmt(l.ms)}</b>`).join("　")}</div>`
     : "";
-  return `<div class="card">
-      <h3 class="card-title">${ICON.target}<span class="grow">计时器预设</span>
-        <span class="timer-tag">当前：${esc(Timer.targetText(e))}</span>
+  return `<div class="card" data-timer-src="${esc(srcAttr)}">
+      <h3 class="card-title">${ICON.target}<span class="grow">本步计时器预设</span>
+        <span class="timer-tag">当前：${esc(Timer.targetText(owner))}</span>
       </h3>
-      <p class="msg" style="margin:0 0 10px">计时器跟随<b>整个实验</b>（不绑定单步）：这里预置模式与时长，到「记录模式」再手动开始 / 暂停。</p>
+      <p class="msg" style="margin:0 0 10px">这是<b>第 ${ui.step + 1} 步专属</b>的计时器。在这里预置模式与时长，到「记录模式」播放到本步时手动开始 / 暂停。</p>
       <div class="timer-modes">
         <button class="chip${!isCount ? " on" : ""}" data-act="timer-mode" data-v="stopwatch" type="button">正计时</button>
         <button class="chip${isCount ? " on" : ""}" data-act="timer-mode" data-v="countdown" type="button">倒计时</button>
@@ -1411,41 +1488,64 @@ function timerEditHTML(e) {
       </div>
       <div class="timer-custom">
         <span class="field-label">自定义时长</span>
-        <input type="number" class="timer-num" data-timer="min" min="0" max="600" step="1" value="${mins}" aria-label="分" />
+        <input type="number" class="timer-num" data-timer="min" data-timer-src="${esc(srcAttr)}" min="0" max="600" step="1" value="${mins}" aria-label="分" />
         <span class="timer-unit">分</span>
-        <input type="number" class="timer-num" data-timer="sec" min="0" max="59" step="1" value="${secs}" aria-label="秒" />
+        <input type="number" class="timer-num" data-timer="sec" data-timer-src="${esc(srcAttr)}" min="0" max="59" step="1" value="${secs}" aria-label="秒" />
         <span class="timer-unit">秒</span>
         <button class="btn btn-sm" data-act="timer-custom" type="button">应用</button>
       </div>
       <div class="timer-row">
-        <span class="timer-clock" data-timer-clock>${Timer.fmt(isCount ? t.target * 1000 : Timer.elapsed(e))}</span>
-        <span class="timer-hint">${isCount ? "倒计时到点会响铃，并自动写入当前步记录" : "正计时可随时「记一次」"}</span>
+        <span class="timer-clock" data-timer-clock data-timer-src="${esc(srcAttr)}">${Timer.fmt(isCount ? t.target * 1000 : Timer.elapsed(owner))}</span>
+        <span class="timer-hint">${isCount ? "倒计时到点会响铃，并自动写入本步记录" : "正计时可随时「记一次」"}</span>
       </div>
       ${logs}
     </div>`;
 }
 
-/** 记录模式：手动启停的计时条 */
-function timerRecordHTML(e) {
-  const t = Timer.attach(e);
+/** 记录模式：可手动启停的计时条。
+ *  owner = 当前步骤（本步计时器）或实验对象（自由计时器）；src 写进 data-timer-src。 */
+function timerRecordHTML(owner, src, opts) {
+  const t = Timer.attach(owner);
   if (!t) return "";
-  const ms = Timer.elapsed(e);
+  const o = opts || {};
+  const srcAttr = src == null ? String(ui.playIndex) : String(src);
+  const ms = Timer.elapsed(owner);
   const isCount = t.mode === "countdown" && t.target > 0;
-  const cls = t.running ? (Timer.isOver(e) ? " done" : (isCount && Timer.remaining(e) < 10000 ? " warn" : " run")) : "";
+  const cls = t.running ? (Timer.isOver(owner) ? " done" : (isCount && Timer.remaining(owner) < 10000 ? " warn" : " run")) : "";
   const logs = (t.logs || []).length
     ? `<div class="timer-logs">已记录：${t.logs.slice(0, 5).map((l) => `<b>${Timer.fmt(l.ms)}</b>`).join("　")}</div>`
     : "";
-  return `<div class="card timer-card">
-      <h3 class="card-title">${ICON.target}<span class="grow">计时器 · ${esc(Timer.targetText(e))}</span>
+  /* 自由计时器：随时可改模式与时长（步骤计时器在编辑模式预设，这里不重复给预设） */
+  const freeControls = o.free ? `
+      <div class="timer-modes">
+        <button class="chip${!isCount ? " on" : ""}" data-act="timer-mode" data-v="stopwatch" type="button">正计时</button>
+        <button class="chip${isCount ? " on" : ""}" data-act="timer-mode" data-v="countdown" type="button">倒计时</button>
+        <span class="timer-hint">可随时改模式 / 时长</span>
+      </div>
+      <div class="timer-custom">
+        <span class="field-label">时长</span>
+        <input type="number" class="timer-num" data-timer="min" data-timer-src="${esc(srcAttr)}" min="0" max="600" step="1" value="${Math.floor(t.target / 60)}" aria-label="分" />
+        <span class="timer-unit">分</span>
+        <input type="number" class="timer-num" data-timer="sec" data-timer-src="${esc(srcAttr)}" min="0" max="59" step="1" value="${t.target % 60}" aria-label="秒" />
+        <span class="timer-unit">秒</span>
+        <button class="btn btn-sm" data-act="timer-custom" type="button">应用</button>
+      </div>` : "";
+  const title = o.free ? "自由计时器（不绑定步骤）" : "本步计时器 · " + esc(Timer.targetText(owner));
+  const hint = o.free
+    ? (isCount ? "剩余 " + Timer.fmt(Math.max(0, Timer.remaining(owner))) + " · 到点只响铃，不写记录" : "已用 " + Timer.fmt(ms) + " · 「记一次」写进当前步")
+    : (isCount ? "剩余 " + Timer.fmt(Math.max(0, Timer.remaining(owner))) : "已用 " + Timer.fmt(ms));
+  return `<div class="card timer-card" data-timer-src="${esc(srcAttr)}">
+      <h3 class="card-title">${ICON.target}<span class="grow">${title}</span>
         <button class="btn btn-sm" data-act="go-edit-timer" type="button">去编辑预设</button>
       </h3>
       <div class="timer-row">
-        <span class="timer-clock${cls}" data-timer-clock>${Timer.fmt(isCount ? Math.max(0, Timer.remaining(e)) : ms)}</span>
+        <span class="timer-clock${cls}" data-timer-clock data-timer-src="${esc(srcAttr)}">${Timer.fmt(isCount ? Math.max(0, Timer.remaining(owner)) : ms)}</span>
         <button class="btn ${t.running ? "" : "btn-primary"}" data-act="timer-toggle" type="button">${t.running ? "暂停" : (ms > 0 ? "继续" : "开始")}</button>
         <button class="btn" data-act="timer-reset" type="button">归零</button>
         <button class="btn" data-act="timer-log" type="button">记一次</button>
-        <span class="timer-hint">${isCount ? "剩余 " + Timer.fmt(Math.max(0, Timer.remaining(e))) : "已用 " + Timer.fmt(ms)}</span>
+        <span class="timer-hint">${hint}</span>
       </div>
+      ${freeControls}
       ${logs}
     </div>`;
 }
@@ -1490,10 +1590,6 @@ function initTheme() {
 const ui = {
   step: 0,
   playIndex: 0,
-  canvasTool: "select",
-  selected: null,
-  linkFrom: null,
-  scale: 1,
   showForm: false,
 };
 
@@ -1510,358 +1606,17 @@ function markSaved() {
 }
 
 /* ============================================================
-   6. 仪器库（占位美术，imageUrl 为后续替换接口）
-   渲染规则：优先 imageUrl，其次内联 SVG。新增仪器只需追加条目。
+   6. 运行时共用片段
+   （仪器摆放 / 仪器库已整体移除，这里只留各页共用的小工具）
    ============================================================ */
 
-const INST_CATS = [
-  { id: "glass",   label: "玻璃器皿", theme: "t-sky" },
-  { id: "measure", label: "计量与通用", theme: "t-paper" },
-  { id: "support", label: "支架与夹持", theme: "t-lavender" },
-  { id: "heat",    label: "加热设备", theme: "t-peach" },
-  { id: "biology", label: "生物器材", theme: "t-mint" },
-];
-
-const I = (d, extra) => `<svg ${SVG} viewBox="0 0 24 24" ${extra || ""}>${d}</svg>`;
-
-const INST_LIB = [
-  /* ---- 玻璃器皿 ---- */
-  { id: "test-tube", name: "试管", cat: "glass", w: 46, h: 116, imageUrl: "",
-    icon: I(`<path d="M9 3h6v13a3 3 0 0 1-6 0z"/><path d="M9 10h6"/><path d="M9 3h6"/>`) },
-  { id: "beaker", name: "烧杯", cat: "glass", w: 104, h: 104, imageUrl: "",
-    icon: I(`<path d="M5 6h14v10a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M5 10h14"/><path d="M8 6V4"/>`) },
-  { id: "flask-conical", name: "锥形瓶", cat: "glass", w: 104, h: 116, imageUrl: "",
-    icon: I(`<path d="M10 3h4v5l5 9a2 2 0 0 1-1.8 3H6.8A2 2 0 0 1 5 17l5-9z"/><path d="M7.5 14h9"/>`) },
-  { id: "flask-round", name: "圆底烧瓶", cat: "glass", w: 110, h: 116, imageUrl: "",
-    icon: I(`<path d="M10 3h4v4"/><circle cx="12" cy="15" r="7"/><path d="M9 3h6"/>`) },
-  { id: "flask-volumetric", name: "容量瓶", cat: "glass", w: 86, h: 126, imageUrl: "",
-    icon: I(`<path d="M10 3h4l1 4v11a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V7z"/><path d="M10 11h4"/><path d="M9.5 3h5"/>`) },
-  { id: "cylinder", name: "量筒", cat: "glass", w: 66, h: 126, imageUrl: "",
-    icon: I(`<path d="M9 3h6v16a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/><path d="M9 7h6M9 12h6M9 17h6"/>`) },
-  { id: "dropper", name: "胶头滴管", cat: "glass", w: 44, h: 116, imageUrl: "",
-    icon: I(`<path d="M9 3h6v5l-1 3h-4L9 8z"/><path d="M12 11v9"/><path d="M9.5 3h5"/>`) },
-  { id: "rod", name: "玻璃棒", cat: "glass", w: 40, h: 120, imageUrl: "",
-    icon: I(`<path d="M7 20 17 4"/><path d="M6 21l2-2M16 5l2-2"/>`) },
-  { id: "funnel", name: "漏斗", cat: "glass", w: 96, h: 112, imageUrl: "",
-    icon: I(`<path d="M4 4h16l-6 7v7l-4 2v-9z"/><path d="M4 4h16"/>`) },
-  { id: "evaporating-dish", name: "蒸发皿", cat: "glass", w: 104, h: 66, imageUrl: "",
-    icon: I(`<path d="M3 9h18a9 9 0 0 1-18 0z"/><path d="M9 6h6"/>`) },
-  { id: "crucible", name: "坩埚", cat: "glass", w: 90, h: 84, imageUrl: "",
-    icon: I(`<path d="M6 9h12l-1.5 8H7.5z"/><path d="M9 6h6"/><path d="M5 9h14"/>`) },
-  { id: "watch-glass", name: "表面皿", cat: "glass", w: 100, h: 60, imageUrl: "",
-    icon: I(`<path d="M3 14a9 6 0 0 1 18 0z"/><path d="M3 14h18"/>`) },
-  { id: "reagent-bottle", name: "试剂瓶", cat: "glass", w: 78, h: 116, imageUrl: "",
-    icon: I(`<path d="M9 3h6v3l2 3v12H7V9l2-3z"/><path d="M9 13h6"/><path d="M9 3h6"/>`) },
-
-  /* ---- 计量与通用 ---- */
-  { id: "balance", name: "电子天平", cat: "measure", w: 120, h: 96, imageUrl: "",
-    icon: I(`<path d="M3 20h18"/><path d="M12 5v15"/><path d="M5 10h14"/><path d="M8 10l-2 5h4z"/><path d="M16 10l-2 5h4z"/><circle cx="12" cy="4" r="1.4"/>`) },
-  { id: "thermometer", name: "温度计", cat: "measure", w: 40, h: 126, imageUrl: "",
-    icon: I(`<path d="M12 3a2 2 0 0 1 2 2v9a3 3 0 1 1-4 0V5a2 2 0 0 1 2-2z"/><path d="M12 9v6"/>`) },
-  { id: "ph-paper", name: "pH 试纸", cat: "measure", w: 70, h: 110, imageUrl: "",
-    icon: I(`<rect x="6" y="3" width="9" height="18" rx="1.5"/><path d="M8.5 8h4M8.5 12h4M8.5 16h4"/>`) },
-  { id: "pipette-gun", name: "移液枪", cat: "measure", w: 44, h: 120, imageUrl: "",
-    icon: I(`<path d="M12 2v8"/><path d="M8 10h8v5a4 4 0 0 1-8 0z"/><path d="M12 19v3"/><path d="M10 5h4"/>`) },
-  { id: "pipette", name: "移液管", cat: "measure", w: 34, h: 128, imageUrl: "",
-    icon: I(`<path d="M12 2v14"/><path d="M10 16h4l-2 6z"/><path d="M10 6h4"/>`) },
-  { id: "wash-bottle", name: "洗瓶", cat: "measure", w: 76, h: 116, imageUrl: "",
-    icon: I(`<path d="M9 4h5v3l3 4v9H6V11l3-4z"/><path d="M17 9l4-2"/><path d="M9 4h5"/>`) },
-
-  /* ---- 支架与夹持 ---- */
-  { id: "stand", name: "铁架台", cat: "support", w: 116, h: 132, imageUrl: "",
-    icon: I(`<path d="M4 21h14"/><path d="M8 21V4"/><path d="M8 8h10"/><path d="M18 8v4"/>`) },
-  { id: "ring", name: "铁圈", cat: "support", w: 84, h: 84, imageUrl: "",
-    icon: I(`<path d="M12 3v5"/><circle cx="12" cy="13" r="5.5"/>`) },
-  { id: "gauze", name: "石棉网", cat: "support", w: 110, h: 66, imageUrl: "",
-    icon: I(`<rect x="3" y="8" width="18" height="7" rx="1.5"/><path d="M7 8v7M12 8v7M17 8v7"/>`) },
-  { id: "tube-holder", name: "试管夹", cat: "support", w: 116, h: 76, imageUrl: "",
-    icon: I(`<path d="M4 8h9l3 3"/><path d="M4 8c0 5 3 8 8 8"/><path d="M16 11l4 6"/>`) },
-  { id: "tongs", name: "坩埚钳", cat: "support", w: 80, h: 116, imageUrl: "",
-    icon: I(`<path d="M8 3l4 8"/><path d="M16 3l-4 8"/><path d="M12 11v10"/>`) },
-
-  /* ---- 加热设备 ---- */
-  { id: "alcohol-lamp", name: "酒精灯", cat: "heat", w: 92, h: 108, imageUrl: "",
-    icon: I(`<path d="M8 20h8v-7H8z"/><path d="M12 13V9"/><path d="M10 9h4l-1.2-4h-1.6z"/><path d="M6 20h12"/>`) },
-  { id: "bunsen", name: "本生灯", cat: "heat", w: 82, h: 116, imageUrl: "",
-    icon: I(`<path d="M8 20h8l-1.2-8h-5.6z"/><path d="M12 12V7"/><path d="M10.5 7h3L12 3z"/>`) },
-  { id: "water-bath", name: "水浴锅", cat: "heat", w: 126, h: 92, imageUrl: "",
-    icon: I(`<rect x="3" y="10" width="18" height="9" rx="2"/><path d="M7 10V7a3 3 0 0 1 6 0"/><path d="M6 19v2M18 19v2"/>`) },
-  { id: "hotplate", name: "电炉", cat: "heat", w: 116, h: 92, imageUrl: "",
-    icon: I(`<rect x="3" y="11" width="18" height="5" rx="1.5"/><path d="M6 16v5M18 16v5"/><path d="M9 8c0-2 1-3 3-3s3 1 3 3"/>`) },
-
-  /* ---- 生物器材 ---- */
-  { id: "microscope", name: "显微镜", cat: "biology", w: 108, h: 132, imageUrl: "",
-    icon: I(`<path d="M5 21h13"/><path d="M9 21a6 6 0 0 1 6-6"/><path d="M13 3l4 4-6 6-4-4z"/><path d="M8 13l-2 2"/><path d="M16 16l3 5"/>`) },
-  { id: "petri-dish", name: "培养皿", cat: "biology", w: 108, h: 66, imageUrl: "",
-    icon: I(`<ellipse cx="12" cy="10" rx="9" ry="4"/><path d="M3 10v3a9 4 0 0 0 18 0v-3"/>`) },
-  { id: "loop", name: "接种环", cat: "biology", w: 56, h: 120, imageUrl: "",
-    icon: I(`<path d="M7 21l6-9"/><circle cx="15" cy="8" r="3"/>`) },
-  { id: "centrifuge-tube", name: "离心管", cat: "biology", w: 44, h: 116, imageUrl: "",
-    icon: I(`<path d="M9 3h6v12l-3 6-3-6z"/><path d="M9 8h6"/>`) },
-  { id: "centrifuge", name: "离心机", cat: "biology", w: 124, h: 104, imageUrl: "",
-    icon: I(`<circle cx="12" cy="12" r="8.5"/><path d="M12 12l5-3"/><path d="M12 12l-4 4"/><circle cx="12" cy="12" r="1.6"/>`) },
-  { id: "electrophoresis", name: "电泳仪", cat: "biology", w: 126, h: 86, imageUrl: "",
-    icon: I(`<rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M8 7v10M12 7v10M16 7v10"/>`) },
-  { id: "incubator", name: "恒温培养箱", cat: "biology", w: 110, h: 128, imageUrl: "",
-    icon: I(`<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 9h14"/><path d="M9 15h6"/>`) },
-  { id: "cotton", name: "酒精棉", cat: "biology", w: 70, h: 70, imageUrl: "",
-    icon: I(`<circle cx="12" cy="12" r="7"/><path d="M9 12c1-2 5-2 6 0"/><path d="M12 5v-2"/>`) },
-];
-
-function instById(id) { return INST_LIB.find((x) => x.id === id) || null; }
-function instName(item) {
-  const base = instById(item.inst);
-  return item.label || (base ? base.name : "未知仪器");
-}
-function renderInstIcon(item, size) {
-  const base = instById(item.inst);
-  if (!base) return "";
-  const dim = size || Math.min(base.w, base.h);
-  if (base.imageUrl) {
-    return `<img src="${esc(base.imageUrl)}" alt="${esc(base.name)}" style="width:100%;height:100%;object-fit:contain" />`;
-  }
-  return base.icon.replace(`width="16" height="16"`, `width="${dim}" height="${dim}"`);
-}
-/* ============================================================
-   7. 仪器画布：渲染 + 交互（Pointer Events，鼠标/触摸同一套）
-   ============================================================ */
-
-let dragState = null;
-const rnd = () => Math.round(Math.random() * 80 - 40);
 const saveSoon = debounce(() => { if (state.exp) persistExp(); }, 350);
-
 function curStep() { return state.exp && state.exp.steps[ui.step] ? state.exp.steps[ui.step] : null; }
-function curCanvas() { const s = curStep(); return s ? s.canvas : null; }
-function itemCenter(it) {
-  const b = instById(it.inst);
-  const w = b ? b.w : 90, h = b ? b.h : 90;
-  return { x: it.x + w / 2, y: it.y + h / 2 };
-}
-function canvasFit() {
-  const sc = document.querySelector(".canvas-scroll");
-  const c = curCanvas();
-  if (!sc || !c) return 1;
-  return clamp((sc.clientWidth - 2) / c.w, 0.25, 1);
-}
-function syncCanvasScale() {
-  const st = document.querySelector(".canvas-stage");
-  const sc = document.querySelector(".canvas-scroll");
-  const c = curCanvas();
-  if (!st || !sc || !c) return;
-  const f = canvasFit();
-  st.style.transform = "scale(" + f + ")";
-  sc.style.height = (c.h * f + 2) + "px";
-}
-function linkLine(c, l) {
-  const a = c.items.find((x) => x.id === l.from);
-  const b = c.items.find((x) => x.id === l.to);
-  if (!a || !b) return "";
-  const ca = itemCenter(a), cb = itemCenter(b);
-  return `<line x1="${ca.x}" y1="${ca.y}" x2="${cb.x}" y2="${cb.y}"></line>`;
-}
-function itemHTML(it, i, readonly) {
-  const b = instById(it.inst);
-  const w = b ? b.w : 90, h = b ? b.h : 90;
-  const on = ui.selected === it.id ? " on" : "";
-  const ops = readonly ? "" : `<span class="cv-op rot" data-op="rot"></span><span class="cv-op scl" data-op="scl"></span>`;
-  return `<div class="cv-item${on}" data-item="${esc(it.id)}" style="left:${it.x}px;top:${it.y}px;width:${w}px;height:${h}px;transform:rotate(${it.rot || 0}deg) scale(${it.scale || 1});z-index:${i + 1}">${renderInstIcon(it)}<span class="cv-label">${esc(instName(it))}</span>${ops}</div>`;
-}
-function canvasHTML(step, readonly) {
-  const c = step.canvas;
-  const items = c.items.map((it, i) => itemHTML(it, i, readonly)).join("");
-  const lines = c.links.map((l) => linkLine(c, l)).join("");
-  const empty = c.items.length ? "" : `<div class="cv-empty">从下方仪器库点击添加仪器，拖动可自由摆放</div>`;
-  return `<div class="canvas-scroll" data-ro="${readonly ? 1 : 0}">
-    <div class="canvas-stage" style="width:${c.w}px;height:${c.h}px">
-      <div class="cv-grid"></div>
-      <svg class="cv-svg" viewBox="0 0 ${c.w} ${c.h}" preserveAspectRatio="none">${lines}</svg>
-      ${items}${empty}
-    </div>
-  </div>`;
-}
-function instPanelHTML() {
-  return INST_CATS.map((cat) => {
-    const list = INST_LIB.filter((x) => x.cat === cat.id);
-    const chips = list.map((x) => {
-      const ico = x.icon.replace(`width="16" height="16"`, `width="17" height="17"`);
-      return `<button class="inst-chip" data-act="cv-add" data-inst="${x.id}" type="button" title="${esc(x.name)}">${ico}<span>${esc(x.name)}</span></button>`;
-    }).join("");
-    return `<div class="inst-cat">${esc(cat.label)}</div>${chips}`;
-  }).join("");
-}
-function refreshCanvas() {
-  const host = document.querySelector("[data-canvas-host]");
-  const s = curStep();
-  if (!host || !s) return;
-  host.innerHTML = canvasHTML(s, host.dataset.ro === "1");
-  syncCanvasScale();
-}
-function redrawLinks() {
-  const c = curCanvas(), svg = document.querySelector(".cv-svg");
-  if (!svg || !c) return;
-  svg.innerHTML = c.links.map((l) => linkLine(c, l)).join("");
-}
 
-function onPointerDown(e) {
-  const sc = e.target.closest(".canvas-scroll");
-  if (!sc || sc.dataset.ro === "1") return;
-  const c = curCanvas();
-  if (!c) return;
-  const el = e.target.closest(".cv-item");
-  if (!el) {
-    if (e.target.closest(".cv-grid") || e.target.closest(".canvas-stage")) {
-      ui.selected = null; ui.linkFrom = null; refreshCanvas();
-    }
-    return;
-  }
-  const it = c.items.find((x) => x.id === el.dataset.item);
-  if (!it) return;
+/* 第 7 节「仪器库 + 仪器画布」已按需求整体移除（仪器摆放不要了）。
+   编号保留不重排：下文与 README 里有按节号写的引用（如「3.5 计时器」「13.1 下载即导入」），
+   重排会让这些引用全部错位。 */
 
-  if (ui.canvasTool === "link") {
-    if (!ui.linkFrom) { ui.linkFrom = it.id; toast("已选起点，再点一个仪器完成连线"); }
-    else if (ui.linkFrom !== it.id) {
-      c.links.push({ id: uid("l_"), from: ui.linkFrom, to: it.id, kind: "导管", note: "" });
-      ui.linkFrom = null; saveSoon(); toast("已连线");
-    }
-    refreshCanvas();
-    return;
-  }
-
-  ui.selected = it.id;
-  const fit = canvasFit();
-  const rect = sc.getBoundingClientRect();
-  const px = (e.clientX - rect.left) / fit, py = (e.clientY - rect.top) / fit;
-  const op = e.target.closest(".cv-op");
-  const mode = op && op.classList.contains("rot") ? "rot" : op && op.classList.contains("scl") ? "scl" : "move";
-  const ct = itemCenter(it);
-  dragState = {
-    mode, it, startX: px, startY: py, baseX: it.x, baseY: it.y,
-    baseRot: it.rot || 0, baseScale: it.scale || 1,
-    startAng: Math.atan2(py - ct.y, px - ct.x) * 180 / Math.PI,
-    startDist: Math.max(4, Math.hypot(px - ct.x, py - ct.y)),
-  };
-  refreshCanvas();
-  const el2 = document.querySelector(`.cv-item[data-item="${it.id}"]`);
-  if (el2) el2.classList.add("dragging");
-  e.preventDefault();
-  window.addEventListener("pointermove", onPointerMove);
-  window.addEventListener("pointerup", onPointerUp);
-  window.addEventListener("pointercancel", onPointerUp);
-}
-
-function onPointerMove(e) {
-  if (!dragState) return;
-  const c = curCanvas(), sc = document.querySelector(".canvas-scroll");
-  if (!c || !sc) return;
-  const fit = canvasFit();
-  const rect = sc.getBoundingClientRect();
-  const px = (e.clientX - rect.left) / fit, py = (e.clientY - rect.top) / fit;
-  const it = dragState.it;
-  const b = instById(it.inst);
-  const w = b ? b.w : 90, h = b ? b.h : 90;
-
-  if (dragState.mode === "move") {
-    it.x = clamp(Math.round(dragState.baseX + (px - dragState.startX)), 0, Math.max(0, c.w - w));
-    it.y = clamp(Math.round(dragState.baseY + (py - dragState.startY)), 0, Math.max(0, c.h - h));
-  } else if (dragState.mode === "rot") {
-    const ct = itemCenter(it);
-    const ang = Math.atan2(py - ct.y, px - ct.x) * 180 / Math.PI;
-    it.rot = Math.round((dragState.baseRot + (ang - dragState.startAng)) / 15) * 15;
-  } else {
-    const ct = itemCenter(it);
-    const d = Math.max(4, Math.hypot(px - ct.x, py - ct.y));
-    it.scale = clamp(Math.round(dragState.baseScale * (d / dragState.startDist) * 100) / 100, 0.4, 2.5);
-  }
-
-  const el = document.querySelector(`.cv-item[data-item="${it.id}"]`);
-  if (el) {
-    el.style.left = it.x + "px";
-    el.style.top = it.y + "px";
-    el.style.transform = `rotate(${it.rot || 0}deg) scale(${it.scale || 1})`;
-  }
-  redrawLinks();
-}
-
-function onPointerUp() {
-  if (dragState) {
-    dragState.it.x = Math.round(dragState.it.x / 10) * 10;
-    dragState.it.y = Math.round(dragState.it.y / 10) * 10;
-    saveSoon();
-  }
-  dragState = null;
-  window.removeEventListener("pointermove", onPointerMove);
-  window.removeEventListener("pointerup", onPointerUp);
-  window.removeEventListener("pointercancel", onPointerUp);
-  refreshCanvas();
-}
-
-function canvasAct(action, el) {
-  const s = curStep();
-  if (!s) return;
-  const c = s.canvas;
-  const sel = () => c.items.find((x) => x.id === ui.selected);
-
-  if (action === "cv-add") {
-    const b = instById(el.dataset.inst);
-    if (!b) return;
-    const x = clamp(Math.round(c.w / 2 - b.w / 2 + rnd()), 0, c.w - b.w);
-    const y = clamp(Math.round(c.h / 2 - b.h / 2 + rnd()), 0, c.h - b.h);
-    const it = { id: uid("i_"), inst: b.id, x: Math.round(x / 10) * 10, y: Math.round(y / 10) * 10, rot: 0, scale: 1, label: "", note: "" };
-    c.items.push(it); ui.selected = it.id; saveSoon(); refreshCanvas();
-    return;
-  }
-  if (action === "cv-del") {
-    if (!ui.selected) { toast("先点选一个仪器"); return; }
-    c.items = c.items.filter((x) => x.id !== ui.selected);
-    c.links = c.links.filter((l) => l.from !== ui.selected && l.to !== ui.selected);
-    ui.selected = null; saveSoon(); refreshCanvas(); return;
-  }
-  if (action === "cv-dup") {
-    const it = sel();
-    if (!it) { toast("先点选一个仪器"); return; }
-    const cp = Object.assign({}, it, { id: uid("i_"), x: it.x + 20, y: it.y + 20 });
-    c.items.push(cp); ui.selected = cp.id; saveSoon(); refreshCanvas(); return;
-  }
-  if (action === "cv-rot-" || action === "cv-rot+") {
-    const it = sel(); if (!it) { toast("先点选一个仪器"); return; }
-    it.rot = (it.rot || 0) + (action === "cv-rot-" ? -15 : 15); saveSoon(); refreshCanvas(); return;
-  }
-  if (action === "cv-scale-" || action === "cv-scale+") {
-    const it = sel(); if (!it) { toast("先点选一个仪器"); return; }
-    const k = action === "cv-scale-" ? 0.9 : 1.1;
-    it.scale = clamp(Math.round((it.scale || 1) * k * 100) / 100, 0.4, 2.5); saveSoon(); refreshCanvas(); return;
-  }
-  if (action === "cv-front" || action === "cv-back") {
-    const it = sel(); if (!it) { toast("先点选一个仪器"); return; }
-    c.items = c.items.filter((x) => x.id !== it.id);
-    if (action === "cv-front") c.items.push(it); else c.items.unshift(it);
-    saveSoon(); refreshCanvas(); return;
-  }
-  if (action === "cv-tool") {
-    ui.canvasTool = ui.canvasTool === "link" ? "select" : "link";
-    ui.linkFrom = null;
-    if (el && el.classList) el.classList.toggle("btn-primary", ui.canvasTool === "link");
-    toast(ui.canvasTool === "link" ? "连线模式：依次点击两个仪器" : "已回到选择模式");
-    return;
-  }
-  if (action === "cv-unlink") {
-    if (!c.links.length) { toast("当前没有连线"); return; }
-    c.links.pop(); saveSoon(); refreshCanvas(); return;
-  }
-  if (action === "cv-clear") {
-    if (!c.items.length) { toast("画布已经是空的"); return; }
-    if (!confirm("确定清空本步骤的全部仪器与连线？")) return;
-    c.items = []; c.links = []; ui.selected = null; saveSoon(); refreshCanvas(); return;
-  }
-  if (action === "cv-label") {
-    const it = sel(); if (!it) { toast("先点选一个仪器"); return; }
-    const v = prompt("修改该仪器的显示名称：", instName(it));
-    if (v === null) return;
-    it.label = v.trim(); saveSoon(); refreshCanvas(); return;
-  }
-}
-
-document.addEventListener("pointerdown", onPointerDown);
 /* ============================================================
    8. 通用视图片段
    ============================================================ */
@@ -1912,6 +1667,7 @@ function expCardHTML(m) {
     <div class="exp-ops">
       <button class="btn btn-sm" data-act="exp-dup" data-id="${esc(m.id)}">${ICON.copy}<span>复制</span></button>
       <button class="btn btn-sm" data-act="exp-export" data-id="${esc(m.id)}">${ICON.download}<span>导出</span></button>
+      <button class="btn btn-sm" data-act="exp-share" data-id="${esc(m.id)}">${ICON.share}<span>分享</span></button>
       <button class="btn btn-sm btn-danger" data-act="exp-del" data-id="${esc(m.id)}">${ICON.trash}<span>删除</span></button>
     </div>
   </article>`;
@@ -1972,37 +1728,13 @@ function viewEdit() {
       </div>
     </div>`;
 
-  const canvas = `<div class="card">
-      <h3 class="card-title">${ICON.flask}<span class="grow">仪器摆放</span>
-        <button class="btn btn-sm${ui.canvasTool === "link" ? " btn-primary" : ""}" data-act="cv-tool">${ICON.link}<span>连线</span></button>
-        <button class="btn btn-sm" data-act="cv-dup">${ICON.copy}<span>复制</span></button>
-        <button class="btn btn-sm btn-danger" data-act="cv-del">${ICON.trash}<span>删除</span></button>
-      </h3>
-      <div class="canvas-head">
-        <span class="msg" style="margin:0">点击仪器选中，可拖动 / 旋转 / 缩放</span>
-        <div class="canvas-tools">
-          <button class="btn btn-sm" data-act="cv-rot-" title="逆时针 15°">↺</button>
-          <button class="btn btn-sm" data-act="cv-rot+" title="顺时针 15°">↻</button>
-          <button class="btn btn-sm" data-act="cv-scale-" title="缩小">−</button>
-          <button class="btn btn-sm" data-act="cv-scale+" title="放大">＋</button>
-          <button class="btn btn-sm" data-act="cv-front" title="置顶">置顶</button>
-          <button class="btn btn-sm" data-act="cv-back" title="置底">置底</button>
-          <button class="btn btn-sm" data-act="cv-label" title="重命名">改名</button>
-          <button class="btn btn-sm" data-act="cv-unlink" title="删除最后一条连线">断线</button>
-          <button class="btn btn-sm btn-danger" data-act="cv-clear">清空</button>
-        </div>
-      </div>
-      <div data-canvas-host data-ro="0"></div>
-      <div class="inst-panel">${instPanelHTML()}</div>
-    </div>`;
-
-  return `<section class="view">${pageHead("编辑模式", "老师与同学都可编辑 · 填写反应步骤并摆放仪器", actions)}
+  return `<section class="view">${pageHead("编辑模式", "老师与同学都可编辑 · 填写反应步骤与安全要点", actions)}
     <div class="editor-layout">
       <aside class="step-rail">
         <div class="rail-head"><span>反应步骤</span><span>${ui.step + 1}/${e.steps.length}</span></div>
         <div class="step-list">${steps}</div>
       </aside>
-      <div class="editor-main">${meta}${editor}${timerEditHTML(e)}${images}${videos}${canvas}</div>
+      <div class="editor-main">${meta}${editor}<div data-timer-host data-timer-owner="${ui.step}">${timerEditHTML(e.steps[ui.step], ui.step)}</div>${images}${videos}</div>
     </div>
   </section>`;
 }
@@ -2023,11 +1755,6 @@ function viewRecord() {
       ${s.images.length ? `<div class="read-block"><div class="read-label">图片</div><div class="media-grid">${s.images.map(mediaItemHTML).join("")}</div></div>` : ""}
       ${s.videos.length ? `<div class="read-block"><div class="read-label">视频</div><div class="media-grid">${s.videos.map(mediaItemHTML).join("")}</div></div>` : ""}
       ${(!has(s.text) && !has(s.equation) && !has(s.tips) && !s.images.length && !s.videos.length) ? `<p class="msg">本步还没有内容，可回到编辑模式补充。</p>` : ""}
-    </div>`;
-
-  const canvas = `<div class="card canvas-card">
-      <h3 class="card-title">${ICON.flask}<span class="grow">仪器摆放（只读）</span></h3>
-      <div data-canvas-host data-ro="1"></div>
     </div>`;
 
   const records = `<div class="record-grid">
@@ -2053,8 +1780,9 @@ function viewRecord() {
       <span class="player-step">步骤 ${ui.playIndex + 1} / ${e.steps.length}</span>
       <div class="player-dots">${dots}</div>
     </div>
-    ${timerRecordHTML(e)}
-    <div class="player-stage">${read}${canvas}</div>
+    <div data-timer-host data-timer-owner="${ui.playIndex}">${timerRecordHTML(s, ui.playIndex)}</div>
+    <div data-timer-host data-timer-owner="${TIMER_FREE}">${timerRecordHTML(e, TIMER_FREE, { free: true })}</div>
+    <div class="player-stage">${read}</div>
     ${records}
   </section>`;
 }
@@ -2111,8 +1839,8 @@ function viewSettings() {
       <p class="msg" id="llmMsg"></p>
     </div>
     <div style="height:14px"></div>
-    <div class="card">
-      <h3 class="card-title">${ICON.upload}<span class="grow">获取 API 图文教程</span></h3>
+    <details class="card card-fold" data-fold="api-guide">
+      <summary class="card-title">${ICON.upload}<span class="grow">获取 API 教学</span><span class="lan-size">点开查看</span>${ICON.down}</summary>
       <ol class="ai-guide">
         <li>点上面的「<b>获取 API Key</b>」按钮，会打开 DeepSeek 开放平台（<code>platform.deepseek.com</code>）；用手机号或微信注册 / 登录。</li>
         <li>进入左侧「API keys」页 → 点「创建 API key」→ 随便起个名字（例如"实验助手"）→ 复制以 <code>sk-</code> 开头的那串密钥。<b>密钥只完整显示一次</b>，请立刻保存。</li>
@@ -2122,7 +1850,15 @@ function viewSettings() {
         <li>密钥只保存在本机浏览器里；导出的实验文件、分享给别人的内容都不会带上它。换设备需要重新填一次。</li>
       </ol>
       <p class="msg">也可以使用任意 OpenAI 兼容服务（把 Base URL 与模型换成对应值即可）。</p>
-    </div>
+      <h3 class="card-title" style="margin:4px 16px 0">${ICON.share}<span class="grow">没有 Wifi？用手机热点也能连</span></h3>
+      <ol class="ai-guide">
+        <li><b>开热点当"中转"</b>：用手机打开「个人热点」，让电脑连上这个热点（或反过来：电脑开热点、手机连）。只要在同一个网络里就行。</li>
+        <li><b>看本机地址</b>：在运行服务端的那台设备上进「局域网互传」页点「成为服务端」，页面会显示 <code>http://192.168.x.x:8000</code> 这样的地址。</li>
+        <li><b>换网络要重新看地址</b>：切到热点后 IP 会变，<b>务必用页面上新显示的地址</b>，别用之前那个（连不上多半是这个原因）。</li>
+        <li>另一台设备连同一个热点，浏览器打开这个地址即可互传；手机热点通常默认不开「客户端隔离」，所以能互通。</li>
+        <li>少数热点/公共 Wifi 会开启<b>客户端隔离（AP 隔离）</b>，此时设备之间互相看不见 —— 换成手机热点、或让电脑自己开热点即可解决。</li>
+      </ol>
+    </details>
     <div style="height:14px"></div>
     <div class="card">
       <h3 class="card-title">${ICON.download}<span class="grow">数据管理</span></h3>
@@ -2131,7 +1867,7 @@ function viewSettings() {
         <button class="btn btn-sm" data-act="exp-import">${ICON.upload}<span>导入实验文件</span></button>
         <button class="btn btn-sm btn-danger" data-act="data-clear">${ICON.trash}<span>清空全部数据</span></button>
       </div>
-      <p class="msg">导出的 .json 即为「可分享文件」，可跨设备传递；后续原生端蓝牙互传将复用同一格式。</p>
+      <p class="msg">导出的 .json 即为「可分享文件」，可跨设备传递；「局域网互传」用的就是这个格式（同一 Wifi 或手机热点下都能传）。</p>
     </div>
   </section>`;
 }
@@ -2174,12 +1910,14 @@ function goTo(view, param) {
   } else {
     const id = pickExpId(p);
     if (!id) { toast("先新建一个实验"); state.view = "home"; state.param = null; state.exp = null; p = null; }
-    else { state.view = key; state.param = id; state.exp = Store.getExp(id); ui.step = 0; ui.playIndex = 0; ui.selected = null; }
+    else { state.view = key; state.param = id; state.exp = Store.getExp(id); ui.step = 0; ui.playIndex = 0; }
   }
   if (!suppressHash) {
     location.hash = "#/" + state.view + (BARE_VIEWS.includes(state.view) ? "" : "/" + state.param);
   }
-  render();
+  /* 只有这里传 true：换页 / 换实验属于真导航，回到顶部是对的。
+     其余站内动作调 render() 一律保持滚动位置（见 render 的说明）。 */
+  render(true);
 }
 function hydrateChemInputs() {
   document.querySelectorAll("chem-input").forEach((el) => {
@@ -2191,8 +1929,19 @@ function hydrateChemInputs() {
     });
   });
 }
-function render() {
+/** 整页重绘。
+ *   toTop = true  → 回到顶部（**只有「换页 / 换实验」这种真导航才传**，目前只有 goTo()）
+ *   默认（不传）  → **原地重绘，保持当前滚动位置**
+ *
+ *  为什么要有这个参数：以前 render() 无条件 `main.scrollTop = 0`，
+ *  于是「删一张图片 / 点一下计时器预设 / 换一下学科 / 切一下步骤」这类**站内**小动作
+ *  都会把页面顶回最上面（用户报的「计时器设置会跳到最顶」只是其中最显眼的一例）。
+ *  现在统一成一条规则：**只有真的换页才回顶，其余一律原地不动。**
+ *  （注：滚动容器 main 上有 `scroll-behavior: smooth`，还位置时要临时关掉，
+ *   否则会看到一段「滑回去」的动画。） */
+function render(toTop) {
   const main = $("main");
+  const keep = toTop ? 0 : main.scrollTop;
   if (state.view === "edit") main.innerHTML = viewEdit();
   else if (state.view === "aigen") main.innerHTML = viewAI();
   else if (state.view === "record") main.innerHTML = viewRecord();
@@ -2200,16 +1949,52 @@ function render() {
   else if (state.view === "lan") main.innerHTML = viewLan();
   else if (state.view === "settings") main.innerHTML = viewSettings();
   else main.innerHTML = viewHome();
-  main.scrollTop = 0;
+  const prevBehavior = main.style.scrollBehavior;
+  main.style.scrollBehavior = "auto";
+  main.scrollTop = keep;
+  main.style.scrollBehavior = prevBehavior;
   syncNav();
-  refreshCanvas();
   hydrateMedia();
   hydrateChemInputs();
+  restoreFolds();
   /* 计时器：正在跑的续上 tick（切到别的页面也继续走），并把时钟重画一遍 */
   Timer.syncView(state.exp);
   if (state.view === "lan") { lanBind(); lanSyncServerStatus(); lanMaybeAutoConnect(); }
   else lanStopPoll();
 }
+
+/** 可折叠卡片的展开状态（按 data-fold 键记住；默认收起）
+ *  —— 设置页「获取 API 教学」等长文卡片用它，免得一大串文字杵在那里。 */
+const FOLD_KEY = "zhbit-lab-fold";
+const FOLD_STATE = Store.readJSON(FOLD_KEY, {}) || {};
+/** 重绘后把记住的展开状态还原到新生成的 <details data-fold> 上 */
+function restoreFolds() {
+  document.querySelectorAll("details[data-fold]").forEach((el) => {
+    if (FOLD_STATE[el.dataset.fold]) el.setAttribute("open", "");
+    else el.removeAttribute("open");
+  });
+}
+
+/** 只重画「计时器卡片」，连整页 render() 都不做。
+ *  比 render() 更进一步：整页重绘会重建所有 DOM（textarea / 输入框会丢焦点、
+ *  正在输入的化学方程式会被打断），而计时卡是个高频小控件，只重画它自己最合适。
+ *  render() 现在虽然也会保住滚动位置，但这里仍然不整页重绘。
+ *
+ *  现在有两张卡（本步计时器 + 记录模式的自由计时器），所以遍历所有 [data-timer-host]。
+ *  每个宿主用 data-timer-owner 记住自己装的是谁：步骤计时卡带步号，自由计时器带 "free"。 */
+function refreshTimer() {
+  const e = state.exp;
+  if (e) {
+    document.querySelectorAll("[data-timer-host]").forEach((host) => {
+      const owner = host.getAttribute("data-timer-owner") || "step";
+      if (owner === TIMER_FREE) host.innerHTML = timerRecordHTML(e, TIMER_FREE, { free: true });
+      else if (state.view === "record") host.innerHTML = timerRecordHTML(e.steps[ui.playIndex], ui.playIndex);
+      else host.innerHTML = timerEditHTML(e.steps[ui.step], ui.step);
+    });
+  }
+  Timer.syncView(e);
+}
+
 /* ============================================================
    11. 报告生成：本地 markdown / LLM（OpenAI 兼容）
    ============================================================ */
@@ -2266,7 +2051,6 @@ function collectReportData(e) {
       text: s.text,
       equation: s.equation,
       tips: s.tips,
-      instruments: s.canvas.items.map((it) => instName(it)),
       observed: s.record.note,
       images: s.record.images.length,
       timer: Timer.hasData(e) ? Timer.fmt(Timer.elapsed(e)) : "",
@@ -2283,10 +2067,6 @@ function buildLocalMarkdown(e) {
   L.push("# " + e.name, "");
   L.push("> 本报告由「实验助手」本地生成（未接入 LLM）", "");
   if (has(e.desc)) L.push("## 实验简介", e.desc, "");
-
-  const insts = [];
-  e.steps.forEach((s) => s.canvas.items.forEach((it) => { const n = instName(it); if (insts.indexOf(n) < 0) insts.push(n); }));
-  if (insts.length) { L.push("## 仪器与试剂"); insts.forEach((x) => L.push("- " + x)); L.push(""); }
 
   const eqs = e.steps.map((s) => s.equation).filter(has);
   if (eqs.length) { L.push("## 反应方程式"); eqs.forEach((x) => L.push("- `" + x + "`")); L.push(""); }
@@ -2306,17 +2086,37 @@ function buildLocalMarkdown(e) {
   const tips = e.steps.map((s, i) => ({ s, i })).filter((x) => has(x.s.tips));
   if (tips.length) { L.push("## 注意事项"); tips.forEach((x) => L.push(`- **${stepTitle(x.s, x.i)}**：${cell(x.s.tips)}`)); L.push(""); }
 
-  /* 计时器：用过才写，避免给没计时的实验塞空章节 */
+  /* 计时器：用过才写，避免给没计时的实验塞空章节。
+     每步一个计时器，所以逐条列出（只列用过的），自由计时器单列一段。 */
   if (Timer.hasData(e)) {
     const sum = Timer.summary(e);
     L.push("## 计时");
-    L.push("- 计时模式：" + sum.modeText);
-    if (sum.mode === "countdown" && sum.targetText.indexOf("倒计时") === 0) L.push("- 目标时长：" + sum.targetText.replace(/^倒计时\s*/, ""));
-    L.push("- 本次总用时：" + sum.elapsedText);
-    if (sum.logs.length) {
-      L.push("", "| 记录时间 | 用时 |", "| --- | --- |");
-      sum.logs.forEach((l) => L.push("| " + cell(fmtDate(l.at)) + " | " + l.text + " |"));
+    sum.steps.forEach((st) => {
+      L.push("### 第 " + st.no + " 步 · " + st.title);
+      L.push("- 计时模式：" + st.modeText);
+      if (st.mode === "countdown" && st.targetText.indexOf("倒计时") === 0) L.push("- 目标时长：" + st.targetText.replace(/^倒计时\s*/, ""));
+      L.push("- 本次用时：" + st.elapsedText);
+      if (st.logs.length) {
+        L.push("", "| 记录时间 | 用时 |", "| --- | --- |");
+        st.logs.forEach((l) => L.push("| " + cell(fmtDate(l.at)) + " | " + l.text + " |"));
+        L.push("");
+      }
+      L.push("");
+    });
+    if (sum.free) {
+      L.push("### 自由计时器（不绑定步骤）");
+      L.push("- 计时模式：" + sum.free.modeText);
+      if (sum.free.mode === "countdown" && sum.free.targetText.indexOf("倒计时") === 0) L.push("- 目标时长：" + sum.free.targetText.replace(/^倒计时\s*/, ""));
+      L.push("- 本次用时：" + sum.free.elapsedText);
+      if (sum.free.logs.length) {
+        L.push("", "| 记录时间 | 用时 | 步 |", "| --- | --- | --- |");
+        sum.free.logs.forEach((l) => L.push("| " + cell(fmtDate(l.at)) + " | " + l.text + " | " + (l.step || "—") + " |"));
+        L.push("");
+      }
+      L.push("");
     }
+    /* 兼容写法：仍给一行「本次总用时」（取主要计时器），旧的报告消费方不容易踩空 */
+    L.push("- 本次总用时（主要计时器）：" + sum.elapsedText);
     L.push("");
   }
 
@@ -2441,7 +2241,7 @@ const GEN_PROMPT = `你是一位严谨的实验教学助理。下面是一份实
 5. equation 用简洁纯文本，例如 RNA + H2SO4 -> 核糖 + 嘌呤碱 + 嘧啶碱 + H3PO4；没有反应就写空串。不要用 Markdown 或 LaTeX。
 6. tips 来自文档的「注意事项 / 安全提示」，分发到相关步骤；没有就写空串。
 7. subject 与 theme 必须配对：生物化学实验 biochem + t-lavender；纯化学 chemistry + t-sky；纯生物 biology + t-mint。
-8. 不要输出仪器画布、图片、视频、报告正文等额外内容。
+8. 不要输出图片、视频、报告正文等额外内容。
 9. 全文使用简体中文。
 
 文档文本如下：
@@ -2974,7 +2774,7 @@ function viewAI() {
   const runCard = `<div class="card">
       <h3 class="card-title">${ICON.sparkle}<span class="grow">第 2 步 · 分发给 LLM 生成步骤</span></h3>
       ${apiHint}
-      <p class="msg">模型只负责整理文字 / 方程式 / 安全 TIPS；仪器画布留空，导入后你在编辑模式里自由摆放。</p>
+      <p class="msg">模型只负责整理文字 / 方程式 / 安全 TIPS；导入后你在编辑模式里继续完善。</p>
       ${trunc}
     </div>`;
 
@@ -4045,6 +3845,39 @@ function expExport(id) {
   download((e.name || "实验") + "-" + fileStamp() + ".json", JSON.stringify(pack, null, 2));
   toast("已导出可分享文件");
 }
+/* 分享：把实验打包成与「导出」一致的 .json，直接上传到局域网互传（不跳转互传页）。
+   未连接时先静默尝试连接，连不上再提示用户去互传页处理。 */
+async function expShare(id) {
+  const e = Store.getExp(id);
+  if (!e) return;
+  if (LAN.sharing) { toast("正在分享，请稍候…"); return; }
+  LAN.sharing = true;
+  try {
+    if (!LAN.online) {
+      const ok = await lanConnect(null, true);
+      if (!ok) { toast("互传未连接：请到「互传」页连接服务端或点「成为服务端」后再分享"); return; }
+    }
+    const rep = Store.report(id);
+    const pack = { kind: "zhbit-lab-experiment", v: EXP_VERSION, exportedAt: Date.now(), exp: e, report: rep };
+    const name = (e.name || "实验") + "-" + fileStamp() + ".json";
+    const file = new File([JSON.stringify(pack, null, 2)], name, { type: "application/json" });
+    const it = lanProgAdd(file.name, file.size);
+    lanPaintProg(true);
+    try {
+      await lanUploadOne(file, it);
+    } catch (err) {
+      it.status = "失败";
+      it.err = "失败：" + ((err && err.message) || "未知错误");
+      lanPaintProg(true);
+      toast("分享失败：" + ((err && err.message) || "网络错误"));
+      return;
+    }
+    await lanRefresh(false);
+    toast("已分享上传：" + name);
+  } finally {
+    LAN.sharing = false;
+  }
+}
 function expImport() {
   const input = document.createElement("input");
   input.type = "file";
@@ -4127,6 +3960,34 @@ function mediaDel(id) {
   render();
 }
 
+/** 计时器动作要落到哪一个计时器上？
+ *
+ *  规则（唯一依据是 DOM 上的 data-timer-src）：
+ *    · src = "free"  → 自由计时器（exp.timer，不绑定步骤）
+ *    · src = 数字    → 第 N 步的计时器（step.timer）
+ *    · 没写 src      → 按当前上下文兜底：快录用自由计时器，其余用「当前那一步」
+ *
+ *  返回 { owner, timer, step, src }：
+ *    owner —— 计时器的宿主对象（步骤对象或实验对象），给 setMode/setTarget 用
+ *    timer —— 那个 timer 数据对象，给 start/pause/log 用
+ *    step  —— 步骤对象；自由计时器时为 null
+ */
+function resolveTimer(el) {
+  const e = state.exp;
+  const host = el && el.closest ? el.closest("[data-timer-src]") : null;
+  let src = (el && el.dataset && el.dataset.timerSrc) || (host && host.getAttribute("data-timer-src"));
+  if (src == null) src = state.view === "record" ? TIMER_FREE : String(ui.step);
+  src = String(src);
+
+  if (src === TIMER_FREE) {
+    const owner = e;
+    return { owner: owner, timer: Timer.attach(owner), step: null, src: TIMER_FREE };
+  }
+  const i = clamp(Math.round(Number(src) || 0), 0, Math.max(0, e.steps.length - 1));
+  const step = e.steps[i];
+  return { owner: step, timer: Timer.attach(step), step: step, src: String(i) };
+}
+
 async function handleAct(action, el) {
   const e = state.exp;
   switch (action) {
@@ -4140,6 +4001,7 @@ async function handleAct(action, el) {
     case "exp-dup": expDup(el.dataset.id); return;
     case "exp-del": expDel(el.dataset.id); return;
     case "exp-export": expExport(el.dataset.id); return;
+    case "exp-share": expShare(el.dataset.id); return;
     case "exp-import": expImport(); return;
 
     case "exp-subject": {
@@ -4153,10 +4015,9 @@ async function handleAct(action, el) {
       if (!e) return;
       e.steps.push(normalizeStep({ id: uid("s_") }));
       ui.step = e.steps.length - 1;
-      ui.selected = null;
       persistExp(); render(); return;
     }
-    case "step-open": ui.step = Number(el.dataset.step); ui.selected = null; ui.linkFrom = null; render(); return;
+    case "step-open": ui.step = Number(el.dataset.step); render(); return;
     case "step-del": {
       if (!e || e.steps.length <= 1) { toast("至少保留一个步骤"); return; }
       if (!confirm("删除当前步骤？")) return;
@@ -4180,44 +4041,56 @@ async function handleAct(action, el) {
     case "play-next": ui.playIndex = Math.min((e ? e.steps.length : 1) - 1, ui.playIndex + 1); render(); return;
     case "play-go": ui.playIndex = Number(el.dataset.step); render(); return;
 
-    /* ---- 计时器（整个实验一个） ---- */
+    /* ---- 计时器（每步一个 + 自由计时器） ----
+       注意：这几个动作一律用 refreshTimer() 局部重画，**不要**改成 render()。
+       原因：整页重绘会重建所有 DOM —— textarea / 输入框丢焦点、正在敲的方程式被打断；
+       计时卡是高频小控件，只重画它自己最省。
+       （历史 bug：早期 render() 无条件把 scrollTop 归零，点一下预设页面就跳回最顶；
+         现在 render() 已改成「只有换页才回顶」，但这里仍然不整页重绘。）
+
+       动作要落到哪个计时器？统一由 resolveTimer(el) 判断（读 data-timer-src）。 */
     case "timer-toggle": {
       if (!e) return;
-      const t = Timer.attach(e);
-      if (t.running) { Timer.pause(e); persistExp(); }
-      else { Timer.trackStep(e, ui.playIndex); Timer.start(e); }
-      render(); return;
+      const r = resolveTimer(el);
+      if (r.timer.running) { Timer.pause(r.timer); persistExp(); }
+      else { Timer.start(e, r.timer, r.step); persistExp(); }
+      refreshTimer(); return;
     }
-    case "timer-reset": { if (!e) return; Timer.reset(e); persistExp(); render(); return; }
+    case "timer-reset": { if (!e) return; Timer.reset(resolveTimer(el).timer); persistExp(); refreshTimer(); return; }
     case "timer-log": {
       if (!e) return;
-      const r = Timer.log(e, ui.playIndex);
-      if (r.ok) { persistExp(); render(); toast("已记录 " + Timer.fmt(r.ms)); }
-      else toast(r.reason);
+      const r = resolveTimer(el);
+      const out = Timer.log(e, r.timer, r.step);
+      if (out.ok) { persistExp(); refreshTimer(); toast("已记录 " + Timer.fmt(out.ms) + (r.step ? "（第 " + (out.step + 1) + " 步）" : "")); }
+      else toast(out.reason);
       return;
     }
-    case "timer-mode": { if (!e) return; Timer.setMode(e, el.dataset.v); persistExp(); render(); return; }
+    case "timer-mode": { if (!e) return; Timer.setMode(resolveTimer(el).owner, el.dataset.v); persistExp(); refreshTimer(); return; }
     case "timer-target": {
       if (!e) return;
       const v = Number(el.dataset.v) || 0;
-      const cur = Timer.attach(e);
-      Timer.setTarget(e, cur.target === v ? 0 : v);
-      persistExp(); render(); return;
+      const r = resolveTimer(el);
+      Timer.setTarget(r.owner, r.timer.target === v ? 0 : v);
+      persistExp(); refreshTimer(); return;
     }
     case "timer-clear-target": {
       if (!e) return;
-      Timer.setTarget(e, 0);
-      Timer.attach(e).mode = "stopwatch";
-      persistExp(); render(); return;
+      const r = resolveTimer(el);
+      Timer.setTarget(r.owner, 0);
+      r.timer.mode = "stopwatch";
+      persistExp(); refreshTimer(); return;
     }
     case "timer-custom": {
       if (!e) return;
-      const mi = document.querySelector('[data-timer="min"]');
-      const se = document.querySelector('[data-timer="sec"]');
+      const r = resolveTimer(el);
+      /* 找「同一张卡里」的分 / 秒输入框：卡与卡之间用 data-timer-src 区分 */
+      const src = r.src;
+      const q = (k) => document.querySelector('[data-timer="' + k + '"][data-timer-src="' + src + '"]');
+      const mi = q("min"), se = q("sec");
       const sec = Math.max(0, Math.round((Number(mi && mi.value) || 0) * 60 + (Number(se && se.value) || 0)));
       if (!sec) { toast("请填写大于 0 的分 / 秒"); return; }
-      Timer.setTarget(e, sec);
-      persistExp(); render(); toast("倒计时已设为 " + Timer.fmt(sec * 1000)); return;
+      Timer.setTarget(r.owner, sec);
+      persistExp(); refreshTimer(); toast("已设为 " + Timer.fmt(sec * 1000)); return;
     }
     case "go-edit-timer": goTo("edit", e && e.id); return;
 
@@ -4258,7 +4131,6 @@ async function handleAct(action, el) {
 
     default:
       if (action && action.indexOf("lan-") === 0) { lanAct(action, el); return; }
-      if (action && action.indexOf("cv-") === 0) { canvasAct(action, el); return; }
   }
 }
 
@@ -4279,6 +4151,16 @@ function boot() {
     if (actEl) handleAct(actEl.dataset.act, actEl);
   });
 
+  /* 可折叠卡片（设置页「获取 API 教学」等）：默认收起，展开状态记在本机。
+     `toggle` 事件不冒泡，所以用捕获阶段监听；键名 = data-fold。 */
+  document.addEventListener("toggle", (ev) => {
+    const el = ev.target;
+    if (!el || !el.dataset || !el.dataset.fold) return;
+    FOLD_STATE[el.dataset.fold] = !!el.open;
+    Store.writeJSON(FOLD_KEY, FOLD_STATE);
+  }, true);
+  restoreFolds();
+
   document.addEventListener("input", (ev) => {
     const el = ev.target;
     if (!el || !el.dataset) return;
@@ -4293,20 +4175,12 @@ function boot() {
     if (f && s) { s[f] = el.value; saveSoon(); if (f === "title") updateStepName(); }
   });
 
-  document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Delete" && state.view === "edit" && ui.selected && !/input|textarea/i.test((ev.target.tagName || ""))) {
-      ev.preventDefault(); canvasAct("cv-del", { dataset: {} });
-    }
-  });
-
   window.addEventListener("hashchange", () => {
     const { view, param } = parseHash();
     suppressHash = true;
     goTo(view, param);
     suppressHash = false;
   });
-
-  window.addEventListener("resize", debounce(() => { syncCanvasScale(); }, 120));
 
   window.addEventListener("beforeunload", () => { if (state.exp) persistExp(); });
 

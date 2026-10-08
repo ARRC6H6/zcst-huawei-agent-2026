@@ -2,13 +2,15 @@
 name: zhbit-lab-protocol
 description: >
   珠科×华为云码道 Agent 创新赛「实验助手 Lab Studio」项目的**软件接口契约（唯一权威）**。
-  规定实验文件数据模型、存储层（Store / Media）签名与 key、仪器库替换接口、画布交互动作集、
+  规定实验文件数据模型（Exp / Step / mediaRef / timer）、存储层（Store / Media）签名与 key、
+  计时器（每步一个 + 自由计时器）与 data-timer-src 动作路由、
   事件委托与哈希路由、报告与 LLM（OpenAI 兼容）接入约定、AI 生成实验步骤页、
   局域网互传页（#/lan + 可选 lan-server.py）、设计 token 与命名铁律。
   凡是要写、改、查、解释这个项目的代码，必须先读本文件，并遵守其中全部铁律，
   接口签名一律不许私自改。本文件是原 `shishi-protocol`（拾事 Shishi）的替代版（旧版已作废）。
-version: 3.1.0
-updated: 2026-10-05
+  ⛔ 注意：「仪器摆放」画布与仪器库已于 2026-10-07 整体移除，§3.4 / §3.5 仅为历史留档。
+version: 3.2.0
+updated: 2026-10-08
 applies_to: 实验助手 Lab Studio（单文件 HTML · 零依赖 · 桌面/平板/手机三端自适应）
 ---
 
@@ -81,10 +83,10 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
 | 6 | **业务数据只经 `Store` / `Media`**；直接碰 `localStorage` 只允许主题那两处（§3.6） | 分散读写必然出现 key 写错、坏 JSON 未兜住 |
 | 7 | 所有用户可填文本进 HTML **必须经 `esc()`**；markdown 进 HTML 必须经 `mdToHtml()` / `mdInline()` | 实验名 / 步骤文本是用户输入，不转义就是 XSS |
 | 8 | **数据结构一变，`EXP_VERSION` 必须 +1**，并同步改本文件 §3.1、§6 变更日志 | 版本号是判断「读到的是哪代数据」的唯一依据 |
-| 9 | 仪器一律**先追加 `INST_LIB` 条目**，不许在画布/视图里写死仪器名与尺寸 | 美术资源后续替换只改 `imageUrl`，改别处就白干 |
+| 9 | ~~仪器一律先追加 `INST_LIB` 条目~~ → **已作废**：仪器库与画布已于 2026-10-07 整体移除（§3.4 / §3.5）。现在**不许再引用** `INST_LIB` / `canvasAct` / `cv-*` | 功能已删，残留引用会被 `check-page.mjs` 的反向断言判死 |
 | 10 | **不许私自改动 §3 的任何签名、字段名、枚举值、key、token 名** | 接口是唯一能让多人并行不返工的东西 |
 | 11 | 存储层**永不抛异常**（返回 `false` / `null` / `fallback`）；只有网络层允许 `throw` | 单文件应用抛异常就是白屏，用户没有任何恢复手段 |
-| 12 | 改完必须跑三套校验，**全绿（失败 0）**才许提交：`node src/tools/check-page.mjs src/index.html`（页面，153 项；工作区放有课程素材时 155 项）、`node src/tools/check-isotope.mjs src/index.html`（同位素左上标，25 项）、`node src/tools/check-lan.mjs src/index.html`（互传服务端端到端，33 项） | 这是唯一能挡住「我这边是好的」的机器校验 |
+| 12 | 改完必须跑校验，**全绿（失败 0 / 跳过项不算失败）**才许提交：`check-syntax`（2）、`check-page`（271：本仓库 263 项 + 8 项依赖 Tauri 工程的自动 SKIP）、`check-isotope`（25）、`check-lan`（44）、`check-lan-edge`（34）、`e2e-headless`（44，真浏览器） | 这是唯一能挡住「我这边是好的」的机器校验 |
 
 ---
 
@@ -141,15 +143,18 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
   tips: "",               // 安全小 TIPS
   images: [ mediaRef ],   // 步骤图片
   videos: [ mediaRef ],   // 视频：本期只有元信息，store 恒为 "external"
-  canvas: { w: 1000, h: 620, items: [ CanvasItem ], links: [ Link ] },
+  timer: { ... },         // ★ 本步独立的计时器，见 §3.12
   record: { note: "", images: [ mediaRef ] },  // 记录模式下本步的记录
 }
 ```
 
+> ⛔ 旧版的 `canvas: { w, h, items, links }` 字段**已随「仪器摆放」整体移除**（§3.4），
+> `normalizeStep()` 不再产出它；旧实验里残留的 `canvas` 会在下次归一化时被丢弃。
+
 **步骤铁律：**
 
 1. **五要素固定为 `text` / `images` / `videos` / `equation` / `tips`**，不许合并成一个大字段。
-2. 每步**各有一张仪器画布**（`canvas`），不是整个实验一张。
+2. 每步**各有一个独立计时器** `timer`（§3.12）；另有实验级 `exp.timer` 作**自由计时器**。
 3. `stepTitle(s, i)` 是步骤名的**唯一显示入口**；不许在视图里自己写 `s.title || "..."`。
 4. 步骤顺序 = `steps` 数组顺序，**没有 `order` / `index` 字段**；排序只改数组（`step-move`）。
 5. 步骤**至少保留 1 条**（`step-del` 在只剩一条时拒绝并 toast）。
@@ -181,7 +186,26 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
 5. 删除素材走 `mediaDel(id)`：从**所有步骤的 `images` / `videos` / `record.images` 以及 `log.totalImages`** 里摘掉，
    再 `Media.del(id)`。
 
-### 3.4 画布 `CanvasItem` / `Link`
+### 3.4 画布 `CanvasItem` / `Link` ⛔ 已整体移除（2026-10-07，仅留档）
+
+> ⛔ **本节描述的「仪器摆放」功能已从实现中整体删除**（需求方明确「仪器摆放部分不要了」），
+> **连代码带数据都删了**，不是隐藏、不是只摘入口：
+>
+> | 删掉的 | 具体 |
+> | --- | --- |
+> | 数据结构 | `step.canvas`（`CanvasItem` / `Link` 全部字段）；`normalizeStep()` 不再产出它 |
+> | 运行时 | `canvasHTML` / `refreshCanvas` / `syncCanvasScale` / `canvasFit` / `curCanvas` / `itemHTML` / `linkLine` / `itemCenter` / `redrawLinks` / `canvasAct`；指针拖拽 `onPointerDown/Move/Up` |
+> | 界面 | 编辑页「仪器摆放」卡片 + 仪器面板；记录页「仪器摆放（只读）」卡片；编辑页副标题里的「摆放仪器」 |
+> | 动作 | 全部 13 个 `cv-*` 动作；`handleAct` 的 `default` 里 `cv-` 前缀转发也已删除 |
+> | 状态 | `ui.canvasTool` / `ui.selected` / `ui.linkFrom` / `ui.scale` |
+> | 报告 | 本地 markdown 不再从画布汇总「## 仪器与试剂」；分发给 LLM 的数据去掉每步 `instruments` |
+> | 其他 | `Delete` 键删仪器、`window.resize → syncCanvasScale` 一并移除 |
+>
+> **现行行为**：每个步骤只有**五要素** —— 标题 / 文字 / 图片 / 视频（占位）/ 反应方程式 / 安全 TIPS，
+> 外加记录模式的「现象·数据」。`check-page.mjs` 第 2 节是**反向断言**
+> （源码里不能再出现 `INST_LIB` / `canvasAct` / `cv-*` / `data-canvas-host` 等标识符），删干净之前会 FAIL。
+>
+> 以下为**历史设计留档，不要照它实现**：
 
 ```js
 CanvasItem = {
@@ -202,10 +226,10 @@ Link = {
 }
 ```
 
-> 📌 `CanvasItem.note` 同样是**预留字段**（`cv-add` 会写成 `""`，但没有 UI 读取或修改它）。
-> 将来要开放"仪器说明"的编辑，**走新增 `cv-*` 动作**（见 §3.4 动作表），不要塞进别的动作里。
+> ⛔ 以下「冻结的几何与层级规则」与「`canvasAct` 画布动作集（13 个）」**已随功能删除**，
+> 仅作历史留档，**不要照它实现**：
 
-**冻结的几何与层级规则：**
+**冻结的几何与层级规则（历史）：**
 
 | 规则 | 值 |
 | --- | --- |
@@ -220,12 +244,7 @@ Link = {
 | `flip` | **本期没有这个字段**，不要加 |
 | 仪器尺寸 | 一律取 `INST_LIB` 条目的 `w` / `h`，**不许在画布层写死尺寸** |
 
-**连线的创建不在 `canvasAct` 里**，而在 `onPointerDown`：`ui.canvasTool === "link"` 时，
-第一次点仪器记 `ui.linkFrom`（toast「已选起点，再点一个仪器完成连线」），
-第二次点**另一个**仪器就 `links.push({ id: uid("l_"), from, to, kind: "导管", note: "" })` 并清空 `linkFrom`。
-**点同一个仪器不会自连。**
-
-**`canvasAct(action, el)` —— 画布动作集（冻结，共 13 个）：**
+**`canvasAct(action, el)` —— 画布动作集（历史，共 13 个，现已全部删除）：**
 
 | action | 作用 | 关键约束 |
 | --- | --- | --- |
@@ -240,10 +259,13 @@ Link = {
 | `cv-clear` | 清空本步全部仪器与连线（需 `confirm`） | 已空 → toast |
 | `cv-label` | 用 `prompt` 改选中项 `label` | 取消（null）不写入 |
 
-> 🔴 `handleAct()` 的 `default` 分支把**任何 `cv-` 前缀**的动作转给 `canvasAct`。
-> 所以新增画布动作时，**只需在 `canvasAct` 里加分支，`handleAct` 不用动**。
+> 🔴 **现行 `handleAct()` 的 `default` 分支只转发 `lan-` 前缀给 `lanAct`，不再有 `cv-` 转发。**
 
-### 3.5 仪器库 `INST_LIB`（美术替换接口）
+### 3.5 仪器库 `INST_LIB` ⛔ 已整体移除（2026-10-07，仅留档）
+
+> ⛔ **`INST_CATS` / `INST_LIB`（36 条）/ `instById` / `instName` / `renderInstIcon` / `instPanelHTML`
+> 已随「仪器摆放」一并删除**，源码里搜不到任何一条。换美术接口（`imageUrl`）也随之作废。
+> 以下为**历史设计留档，不要照它实现**：
 
 ```js
 INST_CATS = [
@@ -264,19 +286,8 @@ INST_LIB 条目 = {
 }
 ```
 
-**三条冻结规则：**
-
-1. **渲染唯一入口是 `renderInstIcon(item, size)`**：它接收带 `.inst`（仪器库 id）的**实例对象**，
-   `imageUrl` 非空 → 渲染 `<img>`（`object-fit: contain`）；否则把 `icon` 的 `width/height` 换成实际尺寸后渲染 SVG。
-   **两个调用点都走它**：画布里的仪器（`itemHTML`，传 CanvasItem、尺寸取库中 `w`/`h`）
-   与编辑页左侧仪器面板（`instPanelHTML`，传 `{ inst: x.id }`、尺寸 17）。
-   ⚠️ 面板**不许**再直接 `x.icon.replace(...)` —— 那样填了 `imageUrl` 也不换图，且校验测不出来。
-2. **条目 id 全库唯一**；`cat` 必须命中 `INST_CATS`，**不许出现孤儿分类**，也不许有空的分类。
-3. 仪器清单必须**含 `beaker` / `test-tube` / `microscope` / `alcohol-lamp` / `petri-dish`**
-   （校验硬性项），且总数 **≥ 30**（当前 36 条：glass 13 / measure 6 / support 5 / heat 4 / biology 8）。
-
-> 📌 **后续换美术只做一件事**：给对应条目填 `imageUrl`。画布与仪器面板会一起生效；
-> 禁止把图片路径写进视图或画布代码。
+> 📌 若日后要**重做**仪器相关能力，应重新设计并升契约版本；`留痕` 里另有一份独立的
+> 「实验器材 SVG 图鉴」产出（36 件线稿）可作素材来源，但**当前契约不含此功能**。
 
 ### 3.6 存储层 `Store` / `Media`（签名与 key 冻结）
 
@@ -418,7 +429,7 @@ parseHash() -> { view: string, param: string | null }
 所有 `input` 都走 `saveSoon()`（350ms 防抖）落盘，**不许每敲一个字就同步写 localStorage**。
 （`data-lan` 两个输入框例外：它们不改实验数据，值在点「连接」「发送」时按需 `querySelector` 读取。）
 
-**`handleAct` 动作清单（冻结，除 `cv-*` 外的全部）：**
+**`handleAct` 动作清单（冻结）：**
 
 ```
 theme                                  exp-new / exp-open / exp-dup / exp-del / exp-export / exp-import
@@ -430,11 +441,16 @@ ai-pick / ai-run / ai-import-new / ai-import-append / ai-clear / ai-prompt
 ai-copy-prompt / ai-copy-json / ai-import-json / ai-paste-json
 lan-connect / lan-refresh / lan-copy / lan-pick / lan-clear
 lan-dl / lan-del / lan-clip-send / lan-clip-copy
-data-export-all / data-clear           （default → lan-* → lanAct；cv-* → canvasAct）
+timer-toggle / timer-reset / timer-log / timer-mode / timer-target
+timer-clear-target / timer-custom / go-edit-timer
+data-export-all / data-clear           （default → lan-* → lanAct；不再有 cv-* 转发）
 ```
 
-> 前缀转发（冻结）：`handleAct` 的 `default` 分支先看 `lan-` 前缀 → `lanAct(action, el)`，
-> 再看 `cv-` 前缀 → `canvasAct(action, el)`。新增互传动作**必须**用 `lan-` 前缀。
+> 前缀转发（冻结）：`handleAct` 的 `default` 分支只把 **`lan-`** 前缀转给 `lanAct(action, el)`。
+> 新增互传动作**必须**用 `lan-` 前缀。
+>
+> ⭐ **`timer-*` 动作要先经 `resolveTimer(el)` 判定作用于哪个计时器**（读 DOM 上的 `data-timer-src`），
+> 详见 §3.12；这几个动作一律走 `refreshTimer()` 局部重画，**不许整页 `render()`**。
 
 ### 3.8 报告与 LLM 接入
 
@@ -624,6 +640,45 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | 文档解析 | `.docx/.pptx` 走内联 ZIP + deflate；旧版 `.doc/.ppt` 直读 OLE2 正文；`aiDecodeText()` 兼容 UTF-8 / GBK |
 | 网络 | AI 页的「生成」按钮可用 `callLLM()`（同 §3.8 的 OpenAI 兼容约定）；**不许新增第二处 `fetch`** |
 
+### 3.12 计时器（**每步一个** + 自由计时器）
+
+**定位**：每个步骤有**自己独立**的计时器；记录模式另有一条**不绑定步骤的自由计时器**，随时可改可跑。
+
+**两个挂载点，结构同构（`normalizeTimer()` 两边共用）：**
+
+```js
+step.timer = {          // ★ 每步一个（主用法）
+  mode: "stopwatch",    // "stopwatch" 正计时 / "countdown" 倒计时
+  target: 0,            // 倒计时目标秒数（正计时为 0）
+  running: false,       // 是否正在跑
+  startAt: 0,           // 本轮开始时间戳（暂停后归 0）
+  accumulated: 0,       // 已累计毫秒（暂停保留）
+  rang: false,          // 本轮是否已响过（到点只响一次）
+  logs: [{ at, ms, step }],  // 每次「记一次」，最多 20 条
+}
+
+exp.timer = { ...同上 }      // ★ 自由计时器（不绑定任何步骤）
+```
+
+| 项 | 约定（冻结） |
+| --- | --- |
+| 编辑模式 | 「**本步**计时器预设」卡：正计时 / 倒计时 + 6 个快捷预设（`TIMER_PRESETS = [30,60,120,300,600,1800]`）+ 自定义「分 / 秒」+「应用」。**只预置当前步**，不在这里开始 |
+| 记录模式 · 本步计时器 | 播放到某步时，这一条的**开始 / 暂停 / 继续 / 归零 / 记一次** |
+| 记录模式 · 自由计时器 | 独立一张卡，**不绑定步骤**，且**卡上就能改模式与时长**（不必回编辑页） |
+| 到点（本步） | 蜂鸣 3 声 + 震动 + toast，并**自动往这一步的「现象 / 数据」写一行 `[计时] 倒计时结束 MM:SS`** |
+| 到点（自由） | 蜂鸣 + 震动 + toast；**不写任何步骤记录**（它不属于某一步） |
+| 记一次 | 写当前步的「现象 / 数据」；自由计时器的 log 里额外记下**当时的步号** |
+| 同时运行 | `Timer._active` 是**集合**，多个计时器可同时跑（不同步、不同计时器互不干扰） |
+| ⭐ **动作路由** | DOM 上必须有 **`data-timer-src`**：`"free"` = 自由计时器；数字 = 第 N 步；缺省则兜底（记录模式→自由，其余→当前步）。由 `resolveTimer(el)` 解析，`timer-*` 动作一律先调它 |
+| ⭐ **卡片标记** | 每张计时卡带 `data-timer-host` + `data-timer-owner`；时钟节点带 `data-timer-clock` + `data-timer-src`；自定义分 / 秒输入框也带 `data-timer-src`（避免两张卡的输入框串味） |
+| 局部重绘 | ⚠️ `timer-*` 动作**一律走 `refreshTimer()`**，**不许整页 `render()`**（会顶掉输入框焦点；历史上还曾把页面顶回最上） |
+| 旧数据迁移 | `migrateTimers()`：旧版「整个实验一个」的 `exp.timer` 若有用过痕迹，就**幂等**下放一份副本到第一步；`exp.timer` 保留成自由计时器 —— 两边都不丢 |
+| 报告 | 用过计时器才写「## 计时」，并**逐步列出**（`### 第 N 步`）+ 单列 `### 自由计时器`；`collectReportData().timer` 带 `summary()` 汇总 |
+| 存储 key | 计时器**存在实验体内**（`step.timer` / `exp.timer`），**不新增 localStorage key** |
+| 报告章节名 | 「## 计时」与「本次总用时」为**冻结文案**（旧报告消费方依赖） |
+
+> 🔴 **加新的计时器按钮时，务必把它放进带 `data-timer-src` 的卡里**，否则动作会落到错误的计时器上。
+
 ---
 
 ## 4. 命名与统一错误
@@ -633,13 +688,13 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | 实验 id | `exp_` + 随机 | `exp_k3f9a2x1b7` |
 | 步骤 id | `s_` + 随机 | `s_9a2k3f1b7` |
 | 媒体 id | `m_` + 随机 | `m_7f2a91c0d3` |
-| 仪器实例 id | `i_` + 随机 | `i_2b8c14e5f6` |
-| 连线 id | `l_` + 随机 | `l_5d0e77a1c2` |
-| 存储 key | `zhbit-lab-` 前缀 | `zhbit-lab-exp:exp_xxx` |
+| 仪器实例 id | ~~`i_` + 随机~~ ⛔ 已随画布移除（§3.4） | ~~`i_2b8c14e5f6`~~ |
+| 连线 id | ~~`l_` + 随机~~ ⛔ 已随画布移除（§3.4） | ~~`l_5d0e77a1c2`~~ |
+| 存储 key | `zhbit-lab-` 前缀 | `zhbit-lab-exp:exp_xxx`、`zhbit-lab-fold` |
 | 函数 / 变量 | camelCase | `buildLocalMarkdown()` |
-| 常量 / 令牌名 | UPPER_SNAKE / `--kebab` | `INST_LIB`、`--tint-line` |
-| CSS 类名 | kebab-case | `.exp-card`、`.player-dot` |
-| data 属性 | kebab-case | `data-act`、`data-canvas-host`、`data-ro` |
+| 常量 / 令牌名 | UPPER_SNAKE / `--kebab` | `TIMER_PRESETS`、`--tint-line` |
+| CSS 类名 | kebab-case | `.exp-card`、`.player-dot`、`.card-fold` |
+| data 属性 | kebab-case | `data-act`、`data-timer-src`、`data-timer-host`、`data-fold` |
 | 布尔判断 | 用现成工具 | `has(v)`（非空判断）、`clamp(v,a,b)` |
 | 转义 | 一律 `esc()` | `esc(e.name)` |
 
@@ -655,7 +710,8 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | 层 | 失败表现 |
 | --- | --- |
 | 存储层 `Store` / `Media` | **永不抛**：返回 `false` / `null` / `fallback`，需要告知用户就 `toast()` |
-| 画布层 `canvasAct` | 前置条件不满足 → `toast("先点选一个仪器")` 之类，然后 `return` |
+| ~~画布层 `canvasAct`~~ | ⛔ 已随功能移除（§3.4） |
+| 计时器 `timer-*` | 找不到宿主 → 直接 `return`（不抛）；「还没开始计时」就 `toast("还没开始计时")` |
 | 路由层 `goTo` | 拿不到实验 → toast + 回落 `home` |
 | 网络层 `callLLM` | **抛 `Error`**，由 `llmReport()` catch 后 toast + 降级本地生成 |
 | 视图层渲染 | 数据缺失 → 用 `emptyHTML()` 给空态，**不许抛** |
@@ -714,6 +770,7 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | 2.0.0 | 2026-08-28 | 改 Tauri v2 双端：`TodoItem` → `ScheduleEvent`，新增适配器接口、冲突规则、BLE 帧协议（`shishi-protocol`，**已作废**） | — |
 | 3.0.0 | 2026-10-02 | **全面重写**：作品改为「实验助手 Lab Studio」单文件 HTML；`ScheduleEvent`/适配器/冲突/BLE 全部作废，替换为 `Exp`/`Step`/`mediaRef`/`CanvasItem`、`Store`/`Media`、`INST_LIB` 替换接口、`canvasAct` 动作集、哈希路由与 `data-act` 事件委托、`REPORT_PROMPT` 与 OpenAI 兼容接入、新设计 token；定义 `EXP_VERSION = 1` | — |
 | 3.1.0 | 2026-10-05 | **补齐 v3.0.0 之后落地的三个能力，并修正与现实不符的条款**：① 新增 §3.11「AI 生成实验步骤页」；② 新增 §3.10「局域网互传」（`#/lan` + 可选 `src/lan-server.py`，含存储 key `zhbit-lab-lan`、10 个 HTTP 接口、分片/秒传/续传/局部重绘/5 秒轮询约定、无鉴权安全边界）；③ §3.7 视图表补 `aigen`/`lan`，`BARE_VIEWS` 明确为 4 个，动作清单补 `ai-*` / `lan-*` 与 `lan-` 前缀转发；④ 铁律 2 由「只有 `callLLM()` 能发请求」改为「`callLLM()` + `#/lan` 互传模块两处收口」；⑤ 铁律 5 / 红线① 补记**已内联并登记**的 React 18.3.1 / KaTeX / mhchem；⑥ 铁律 12 由「`check-page` 88 项」改为**三套校验**（153/155 + 25 + 33）；⑦ §7 补「G. 局域网互传」坑表。**`EXP_VERSION` 仍为 1**（`Exp` 数据结构未变），互传只新增独立 storage key | — |
+| **3.2.0** | **2026-10-08** | **① 计时器改为「每步一个 + 自由计时器」**（新增 §3.12）：`step.timer` 每步独立，`exp.timer` 变为不绑定步骤的**自由计时器**；§3.2 的 `Step` 结构补 `timer` 字段；§3.7 动作清单补 8 个 `timer-*` / `go-edit-timer`；新增 **`data-timer-src` 动作路由**（`resolveTimer()`）与 `data-timer-host` / `data-timer-owner` / `data-timer-clock` 标记约定；`migrateTimers()` 幂等迁移旧数据。② **「仪器摆放」整体移除**：§3.4（画布 `CanvasItem`/`Link`）与 §3.5（`INST_LIB` 仪器库）标为 ⛔ 仅留档，其数据结构、运行时、13 个 `cv-*` 动作、`cv-` 前缀转发、`step.canvas` 字段全部作废；§3.2 去掉 `canvas` 字段；§3.7 的 `default` 只保留 `lan-` 前缀转发。③ 命名铁律第 9 条（先追加 `INST_LIB`）作废；`i_` / `l_` id 规则作废。④ **铁律 12 的校验基线更新**为 2 / 271（本仓库 263 + 8 SKIP）/ 25 / 44 / 34 / 44。⑤ 新增折叠卡存储 key `zhbit-lab-fold`。**`EXP_VERSION` 仍为 1**（旧字段只增不改：`step.timer` 为新增；旧 `exp.timer` 语义变更但字段名沿用，旧数据由 `migrateTimers()` 兼容） | — |
 
 ---
 
@@ -738,17 +795,18 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | B4 | 存不进去，还弹「结构不合法」 | `isValidExp` 闸门没过（典型：`steps` 不是数组 / step 缺 `images`） | 造数据一律走 `newExp()` / `normalizeStep()`，别手搓对象 |
 | B5 | 图片在别的设备上看不到 | `.json` 不内嵌图片二进制（设计如此） | 属预期行为；跨设备要图得连图片一起传 |
 | B6 | 删了素材，步骤里还留着空白框 | 只删了 IndexedDB 没删引用 | 一律走 `mediaDel(id)`（它扫全部容器 + `log.totalImages`） |
-| B7 | 层级乱的 | 想当然加了 `z` 字段 | **没有 `z`**，层级 = `items` 数组顺序，用 `cv-front` / `cv-back` |
+| B7 | ~~层级乱的~~ | ⛔ 画布已移除，`z` / `items` 顺序 / `cv-front` 都不存在了（§3.4） | — |
+| B8 | 旧实验的计时器数据不见了 | 直接把 `exp.timer` 当「每步一个」用 | 读实验一律走 `normalizeExp()`（内含 `migrateTimers()`，会幂等下放到第一步） |
 
-### C. 画布与交互
+### C. 交互与计时器
 
 | # | 症状 | 原因 | 怎么躲 |
 | --- | --- | --- | --- |
-| C1 | 手机上拖不动仪器 | 用了 mouse 事件 | 一律 Pointer Events（`pointerdown/move/up`），鼠标触摸一套代码 |
-| C2 | 点新按钮没反应 | 只写了模板没加 `handleAct` case | 新增交互 = `data-act` + `handleAct` 一个 case；`cv-` 前缀自动转 `canvasAct` |
-| C3 | 画布尺寸对不上 | 在画布层写死了尺寸 | 尺寸一律取 `INST_LIB` 条目的 `w` / `h` |
-| C4 | 缩放/旋转越界 | 忘了 clamp | 缩放 clamp `[0.4, 2.5]`、旋转步进 15°、坐标吸附 10px |
-| C5 | 加仪器点不动 | `data-inst` 的 id 不存在于 `INST_LIB` | 仪器面板渲染时直接用 `INST_LIB` 的 id，别手写字符串 |
+| C1 | ~~手机上拖不动仪器~~ | ⛔ 指针拖拽已随画布移除（§3.4） | — |
+| C2 | 点新按钮没反应 | 只写了模板没加 `handleAct` case | 新增交互 = 模板 `data-act="xxx"` + `handleAct` 一个 `case`；**只有 `lan-` 前缀会自动转发** |
+| C3 | 计时器按钮改错了别的步骤 | 按钮没放进带 `data-timer-src` 的卡里 | `timer-*` 动作靠 `data-timer-src` 定位；自由计时器写 `"free"`，第 N 步写数字（§3.12） |
+| C4 | 点计时器按钮后输入框失焦 / 页面跳顶 | 用了整页 `render()` | `timer-*` 一律走 `refreshTimer()` 局部重画 |
+| C5 | 倒计时到点写错了步骤 | 没区分「本步计时器」与「自由计时器」 | 本步 → 写该步记录；自由 → **只响铃不写记录**（§3.12） |
 
 ### D. 报告与 LLM
 

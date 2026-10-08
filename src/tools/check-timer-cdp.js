@@ -8,89 +8,124 @@
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const fire = (sel) => { const el = document.querySelector(sel); if (!el) throw new Error("找不到元素 " + sel); el.click(); };
 
-  /* ---------- 1. 编辑模式：预设计时器 ---------- */
+  /* ---------- 1. 编辑模式：预置「本步」计时器 ---------- */
   const e = newExp("验收-计时器", "chemistry");
   e.steps[0].title = "加热";
   e.steps.push(normalizeStep({ id: uid("s_"), title: "观察现象" }));
   Store.saveExp(e);
   goTo("edit", e.id);
-  out.edit_card = /计时器预设/.test(main());
+  /* 计时器现在是「每步一个」：编辑页预置的是当前步（第 1 步）的 step.timer */
+  const stepT = () => Timer.attach(state.exp.steps[0]);
+  out.edit_card = /本步计时器预设/.test(main());
   out.edit_presets6 = /data-v="30"/.test(main()) && /data-v="1800"/.test(main());
   out.edit_customInputs = /data-timer="min"/.test(main()) && /data-timer="sec"/.test(main());
-  out.edit_defaultText = Timer.targetText(state.exp);
+  out.edit_defaultText = Timer.targetText(state.exp.steps[0]);
 
-  /* 编辑模式：自定义分 / 秒 → 应用 */
-  document.querySelector('[data-timer="min"]').value = "0";
-  document.querySelector('[data-timer="sec"]').value = "45";
+  /* 编辑模式：自定义分 / 秒 → 应用（输入框按 data-timer-src 区分，这里取第 0 步那张卡） */
+  document.querySelector('[data-timer="min"][data-timer-src="0"]').value = "0";
+  document.querySelector('[data-timer="sec"][data-timer-src="0"]').value = "45";
   fire('[data-act="timer-custom"]');
   await wait(200);
-  out.edit_custom45 = Timer.targetText(state.exp);
+  out.edit_custom45 = Timer.targetText(state.exp.steps[0]);
 
-  /* 点预设 5s，方便观察响铃 */
+  /* 点预设 30s，确认 chip 存在 */
   const chip5 = Array.from(document.querySelectorAll('[data-act="timer-target"]')).find((b) => b.dataset.v === "30");
   if (!chip5) throw new Error("找不到 30s 预设 chip");
   out.edit_hasPreset30 = true;
 
   /* 改用「自定义 5 秒」以便快速看到到点行为 */
-  document.querySelector('[data-timer="min"]').value = "0";
-  document.querySelector('[data-timer="sec"]').value = "5";
+  document.querySelector('[data-timer="min"][data-timer-src="0"]').value = "0";
+  document.querySelector('[data-timer="sec"][data-timer-src="0"]').value = "5";
   fire('[data-act="timer-custom"]');
   await wait(200);
-  out.edit_custom5 = Timer.targetText(state.exp);
+  out.edit_custom5 = Timer.targetText(state.exp.steps[0]);
+  /* ⭐ 每步独立：第 2 步的计时器不受影响 */
+  out.edit_step2_untouched = stepT().target === 5 &&
+    Timer.attach(state.exp.steps[1]).target === 0 && Timer.attach(state.exp.steps[1]).mode === "stopwatch";
 
-  /* ---------- 2. 记录模式：手动启停 ---------- */
+  /* ---------- 2. 记录模式：手动启停（本步计时器 + 自由计时器两张卡） ---------- */
   goTo("record", e.id);
   out.record_bar = /data-act="timer-toggle"/.test(main()) && /data-act="timer-reset"/.test(main()) && /data-act="timer-log"/.test(main());
   out.record_targetText = /倒计时 00:05/.test(main());
+  out.record_twoCards = (main().match(/data-timer-host/g) || []).length === 2;
+  out.record_hasFreeTimer = /自由计时器/.test(main()) && /data-act="timer-mode"/.test(main()) &&
+    /data-timer="min"/.test(main());
+  out.record_step2_notShown = Timer.attach(state.exp.steps[1]).running === false;   // 第 2 步还没跑
 
+  /* 第一张卡的「开始」= 本步计时器 */
   fire('[data-act="timer-toggle"]');
   await wait(900);
-  out.record_running = Timer.attach(state.exp).running === true;
-  out.record_clock_ticking = document.querySelector("[data-timer-clock]").textContent;
+  out.record_running = stepT().running === true;
+  out.record_clock_ticking = document.querySelector('[data-timer-clock][data-timer-src="0"]').textContent;
   out.record_btn_pause = /暂停/.test(main());
 
   /* 暂停 / 继续 */
   fire('[data-act="timer-toggle"]');
   await wait(150);
-  out.paused_running = Timer.attach(state.exp).running === false;
-  out.paused_accumulated = Timer.attach(state.exp).accumulated > 0;
+  out.paused_running = stepT().running === false;
+  out.paused_accumulated = stepT().accumulated > 0;
   fire('[data-act="timer-toggle"]');
   await wait(150);
 
-  /* 等它到点（5 秒倒计时） */
+  /* 等它到点（5 秒倒计时）→ 应该写进「第 1 步」的记录 */
   await wait(5200);
-  out.over_rang = Timer.attach(state.exp).rang === true;
-  out.over_clock = document.querySelector("[data-timer-clock]").textContent;
+  out.over_rang = stepT().rang === true;
+  out.over_clock = document.querySelector('[data-timer-clock][data-timer-src="0"]').textContent;
   out.over_toast = document.getElementById("toast").textContent;
   out.over_note = state.exp.steps[0].record.note;
   out.over_noteHasLine = /\[计时\] 倒计时结束/.test(state.exp.steps[0].record.note);
+  out.over_step2_untouched = !/\[计时\]/.test(state.exp.steps[1].record.note);
 
   /* 记一次 → 写当前步（此时在第 1 步） */
   fire('[data-act="timer-log"]');
   await wait(250);
   out.log_note = state.exp.steps[0].record.note;
-  out.log_count = Timer.attach(state.exp).logs.length;
+  out.log_count = stepT().logs.length;
 
-  /* 翻到第 2 步再记一次：应该写到第 2 步 */
+  /* 翻到第 2 步再记一次：应该写到第 2 步（用的是**第 2 步自己的**计时器） */
   fire('[data-act="play-next"]');
   await wait(200);
+  /* 第 2 步的计时器还没计时 → 先给它跑起来，再记一次 */
+  const step2Toggle = Array.from(document.querySelectorAll('[data-act="timer-toggle"]'))[0];
+  step2Toggle.click();
+  await wait(1200);
   fire('[data-act="timer-log"]');
   await wait(250);
   out.log2_step2 = state.exp.steps[1].record.note;
+  out.log2_usesStep2Timer = Timer.attach(state.exp.steps[1]).logs.length >= 1;
   out.log2_step1_untouched = state.exp.steps[0].record.note === out.log_note;
 
-  /* 归零 */
+  /* 自由计时器：独立于步骤，能单独跑、单独归零，且到点不写记录 */
+  const freeT = () => Timer.attach(state.exp);
+  out.free_initial_elapsed0 = Timer.elapsed(state.exp) === 0;
+  out.free_step1_running = Timer.attach(state.exp.steps[0]).running === false;
+  const freeToggle = Array.from(document.querySelectorAll('[data-timer-owner="free"] [data-act="timer-toggle"]'))[0];
+  if (!freeToggle) throw new Error("找不到自由计时器的开始按钮");
+  freeToggle.click();
+  await wait(900);
+  out.free_running = freeT().running === true;
+  out.free_does_not_touch_step = Timer.attach(state.exp.steps[0]).running === false;
+  out.free_active_count = Timer._active.length;
+  const freeNoteBefore = state.exp.steps[0].record.note;
+  freeT().mode = "countdown"; freeT().target = 1; freeT().accumulated = 0;
+  freeT().startAt = Date.now() - 2000; freeT().rang = false;
+  await wait(400);
+  out.free_over_noWrite = freeT().rang === true && state.exp.steps[0].record.note === freeNoteBefore;
+
+  /* 归零（对第 1 步的计时器） */
   fire('[data-act="timer-reset"]');
   await wait(200);
-  out.reset_elapsed0 = Timer.elapsed(state.exp) === 0;
-  out.reset_clock = document.querySelector("[data-timer-clock]").textContent;
+  out.reset_elapsed0 = Timer.elapsed(state.exp.steps[0]) === 0;
+  out.reset_clock = document.querySelector('[data-timer-clock][data-timer-src="0"]').textContent;
 
-  /* ---------- 3. 报告：计时章节 ---------- */
+  /* ---------- 3. 报告：计时章节（逐条 + 自由计时器） ---------- */
   goTo("report", e.id);
   fire('[data-act="rep-local"]');
   await wait(500);
   const md = (Store.report(e.id) || {}).markdown || "";
   out.report_hasTimerSection = /## 计时/.test(md) && /本次总用时/.test(md);
+  out.report_perStep = /### 第 1 步/.test(md);
+  out.report_freeSection = /### 自由计时器/.test(md);
 
   /* ---------- 4. 互传页：下载即导入卡片 ---------- */
   goTo("lan");
@@ -147,7 +182,8 @@
   lanAutoClear();
 
   /* ---------- 收尾：清掉验收数据 ---------- */
-  Timer.reset(state.exp);
+  e.steps.forEach((s) => Timer.reset(Timer.attach(s)));
+  Timer.reset(Timer.attach(e));
   Timer.stopTick();
   Store.removeExp(e.id);
   Store.listExps().filter((m) => /互传导入/.test(m.name || "")).forEach((m) => Store.removeExp(m.id));

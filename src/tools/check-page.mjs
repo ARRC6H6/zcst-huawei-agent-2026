@@ -28,11 +28,11 @@ const checkRust = (name, cond) => {
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
 if (!m) { console.error("FAIL: 未找到内联 script"); process.exit(1); }
 const code = m[1] + `
-;globalThis.__app = { INST_LIB, INST_CATS, newExp, isValidExp, normalizeExp, Store,
-  canvasAct, instPanelHTML, buildLocalMarkdown, mdToHtml, mdInline, esc, has,
-  parseHash, goTo, render, viewHome, viewEdit, viewRecord, viewReport, viewSettings,
+;globalThis.__app = { newExp, isValidExp, normalizeExp, normalizeStep, Store,
+  buildLocalMarkdown, mdToHtml, mdInline, esc, has,
+  parseHash, goTo, render, refreshTimer, viewHome, viewEdit, viewRecord, viewReport, viewSettings,
   REPORT_PROMPT, Media, state, ui, applyTheme, resolvedTheme, systemDark, KEYS,
-  collectReportData, localReport, instById, instName, renderInstIcon, compressImage,
+  collectReportData, localReport, compressImage,
   EXP_VERSION, DB_NAME, SVG,
   viewAI, GEN, GEN_PROMPT, NAV, BARE_VIEWS, aiParseJSON, aiValidateGen, aiBuildExp,
   aiApplyJSON, aiImport, aiExtOf, aiZipEntries, aiDocxText, aiPptxText, aiDecodeText,
@@ -113,27 +113,20 @@ try {
 }
 const A = globalThis.__app;
 
-/* ---------------- 2. 仪器库与色盘 ---------------- */
-
-check("仪器库：条目数量 ≥ 30", A.INST_LIB.length >= 30);
-check("仪器库：每项含 id/name/cat/icon/w/h/imageUrl",
-  A.INST_LIB.every((x) => x.id && x.name && x.cat && x.icon && x.w && x.h && "imageUrl" in x));
-check("仪器库：id 唯一", new Set(A.INST_LIB.map((x) => x.id)).size === A.INST_LIB.length);
-check("仪器库：分类齐全且无孤儿分类",
-  A.INST_CATS.every((c) => A.INST_LIB.some((x) => x.cat === c.id)) &&
-  A.INST_LIB.every((x) => A.INST_CATS.some((c) => c.id === x.cat)));
-check("仪器库：含烧杯 / 试管 / 显微镜等生化常用项",
-  ["beaker", "test-tube", "microscope", "alcohol-lamp", "petri-dish"].every((id) => !!A.instById(id)));
-check("仪器库：imageUrl 为空时回退 SVG 占位",
-  A.renderInstIcon({ inst: "beaker" }).indexOf("<svg") >= 0);
-check("仪器库：填写 imageUrl 后优先渲染图片（替换接口生效）",
-  (() => {
-    const b = A.instById("beaker");
-    const old = b.imageUrl; b.imageUrl = "art/beaker.png";
-    const out = A.renderInstIcon({ inst: "beaker" });
-    b.imageUrl = old;
-    return out.indexOf("<img") === 0 || out.indexOf("<img") >= 0;
-  })());
+/* ---------------- 2. 仪器摆放已整体移除（需求变更：这一块不要了） ----------------
+   「删除」这件事本身要能被验出来：源码里不能再有仪器库 / 画布运行时的任何标识符，
+   两个页面也不能再渲染画布宿主或仪器面板。 */
+const appScript = m[1];
+check("仪器摆放：源码已无仪器库（INST_CATS / INST_LIB / instById / instName）",
+  !/\bINST_CATS\b|\bINST_LIB\b|\binstById\b|\binstName\b|\brenderInstIcon\b/.test(appScript));
+check("仪器摆放：源码已无画布运行时（canvasAct / refreshCanvas / syncCanvasScale / instPanelHTML）",
+  !/\bcanvasAct\b|\brefreshCanvas\b|\bsyncCanvasScale\b|\bcanvasFit\b|\bcurCanvas\b|\binstPanelHTML\b|\bcanvasHTML\b/.test(appScript));
+check("仪器摆放：源码已无画布样式与节点（.cv-* / .canvas-* / .inst-* / data-canvas-host）",
+  !/\.cv-[\w-]+|\.canvas-(head|tools|scroll|stage|card)|\.inst-(panel|chip|cat)|data-canvas-host/.test(appScript));
+check("仪器摆放：源码已无 cv-* 动作分发", !/cv-add|cv-del|cv-tool|cv-clear|cv-rot/.test(appScript));
+check("仪器摆放：运行时界面里已无这些函数",
+  typeof A.canvasAct === "undefined" && typeof A.instPanelHTML === "undefined" &&
+  typeof A.INST_LIB === "undefined" && typeof A.instName === "undefined");
 
 /* ---------------- 3. 数据模型与持久化 ---------------- */
 
@@ -145,9 +138,12 @@ check("结构校验：缺 steps 被拒", A.isValidExp({ id: "x" }) === false);
 check("结构校验：null 被拒", A.isValidExp(null) === false);
 check("结构校验：步骤缺 images 被拒",
   A.isValidExp({ id: "x", steps: [{ id: "s1" }] }) === false);
-check("归一化：补全 canvas 与 record",
+check("归一化：补全 record，且不再产出 canvas 字段",
   (() => { const n = A.normalizeExp({ id: "x", steps: [{ id: "s1" }] });
-    return n.steps[0].canvas.items.length === 0 && typeof n.steps[0].record.note === "string"; })());
+    return typeof n.steps[0].record.note === "string" && !("canvas" in n.steps[0]); })());
+check("归一化：旧数据里残留的 canvas 会被丢掉（字段不再进新结构）",
+  (() => { const n = A.normalizeExp({ id: "x", steps: [{ id: "s1", canvas: { w: 1000, h: 620, items: [{ id: "i_1", inst: "beaker" }], links: [] } }] });
+    return !("canvas" in n.steps[0]); })());
 
 A.Store.saveExp(exp);
 check("持久化：写入后出现在列表", A.Store.listExps().some((x) => x.id === exp.id));
@@ -164,39 +160,23 @@ A.Store.removeExp(exp2.id);
 check("持久化：删除后列表移除", !A.Store.listExps().some((x) => x.id === exp2.id));
 check("持久化：删除后按 id 读为空", A.Store.getExp(exp2.id) === null);
 
-/* ---------------- 4. 仪器画布 ---------------- */
+/* ---------------- 4. 页面不该再出现仪器摆放 ----------------
+   （原来这一节逐条验「加仪器 / 拖动 / 旋转 / 连线」；功能删掉后改验「确已消失」。） */
 
 A.goTo("edit", exp.id);
 A.ui.step = 0;
-const cv = () => A.state.exp.steps[0].canvas;
-A.canvasAct("cv-add", { dataset: { inst: "beaker" } });
-check("画布：添加仪器", cv().items.length === 1);
-check("画布：添加后自动选中", A.ui.selected === cv().items[0].id);
-A.canvasAct("cv-add", { dataset: { inst: "alcohol-lamp" } });
-check("画布：可添加多个仪器", cv().items.length === 2);
-A.canvasAct("cv-dup", { dataset: {} });
-check("画布：复制选中仪器", cv().items.length === 3);
-check("画布：复制项 id 互不相同", new Set(cv().items.map((x) => x.id)).size === 3);
-A.canvasAct("cv-rot+", { dataset: {} });
-check("画布：旋转 +15°", cv().items[2].rot === 15);
-A.canvasAct("cv-rot-", { dataset: {} });
-check("画布：旋转 −15° 回正", cv().items[2].rot === 0);
-A.canvasAct("cv-scale+", { dataset: {} });
-check("画布：放大生效", cv().items[2].scale > 1);
-A.canvasAct("cv-scale-", { dataset: {} });
-check("画布：缩放被限制在 0.4~2.5", cv().items[2].scale >= 0.4 && cv().items[2].scale <= 2.5);
-A.canvasAct("cv-del", { dataset: {} });
-check("画布：删除选中", cv().items.length === 2);
-cv().links.push({ id: "l1", from: cv().items[0].id, to: cv().items[1].id, kind: "导管", note: "" });
-A.canvasAct("cv-unlink", { dataset: {} });
-check("画布：断线", cv().links.length === 0);
-A.canvasAct("cv-clear", { dataset: {} });
-check("画布：清空", cv().items.length === 0 && cv().links.length === 0);
+check("仪器摆放：编辑页不再有画布 / 仪器面板 / 相关按钮",
+  !/data-canvas-host/.test(main()) && !/inst-panel/.test(main()) &&
+  !/仪器摆放/.test(main()) && !/data-act="cv-/.test(main()));
+check("仪器摆放：编辑页副标题也不再提「摆放仪器」",
+  main().indexOf("摆放仪器") < 0);
+check("仪器摆放：数据模型里每个步骤都不带 canvas",
+  A.state.exp.steps.every((s) => !("canvas" in s)));
 
-check("仪器面板：覆盖全部仪器分类",
-  A.INST_CATS.every((c) => A.instPanelHTML().indexOf(c.label) >= 0));
-check("仪器面板：每个仪器都有可点击入口",
-  A.INST_LIB.every((x) => A.instPanelHTML().indexOf('data-inst="' + x.id + '"') >= 0));
+A.goTo("record", exp.id);
+check("仪器摆放：记录页不再渲染只读画布",
+  !/data-canvas-host/.test(main()) && !/仪器摆放/.test(main()) && !/data-ro="1"/.test(main()));
+check("仪器摆放：记录页仍保留播放器与步骤正文", /player-dot/.test(main()) && /player-stage/.test(main()));
 
 /* ---------------- 5. 编辑页 / 记录页 / 报告页渲染 ---------------- */
 
@@ -204,7 +184,6 @@ A.goTo("edit", exp.id);
 check("编辑页：含五要素输入项",
   /data-field="text"/.test(main()) && /data-field="equation"/.test(main()) &&
   /data-field="tips"/.test(main()) && /data-act="media-add"/.test(main()));
-check("编辑页：含画布宿主与仪器面板", /data-canvas-host/.test(main()) && /inst-panel/.test(main()));
 check("编辑页：含步骤侧栏", /step-rail/.test(main()));
 
 A.state.exp.steps[0].title = "加入硝酸银";
@@ -216,7 +195,6 @@ A.state.exp.log.total = "全程水浴控温 60℃";
 A.Store.saveExp(A.state.exp);
 A.goTo("record", exp.id);
 check("记录页：播放器就位", /player-dot/.test(main()) && /data-act="play-next"/.test(main()));
-check("记录页：只读画布宿主", /data-ro="1"/.test(main()));
 check("记录页：分步记录与总记录并存",
   /data-scope="record"/.test(main()) && /data-scope="total"/.test(main()));
 check("记录页：渲染方程式", main().indexOf("Ag+ + e- = Ag") >= 0);
@@ -227,6 +205,79 @@ A.ui.playIndex = Math.min(1, A.state.exp.steps.length - 1);
 A.render();
 check("记录页：可切换播放步骤", /player-dot on/.test(main()));
 
+/* ---------------- 5.5 站内重绘不再跳顶（全治理） ----------------
+   规则：只有 goTo()（换页 / 换实验）才回顶；其它站内动作调 render() 一律保持滚动位置。
+   历史 bug「计时器设置会跳到最顶」只是这条规则缺失时最显眼的一例。 */
+
+check("滚动治理：源码里只有 goTo 一处 render(true)",
+  (appScript.match(/render\(true\)/g) || []).length === 1);
+/* 注意：只能用「独立语句」的形式匹配 —— 说明注释里也写着这句历史代码，宽松匹配会误报 */
+check("滚动治理：源码里不再有无条件 `main.scrollTop = 0` 语句",
+  !/^\s*main\.scrollTop = 0\s*;/m.test(appScript) &&
+  /^\s*main\.scrollTop = keep\s*;/m.test(appScript));
+
+const govSeed = A.newExp("滚动治理", "chemistry");
+govSeed.steps.push(A.normalizeStep({ id: "s_gov_2", title: "第二步" }));
+govSeed.steps.push(A.normalizeStep({ id: "s_gov_3", title: "第三步" }));
+A.Store.saveExp(govSeed);
+
+A.goTo("edit", govSeed.id);
+const govExp = A.state.exp;
+check("滚动治理：goTo 换页回到顶部", store.main.scrollTop === 0);
+
+store.main.scrollTop = 420;
+A.render();
+check("滚动治理：同页 render() 保持滚动位置（临时关掉的 smooth 也还回去）",
+  store.main.scrollTop === 420 && store.main.style.scrollBehavior !== "auto");
+
+store.main.scrollTop = 500;
+A.render(true);
+check("滚动治理：render(true) 明确回顶部", store.main.scrollTop === 0);
+
+store.main.scrollTop = 380;
+await A.handleAct("exp-subject", { dataset: { v: "biology" } });
+check("滚动治理：换学科分类不跳顶", store.main.scrollTop === 380 && govExp.subject === "biology");
+
+store.main.scrollTop = 344;
+await A.handleAct("step-open", { dataset: { step: "2" } });
+check("滚动治理：切步骤不跳顶（且确实换到第 3 步）",
+  store.main.scrollTop === 344 && A.ui.step === 2);
+
+A.ui.step = 1;
+store.main.scrollTop = 310;
+await A.handleAct("step-move", { dataset: { dir: "1" } });
+check("滚动治理：步骤上移 / 下移不跳顶", store.main.scrollTop === 310 && A.ui.step === 2);
+
+store.main.scrollTop = 280;
+await A.handleAct("step-add", { dataset: {} });
+check("滚动治理：新增步骤不跳顶", store.main.scrollTop === 280);
+
+govExp.steps[0].images.push({ id: "m_gov_1", name: "a.png", kind: "image", store: "idb" });
+store.main.scrollTop = 250;
+await A.handleAct("media-del", { dataset: { id: "m_gov_1" } });
+check("滚动治理：删除图片不跳顶", store.main.scrollTop === 250 && govExp.steps[0].images.length === 0);
+
+store.main.scrollTop = 220;
+await A.handleAct("set-theme", { dataset: { v: "dark" } });
+check("滚动治理：切换主题不跳顶", store.main.scrollTop === 220);
+A.applyTheme("system");   // 还回默认，别影响后面的主题断言
+
+A.goTo("record", govSeed.id);
+A.ui.playIndex = 0;
+store.main.scrollTop = 190;
+await A.handleAct("play-next", { dataset: {} });
+check("滚动治理：记录模式翻页不跳顶（且确实翻到第 2 步）",
+  store.main.scrollTop === 190 && A.ui.playIndex === 1);
+
+store.main.scrollTop = 160;
+await A.handleAct("play-go", { dataset: { step: "2" } });
+check("滚动治理：记录模式跳步不跳顶", store.main.scrollTop === 160 && A.ui.playIndex === 2);
+
+/* 但换实验（换 param）仍然要回顶 —— 这是真导航 */
+store.main.scrollTop = 300;
+A.goTo("edit", exp.id);
+check("滚动治理：换到另一个实验仍回到顶部", store.main.scrollTop === 0 && A.state.exp.id === exp.id);
+
 /* ---------------- 6. 报告生成（本地 markdown） ---------------- */
 
 const md = A.buildLocalMarkdown(A.state.exp);
@@ -235,6 +286,10 @@ check("报告：含现象与数据表格", /\|\s*步骤\s*\|\s*操作\s*\|\s*现
 check("报告：含反应方程式", md.indexOf("Ag+ + e- = Ag") >= 0);
 check("报告：含注意事项（来自 TIPS）", md.indexOf("## 注意事项") >= 0);
 check("报告：含总记录", md.indexOf("## 总记录") >= 0);
+check("报告：本地 markdown 不再有「仪器与试剂」汇总章节（仪器摆放已移除）",
+  md.indexOf("## 仪器与试剂") < 0);
+check("报告：分发给 LLM 的数据不再带 instruments 字段",
+  A.collectReportData(A.state.exp).steps.every((s) => !("instruments" in s)));
 check("报告：表格单元转义竖线",
   A.buildLocalMarkdown(A.normalizeExp({ id: "e", name: "n", steps: [{ id: "s", title: "a|b", images: [] }] })).indexOf("a\\|b") >= 0);
 
@@ -350,7 +405,8 @@ check("AI 页：文档文本框绑定", /data-ai="doc"/.test(main()));
 
 check("AI 提示词：含文档占位符", A.GEN_PROMPT.indexOf("{{DOC}}") >= 0);
 check("AI 提示词：要求只输出 JSON 且禁代码围栏", A.GEN_PROMPT.indexOf("只输出一个 JSON") >= 0 && A.GEN_PROMPT.indexOf("代码围栏") >= 0);
-check("AI 提示词：要求不生成仪器画布", A.GEN_PROMPT.indexOf("不要输出仪器画布") >= 0);
+check("AI 提示词：不再要求生成/留空仪器画布（功能已移除）",
+  A.GEN_PROMPT.indexOf("仪器画布") < 0 && A.GEN_PROMPT.indexOf("图片、视频、报告正文") >= 0);
 check("AI 提示词：约束学科/主题配对", A.GEN_PROMPT.indexOf("t-lavender") >= 0 && A.GEN_PROMPT.indexOf("biochem") >= 0);
 check("AI 提示词：要求简体中文", A.GEN_PROMPT.indexOf("简体中文") >= 0);
 
@@ -373,8 +429,8 @@ check("AI 校验：步骤数越界给出提示",
 const builtAI = A.aiBuildExp(gOk);
 check("AI 建实验：结构通过实验助手校验", A.isValidExp(builtAI) === true);
 check("AI 建实验：主题随学科自动配对", builtAI.theme === "t-lavender" && builtAI.subject === "biochem");
-check("AI 建实验：每步画布留空（交给用户摆放）",
-  builtAI.steps.every((s) => s.canvas && s.canvas.items.length === 0 && s.canvas.w === 1000 && s.canvas.h === 620));
+check("AI 建实验：每步不再带 canvas 字段（仪器摆放已移除）",
+  builtAI.steps.every((s) => !("canvas" in s)));
 check("AI 建实验：步骤五要素齐备且 id 互不相同",
   builtAI.steps.every((s) => typeof s.images === "object" && Array.isArray(s.images) && typeof s.equation === "string" && typeof s.tips === "string") &&
   new Set(builtAI.steps.map((s) => s.id)).size === builtAI.steps.length);
@@ -487,8 +543,24 @@ A.goTo("settings");
 check("设置页：含获取 API Key 与充值入口",
   /platform\.deepseek\.com\/api_keys/.test(main()) && /platform\.deepseek\.com\/top_up/.test(main()));
 check("设置页：含 DeepSeek 一键配置按钮", /data-act="llm-deepseek"/.test(main()));
-check("设置页：含获取 API 图文教程",
-  /获取 API 图文教程/.test(main()) && /创建 API key/.test(main()) && /sk-/.test(main()));
+check("设置页：API 教学卡改为「获取 API 教学」",
+  /获取 API 教学/.test(main()) && /创建 API key/.test(main()) && /sk-/.test(main()) &&
+  !/获取 API 图文教程/.test(main()));
+check("设置页：API 教学卡可折叠（details.card-fold + 默认收起）",
+  (() => {
+    const m = main();
+    const i = m.indexOf("获取 API 教学");
+    const open = m.lastIndexOf("<details", i);
+    const seg = m.slice(open, i);
+    return /<details class="card card-fold" data-fold="api-guide"/.test(seg) && !/\bopen\b/.test(seg);
+  })());
+check("设置页：教学卡含「手机热点」连接说明（含 AP 隔离提示）",
+  /热点/.test(main()) && /AP 隔离|客户端隔离/.test(main()) &&
+  /同一个热点|连上这个热点/.test(main()) && /换网络要重新看地址/.test(main()));
+check("设置页：数据管理文案说的是局域网互传（不再是蓝牙）",
+  /局域网互传/.test(main().slice(main().indexOf("数据管理"))) && !/蓝牙/.test(main()));
+check("设置页：折叠状态按 data-fold 键记住（toggle 捕获 + render 后还原）",
+  /zhbit-lab-fold/.test(html) && /addEventListener\("toggle"/.test(html) && /restoreFolds\(\)/.test(html));
 check("设置页：Base URL 默认提示为 DeepSeek", /placeholder="https:\/\/api\.deepseek\.com"/.test(main()));
 
 /* ---------------- 14. 局域网互传（#/lan） ---------------- */
@@ -688,15 +760,22 @@ checkRust("互传：Rust 侧 lan_reveal_file 只开自己下载目录里的文�
 checkRust("互传：落盘目录逐个探针试写（系统下载目录 → 应用数据目录）",
   /fn pick_save_dir/.test(rust) && /LAB_LAN_SAVE_DIR/.test(rust) && /\.write-probe-/.test(rust));
 
-/* ---------------- 17. 计时器（整个实验一个：编辑预设 + 记录启停） ---------------- */
+/* ---------------- 17. 计时器（每步一个 + 自由计时器：编辑预设 + 记录启停） ---------------- */
 
 const tSeed = A.newExp("计时器测试", "chemistry");
 tSeed.steps[0].title = "加热";
+tSeed.steps.push({ id: "s2", title: "冷却", text: "", equation: "", tips: "", images: [], videos: [], record: null });
 A.Store.saveExp(tSeed);
 
 check("计时器：旧实验没有 timer 字段也能读（向后兼容）",
   !!A.normalizeExp({ id: "x", steps: [{ id: "s1", images: [] }] }).timer &&
   A.normalizeExp({ id: "x", steps: [] }).timer.mode === "stopwatch");
+check("计时器：每个步骤都有自己的 timer 字段（默认正计时）",
+  (() => {
+    const e = A.normalizeExp({ id: "x", steps: [{ id: "s1", images: [] }, { id: "s2", images: [] }] });
+    return e.steps.length === 2 && e.steps.every((s) => s.timer && s.timer.mode === "stopwatch") &&
+      e.steps[0].timer !== e.steps[1].timer;   // 必须是两个独立对象
+  })());
 check("计时器：脏数据被规范化（mode / target / accumulated / logs）",
   (() => {
     const t = A.normalizeTimer({ mode: "zzz", target: "-5", accumulated: "abc", running: 1, logs: [{ ms: -3 }, { ms: 1500 }] });
@@ -709,37 +788,106 @@ check("计时器：时长格式化 MM:SS / H:MM:SS",
 check("计时器：预设标签 30s / 5min / 30min",
   A.Timer.label(30) === "30s" && A.Timer.label(300) === "5min" && A.Timer.label(1800) === "30min");
 
+/* 旧模型（整个实验一个 exp.timer）迁移到新模型：有使用痕迹就下放到第一步 */
+check("计时器：旧实验的全局计时器迁移到第一步（不丢数据）",
+  (() => {
+    const e = A.normalizeExp({
+      id: "old", steps: [{ id: "s1", images: [] }],
+      timer: { mode: "countdown", target: 120, accumulated: 65000, logs: [{ at: 1, ms: 65000 }] },
+    });
+    // 第一步拿到副本（含预置与记录），exp.timer 保留成自由计时器
+    return e.steps[0].timer.mode === "countdown" && e.steps[0].timer.target === 120 &&
+      e.steps[0].timer.accumulated === 65000 && e.steps[0].timer.logs.length === 1 &&
+      e.timer.accumulated === 65000 && e.steps[0].timer.running === false;
+  })());
+check("计时器：迁移是幂等的（不会每次归一化都覆盖第一步）",
+  (() => {
+    let e = A.normalizeExp({ id: "old2", steps: [{ id: "s1", images: [] }], timer: { accumulated: 9000, logs: [{ at: 1, ms: 9000 }] } });
+    e.steps[0].timer.accumulated = 111;      // 用户后来改了第一步
+    e = A.normalizeExp(e);
+    return e.steps[0].timer.accumulated === 111;
+  })());
+
 /* goTo 会从本地存储重新载入一份实验，所以页面相关的断言一律操作 state.exp */
 A.goTo("edit", tSeed.id);
 const tExp = A.state.exp;
 check("计时器：默认正计时、不限时",
-  A.Timer.attach(tExp).mode === "stopwatch" && A.Timer.targetText(tExp) === "正计时（不限时）");
-A.Timer.setTarget(tExp, 120);
-check("计时器：设置目标时长即切到倒计时",
-  A.Timer.attach(tExp).mode === "countdown" && A.Timer.targetText(tExp) === "倒计时 02:00");
+  A.Timer.attach(tExp.steps[0]).mode === "stopwatch" && A.Timer.targetText(tExp.steps[0]) === "正计时（不限时）");
+A.Timer.setTarget(tExp.steps[0], 120);
+check("计时器：设置目标时长即切到倒计时（只作用于这一步）",
+  A.Timer.attach(tExp.steps[0]).mode === "countdown" && A.Timer.targetText(tExp.steps[0]) === "倒计时 02:00" &&
+  A.Timer.attach(tExp.steps[1]).mode === "stopwatch" && A.Timer.attach(tExp.steps[1]).target === 0);
 A.render();
 check("计时器：编辑页给全部预设 chip + 自定义分 / 秒输入",
-  /data-act="timer-mode" data-v="countdown"/.test(A.timerEditHTML(tExp)) &&
-  A.TIMER_PRESETS.every((sec) => A.timerEditHTML(tExp).indexOf('data-v="' + sec + '"') >= 0) &&
-  /data-timer="min"/.test(A.timerEditHTML(tExp)) && /data-timer="sec"/.test(A.timerEditHTML(tExp)) &&
-  /data-act="timer-custom"/.test(A.timerEditHTML(tExp)));
-check("计时器：编辑模式页面就位（预设卡片 + 时钟）",
-  /timer-presets/.test(main()) && /data-timer-clock/.test(main()) && /计时器预设/.test(main()));
+  /data-act="timer-mode" data-v="countdown"/.test(A.timerEditHTML(tExp.steps[0], 0)) &&
+  A.TIMER_PRESETS.every((sec) => A.timerEditHTML(tExp.steps[0], 0).indexOf('data-v="' + sec + '"') >= 0) &&
+  /data-timer="min"/.test(A.timerEditHTML(tExp.steps[0], 0)) && /data-timer="sec"/.test(A.timerEditHTML(tExp.steps[0], 0)) &&
+  /data-act="timer-custom"/.test(A.timerEditHTML(tExp.steps[0], 0)));
+check("计时器：编辑模式页面就位（本步计时卡 + 时钟）",
+  /timer-presets/.test(main()) && /data-timer-clock/.test(main()) && /本步计时器预设/.test(main()));
+check("计时器：编辑页的计时卡标注了它属于哪一步（data-timer-src）",
+  /data-timer-src="0"/.test(main()) && /data-timer-owner="0"/.test(main()));
 
-/* 自定义分 / 秒 → 应用（走真实动作分发） */
+/* ⭐ 回归：计时器设置不能把页面顶回最顶。
+   旧实现里 timer-* 动作走的是整页 render()，而 render() 结尾有 main.scrollTop = 0，
+   计时卡又在编辑页靠下的位置 → 每点一下预设 / 模式，页面就跳回最上面。
+   现在改走 refreshTimer()（局部重画），滚动位置必须原地不动。
+   注意：这一段里不能调 goTo()（它会从本地存储重新载入一份实验，tExp 就变成旧对象了）。 */
+check("计时器：编辑页给计时卡宿主 data-timer-host", /data-timer-host/.test(main()));
+/* 新模型下动作要知道作用于哪个计时器：用 data-timer-src 指到第 0 步 */
+const actEl = (extra) => Object.assign({ dataset: Object.assign({ timerSrc: "0" }, extra || {}), closest: () => null }, {});
+store.main.scrollTop = 480;
+await A.handleAct("timer-target", actEl({ v: "30" }));
+check("计时器：点预设不会把页面顶回最顶（scrollTop 保持）",
+  store.main.scrollTop === 480 && A.Timer.attach(tExp.steps[0]).target === 30);
+store.main.scrollTop = 372;
+await A.handleAct("timer-mode", actEl({ v: "stopwatch" }));
+check("计时器：切正计时 / 倒计时也不跳顶", store.main.scrollTop === 372);
+store.main.scrollTop = 205;
+await A.handleAct("timer-clear-target", actEl());
+check("计时器：关闭倒计时也不跳顶", store.main.scrollTop === 205);
+
+/* 同时确认「不整页重绘」是真的：只换计时卡宿主的 innerHTML */
+const realQSA = document.querySelectorAll;
+const fakeHosts = [{ innerHTML: "", getAttribute: () => "0" }];
+globalThis.document.querySelectorAll = (sel) => (sel === "[data-timer-host]" ? fakeHosts : realQSA.call(document, sel));
+await A.handleAct("timer-target", actEl({ v: "60" }));
+globalThis.document.querySelectorAll = realQSA;
+check("计时器：改设置只重画计时卡（宿主被重写，卡片内容仍在）",
+  /本步计时器预设/.test(fakeHosts[0].innerHTML) && /data-timer-clock/.test(fakeHosts[0].innerHTML) &&
+  A.Timer.attach(tExp.steps[0]).target === 60);
+
+/* 记录页：本步计时卡 + 自由计时卡两张（用 viewRecord() 的 HTML 直接验，不切页、不动 state.exp） */
+A.render();   // 回到编辑页的正常渲染（顺带确认没有异常）
+check("计时器：记录页两张卡（本步 + 自由）都带 data-timer-host",
+  (A.viewRecord().match(/data-timer-host/g) || []).length === 2 &&
+  /data-timer-owner="free"/.test(A.viewRecord()) && /timer-card/.test(A.viewRecord()));
+check("计时器：记录页计时卡夹在导航条与正文之间",
+  A.viewRecord().indexOf('class="player-bar"') < A.viewRecord().indexOf("timer-card") &&
+  A.viewRecord().indexOf("timer-card") < A.viewRecord().indexOf('class="player-stage"'));
+check("计时器：自由计时器卡自带改模式 / 时长的控件",
+  (() => {
+    const html = A.timerRecordHTML(tExp, "free", { free: true });
+    return /自由计时器/.test(html) && /data-act="timer-mode"/.test(html) &&
+      /data-timer="min"/.test(html) && /data-timer-src="free"/.test(html);
+  })());
+check("计时器：本步计时卡不带改时长的控件（预设留在编辑模式）",
+  !/data-timer="min"/.test(A.timerRecordHTML(tExp.steps[0], 0)));
+
+/* 自定义分 / 秒 → 应用（走真实动作分发；输入框按 data-timer-src 区分） */
 const realQS = document.querySelector;
 globalThis.document.querySelector = (sel) => {
-  if (sel === '[data-timer="min"]') return { value: "3" };
-  if (sel === '[data-timer="sec"]') return { value: "30" };
+  if (sel === '[data-timer="min"][data-timer-src="0"]') return { value: "3" };
+  if (sel === '[data-timer="sec"][data-timer-src="0"]') return { value: "30" };
   return null;
 };
-await A.handleAct("timer-custom", { dataset: {} });
+await A.handleAct("timer-custom", actEl());
 globalThis.document.querySelector = realQS;
 check("计时器：自定义 3 分 30 秒被应用（210s）",
-  A.Timer.attach(tExp).target === 210 && A.Timer.attach(tExp).mode === "countdown");
+  A.Timer.attach(tExp.steps[0]).target === 210 && A.Timer.attach(tExp.steps[0]).mode === "countdown");
 
 /* 记录模式：手动启停 / 归零 / 记一次 */
-A.Timer.setTarget(tExp, 300);            // 切回 5 分钟倒计时，离开编辑页时会存进本地存储
+A.Timer.setTarget(tExp.steps[0], 300);   // 切回 5 分钟倒计时，离开编辑页时会存进本地存储
 A.goTo("record", tExp.id);
 const tRec = A.state.exp;
 check("计时器：记录页有手动开始 / 归零 / 记一次",
@@ -747,51 +895,80 @@ check("计时器：记录页有手动开始 / 归零 / 记一次",
 check("计时器：记录页显示目标时长与时钟",
   /data-timer-clock/.test(main()) && /倒计时 05:00/.test(main()));
 
-await A.handleAct("timer-toggle", { dataset: {} });
+/* 本步计时器：开始 / 暂停 / 归零（显式指向第 0 步） */
+const stepAct = () => Object.assign({ dataset: { timerSrc: "0" }, closest: () => null });
+await A.handleAct("timer-toggle", stepAct());
 check("计时器：开始后 running=true 且 tick 已挂上",
-  A.Timer.attach(tRec).running === true && A.Timer._iv !== null && A.Timer.elapsed(tRec) >= 0);
-check("计时器：未到点时不算结束", A.Timer.isOver(tRec) === false && A.Timer.remaining(tRec) > 0);
-await A.handleAct("timer-toggle", { dataset: {} });
+  A.Timer.attach(tRec.steps[0]).running === true && A.Timer._iv !== null && A.Timer.elapsed(tRec.steps[0]) >= 0);
+check("计时器：未到点时不算结束",
+  A.Timer.isOver(tRec.steps[0]) === false && A.Timer.remaining(tRec.steps[0]) > 0);
+await A.handleAct("timer-toggle", stepAct());
 check("计时器：暂停后累计保留且 tick 已停",
-  A.Timer.attach(tRec).running === false && A.Timer._iv === null && A.Timer.attach(tRec).accumulated >= 0);
-A.Timer.reset(tRec);
+  A.Timer.attach(tRec.steps[0]).running === false && A.Timer._iv === null && A.Timer.attach(tRec.steps[0]).accumulated >= 0);
+A.Timer.reset(A.Timer.attach(tRec.steps[0]));
 check("计时器：归零清空累计与响铃标记",
-  A.Timer.elapsed(tRec) === 0 && A.Timer.attach(tRec).rang === false);
+  A.Timer.elapsed(tRec.steps[0]) === 0 && A.Timer.attach(tRec.steps[0]).rang === false);
+
+/* ⭐ 每步独立：两个步骤的计时器互不影响，可同时跑 */
+await A.handleAct("timer-toggle", stepAct());                       // 第 1 步开跑
+await A.handleAct("timer-toggle", Object.assign({ dataset: { timerSrc: "1" }, closest: () => null }));  // 第 2 步也开跑
+check("计时器：两个步骤的计时器可以同时运行且互不干扰",
+  A.Timer.attach(tRec.steps[0]).running === true && A.Timer.attach(tRec.steps[1]).running === true &&
+  A.Timer._active.length === 2 && A.Timer._iv !== null);
+A.Timer.pause(A.Timer.attach(tRec.steps[1]));
+check("计时器：暂停第 2 步不影响第 1 步",
+  A.Timer.attach(tRec.steps[1]).running === false && A.Timer.attach(tRec.steps[0]).running === true);
+A.Timer.pause(A.Timer.attach(tRec.steps[0]));
 
 /* 记一次 / 到点自动写入「现象 / 数据」 */
 A.ui.playIndex = 0;
 const noteBeforeLog = tRec.steps[0].record.note;
-A.Timer.attach(tRec).accumulated = 65000;
-const rlog = A.Timer.log(tRec, 0);
-check("计时器：记一次写入步骤记录并留 log",
+A.Timer.attach(tRec.steps[0]).accumulated = 65000;
+const rlog = A.Timer.log(tRec, A.Timer.attach(tRec.steps[0]), tRec.steps[0]);
+check("计时器：记一次写入该步记录并留 log",
   rlog.ok === true && tRec.steps[0].record.note.indexOf("[计时]") >= 0 &&
-  tRec.steps[0].record.note.indexOf("01:05") >= 0 && A.Timer.attach(tRec).logs.length === 1);
+  tRec.steps[0].record.note.indexOf("01:05") >= 0 && A.Timer.attach(tRec.steps[0]).logs.length === 1);
 check("计时器：原本没记录时不留空行",
   noteBeforeLog === "" && tRec.steps[0].record.note.split("\n")[0].indexOf("[计时]") === 0);
 
-A.Timer.attach(tRec).accumulated = 0;
-A.Timer.attach(tRec).mode = "countdown";
-A.Timer.attach(tRec).target = 60;
-A.Timer.attach(tRec).running = true;
-A.Timer.attach(tRec).startAt = Date.now() - 61000;   // 假装已经跑了 61 秒
-A.Timer.attach(tRec).rang = false;
-A.Timer._exp = tRec;
-A.Timer._step = 0;
+/* 倒计时到点 → 自动写进「这一步」 */
+A.Timer.attach(tRec.steps[0]).accumulated = 0;
+A.Timer.attach(tRec.steps[0]).mode = "countdown";
+A.Timer.attach(tRec.steps[0]).target = 60;
+A.Timer.attach(tRec.steps[0]).running = true;
+A.Timer.attach(tRec.steps[0]).startAt = Date.now() - 61000;   // 假装已经跑了 61 秒
+A.Timer.attach(tRec.steps[0]).rang = false;
+A.Timer.track(tRec, tRec.steps[0], A.Timer.attach(tRec.steps[0]));
 const noteBeforeOver = tRec.steps[0].record.note;
+const noteStep2Before = tRec.steps[1].record.note;
 A.Timer.tick();
 check("计时器：倒计时到点自动写入当前步记录",
-  A.Timer.attach(tRec).rang === true && A.Timer.isOver(tRec) === true &&
+  A.Timer.attach(tRec.steps[0]).rang === true && A.Timer.isOver(tRec.steps[0]) === true &&
   tRec.steps[0].record.note.indexOf("倒计时结束") >= 0 &&
   tRec.steps[0].record.note.length > noteBeforeOver.length);
+check("计时器：第 1 步到点不会写进第 2 步", tRec.steps[1].record.note === noteStep2Before);
 const noteAfterOver = tRec.steps[0].record.note;
 A.Timer.tick();
 check("计时器：到点只写一次（rang 抑制重复响铃）", tRec.steps[0].record.note === noteAfterOver);
 A.Timer.stopTick();
 
-/* 报告：用过计时器才有「## 计时」 */
+/* 自由计时器：到点只响不写（它不属于任何步骤） */
+const freeT = A.Timer.attach(tRec);
+freeT.mode = "countdown"; freeT.target = 60; freeT.accumulated = 0;
+freeT.running = true; freeT.startAt = Date.now() - 61000; freeT.rang = false;
+A.Timer.track(tRec, null, freeT);
+const step0BeforeFree = tRec.steps[0].record.note;
+A.Timer.tick();
+check("计时器：自由计时器到点只响铃、不写任何步骤记录",
+  freeT.rang === true && tRec.steps[0].record.note === step0BeforeFree);
+A.Timer.stopTick();
+
+/* 报告：用过计时器才有「## 计时」，且逐条列出用过的计时器 */
 const mdTimer = A.buildLocalMarkdown(tRec);
 check("计时器：报告里出现过计时器才有「## 计时」章节",
   mdTimer.indexOf("## 计时") >= 0 && mdTimer.indexOf("本次总用时") >= 0);
+check("计时器：报告逐条列出用过的计时器（含自由计时器一节）",
+  mdTimer.indexOf("### 第 1 步") >= 0 && mdTimer.indexOf("### 自由计时器") >= 0);
 const plainTimerExp = A.normalizeExp({ id: "p1", name: "没计时", steps: [{ id: "sp", title: "a", images: [] }] });
 check("计时器：没计时的实验报告不带空章节", A.buildLocalMarkdown(plainTimerExp).indexOf("## 计时") < 0);
 check("计时器：分发给 LLM 的数据带计时汇总",
@@ -802,7 +979,8 @@ check("计时器：分发给 LLM 的数据带计时汇总",
 const balanced = (s) => (s.match(/<div\b/g) || []).length === (s.match(/<\/div>/g) || []).length &&
   (s.match(/<span\b/g) || []).length === (s.match(/<\/span>/g) || []).length;
 check("新卡片：计时器 / 自动导入的标签闭合（div + span 配平）",
-  balanced(A.timerEditHTML(tRec)) && balanced(A.timerRecordHTML(tRec)) &&
+  balanced(A.timerEditHTML(tRec.steps[0], 0)) && balanced(A.timerRecordHTML(tRec.steps[0], 0)) &&
+  balanced(A.timerRecordHTML(tRec, "free", { free: true })) &&
   balanced(A.lanAutoHTML()) && balanced(A.lanAutoBanner() || "<div></div>"));
 check("计时器：记录页计时条夹在导航条与正文之间",
   (A.goTo("record", tRec.id),
@@ -866,11 +1044,11 @@ check("下载即导入：裸 JSON 补齐成合法实验（补 id / 空标题 / �
   A.isValidExp(bareBuilt) === true && bareBuilt.steps.length === 2 &&
   bareBuilt.steps[1].title === "步骤 2" && bareBuilt.theme === "t-mint" &&
   bareBuilt.steps[1].record.note === "");
-check("下载即导入：完整实验包原样保留（画布 / 计时器 / 步骤 id 不丢）",
+check("下载即导入：完整实验包原样保留（计时器 / 步骤 id 不丢）",
   (() => {
     const full = A.normalizeExp({ id: "e9", name: "完整", steps: [{ id: "s9", title: "a", images: [] }], timer: { mode: "countdown", target: 90 } });
     const back = A.lanAutoBuildExp(full);
-    return back.id === "e9" && back.timer.target === 90 && back.steps[0].id === "s9";
+    return back.id === "e9" && back.timer.target === 90 && back.steps[0].id === "s9" && !("canvas" in back.steps[0]);
   })());
 
 /* 端到端：桩掉 fetch，模拟「点了下载」之后的读取链路 */

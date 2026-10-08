@@ -26,11 +26,13 @@ start src/index.html          # Windows
 跑验收自检（需要 Node.js，**仅用于校验，应用本身不依赖 Node**）：
 
 ```bash
-node src/tools/check-syntax.mjs  src/index.html   # 内联脚本语法：2 项
-node src/tools/check-page.mjs    src/index.html   # 页面与数据层：235 项（另 8 项依赖 Tauri 工程，本仓库不含时自动跳过）
-node src/tools/check-isotope.mjs src/index.html   # 化学式同位素左上标：25 项
-node src/tools/check-lan.mjs     src/index.html   # 局域网互传端到端：44 项（本仓库自动改用 Python 服务端跑同一套契约）
-# 四套都必须「失败 0」（跳过的项是与 Tauri 工程相关的断言，不是失败）
+node src/tools/check-syntax.mjs   src/index.html   # 内联脚本语法：2 项
+node src/tools/check-page.mjs     src/index.html   # 页面与数据层：271 项（263 通过 + 8 项依赖 Tauri 工程，本仓库不含时自动 SKIP）
+node src/tools/check-isotope.mjs  src/index.html   # 化学式同位素左上标：25 项
+node src/tools/check-lan.mjs      src/index.html   # 局域网互传端到端：44 项（本仓库自动改用 Python 服务端跑同一套契约）
+node src/tools/check-lan-edge.mjs src/index.html   # 边界 / 异常 / 重启恢复：34 项（Python 服务端下有 3 项 Rust 专属行为自动 SKIP）
+node src/tools/e2e-headless.mjs                    # 真浏览器（headless Edge/Chrome）端到端：44 项
+# 全部都必须「失败 0」（跳过的项是与 Tauri 工程或 Rust 专属行为相关的断言，不是失败）
 ```
 
 > 应用是**单文件 HTML**：所有 HTML / CSS / JS 内联在一个文件里，零外链、零 CDN、零构建步骤。
@@ -82,11 +84,15 @@ python src/lan-server.py          # 或双击 src/start-lan.bat
    ├─ 局域网互传-使用说明.md    # 互传功能的使用说明、存储位置、接口表、安全边界
    ├─ tools/app-html.mjs      # 单文件页面的定位（候选名 + mtime 兜底），构建 / 校验脚本共用
    ├─ tools/check-syntax.mjs  # 2 项内联脚本语法校验
-   ├─ tools/check-page.mjs    # 235 项页面与数据层自动校验（+8 项 Tauri 相关断言在本仓库自动跳过）
+   ├─ tools/check-page.mjs    # 271 项页面与数据层自动校验（263 通过 + 8 项 Tauri 相关断言在本仓库自动 SKIP）
    ├─ tools/check-isotope.mjs # 25 项化学式同位素角标（左上标）校验
    ├─ tools/check-lan.mjs     # 44 项互传端到端校验（真启动服务 + 真跑接口；本仓库自动用 Python 服务端）
-   ├─ tools/check-timer-cdp.js # 真机（CDP）自测脚本：计时器 + 下载即导入（配桌面 App 用）
-   └─ README.md               # 源码说明：区段分工、自检命令、十天目标
+   ├─ tools/check-lan-edge.mjs # 34 项边界 / 异常 / 重启恢复（Python 服务端下 3 项 Rust 专属行为自动 SKIP）
+   ├─ tools/e2e-headless.mjs  # 44 项真浏览器（headless Edge/Chrome）端到端：真渲染 + 真点击 + 真滚动断言
+   ├─ tools/check-timer-cdp.js # 真机（CDP）自测脚本：计时器（每步 + 自由）+ 下载即导入（配桌面 App 用）
+   ├─ tools/gen-icons.py      # 图标生成：从「新图标模板.png」重采样出桌面 15 个 + Android 20 图 + 3 个 XML
+   ├─ 新图标模板.png           # 图标素材（透明底 ∞）；换图标只改它再跑上面的脚本
+   └─ README.md               # 源码说明：区段分工、自检命令、目标对照
 ```
 
 ---

@@ -40,11 +40,11 @@ python lan-server.py        # 或双击 start-lan.bat（Windows）/ ./start-lan.
 | 1 图标与常量 | `1. 图标与常量` | 🧑‍🎓 新手 | `ICON` / `NAV` / `SUBJECTS` / `KEYS` |
 | 2 通用工具 | `2. 通用工具` | 👑 队长 | `esc` / `uid` / `clamp` / `toast` / `download` |
 | 3 存储层 | `3. 存储层` | 👑 队长 | `Store`（localStorage）+ `Media`（IndexedDB） |
-| 3.5 计时器 | `3.5 计时器` | 👑 队长 | `Timer`（整场实验计时）/ `normalizeTimer` / `timerEditHTML` / `timerRecordHTML` |
+| 3.5 计时器 | `3.5 计时器` | 👑 队长 | `Timer`（**每步一个 + 自由计时器**）/ `normalizeTimer` / `migrateTimers` / `timerEditHTML` / `timerRecordHTML` / `resolveTimer` |
 | 4 主题 | `4. 主题` | 🧑‍🎓 新手 | `applyTheme` / `resolvedTheme` / 令牌 |
 | 5 运行时状态 | `5. 运行时状态` | 👑 队长 | `ui` / `state` |
-| 6 仪器库 | `6. 仪器库` | 🧑‍🎓 新手 | `INST_CATS` / `INST_LIB`（只追加条目） |
-| 7 仪器画布 | `7. 仪器画布` | 👑 队长 | 渲染 + Pointer 交互 + `canvasAct` |
+| ~~6 仪器库~~ | ⛔ **已移除**（2026-10-07） | — | `INST_LIB` 等已整体删除，勿再引用 |
+| ~~7 仪器画布~~ | ⛔ **已移除**（2026-10-07） | — | 渲染 / Pointer 交互 / `canvasAct` 已整体删除 |
 | 8 通用视图片段 | `8. 通用视图片段` | 🧑‍🎓 新手 | `pageHead` / `mediaItemHTML` |
 | 9 视图 | `9. 视图` | 🧑‍🎓 新手 | `viewHome` / `viewEdit` / `viewRecord` / `viewReport` / `viewSettings` |
 | 10 导航 / 路由 | `10. 导航 / 路由` | 👑 队长 | `parseHash` / `goTo` / `render` |
@@ -55,6 +55,11 @@ python lan-server.py        # 或双击 start-lan.bat（Windows）/ ./start-lan.
 | 14 动作分发 | `14. 动作分发` | 👑 队长 | `handleAct`（唯一动作入口） |
 | 15 启动 | `15. 启动` | 👑 队长 | `boot()` |
 | 样式 | `<style>` 段 | 🧑‍🎓 新手 | 全部 CSS，令牌一律走 `var(--x)` |
+
+> ⛔ **「仪器摆放」已整体移除**（需求变更）：仪器库、画布渲染与 Pointer 交互、连线、
+> `cv-*` 全部动作、`step.canvas` 字段、报告里的「仪器与试剂」汇总**连代码带数据都删了**。
+> 每个步骤现在只有五要素：标题 / 文字 / 图片 / 视频（占位）/ 反应方程式 / 安全 TIPS。
+> `check-page.mjs` 第 2 节是**反向断言**（源码里不能再出现这些标识符），删干净之前会 FAIL。
 
 > 📌 第 16 区段起是**内联的第三方库**（`<script id="chem-input-lib">`，React + KaTeX + mhchem），
 > 由 `chem-input` 源工程构建后内联而来，**不要手改**。
@@ -68,15 +73,16 @@ python lan-server.py        # 或双击 start-lan.bat（Windows）/ ./start-lan.
 
 ```bash
 node src/tools/check-syntax.mjs  src/index.html   #   2 项 内联脚本语法
-node src/tools/check-page.mjs    src/index.html   # 235 项 页面与数据层（另 8 项依赖 Tauri 工程，本仓库自动跳过）
+node src/tools/check-page.mjs    src/index.html   # 263 项 页面与数据层（另 8 项依赖 Tauri 工程，本仓库自动跳过 → 合计 271）
 node src/tools/check-isotope.mjs src/index.html   #  25 项 化学式同位素左上标
 node src/tools/check-lan.mjs     src/index.html   #  44 项 互传端到端（自动改用同目录 lan-server.py）
 ```
 
 - `check-syntax.mjs`：内联的两段 `<script>` 能不能被解析（改完最容易踩的低级坑）。
-- `check-page.mjs`：脚本可执行 / 仪器库与替换接口 / 数据模型与持久化 / 画布交互 / 各视图渲染 /
-  本地报告与 markdown 渲染 / 注入防护 / 媒体与视频占位 / LLM 约定 / 主题三态 / 令牌完整性 /
-  路由回落 / 单文件零外链形态 / AI 页 / 局域网互传页 / **计时器（预设、到点写记录、报告章节）** /
+- `check-page.mjs`（**271 项**）：脚本可执行 / 数据模型与持久化 / **「仪器摆放」已删干净的反向断言** /
+  各视图渲染 / 本地报告与 markdown 渲染 / 注入防护 / 媒体与视频占位 / LLM 约定 / 主题三态 / 令牌完整性 /
+  路由回落 / 单文件零外链形态 / AI 页 / 局域网互传页 /
+  **计时器（每步独立 + 自由计时器、预设、到点写记录、报告逐条列出）** /
   **下载即导入（格式识别、去重、报错、非 .json 不处理）** / 手机端缩放声明。
   其中 8 项断言同时要看 Tauri 工程（`src-tauri/` 的 Rust 与配置、`gen/android` 的 MainActivity），
   本仓库只放 Web 作品，缺这些文件时它们会显示为 `SKIP` 而不是 `FAIL`。
@@ -85,36 +91,44 @@ node src/tools/check-lan.mjs     src/index.html   #  44 项 互传端到端（�
 - `check-lan.mjs`：真启动服务端（默认 Rust 内置服务端；本仓库没有 `src-tauri` 时自动退回同目录的
   `lan-server.py`，两者 1:1 对齐同一套契约），跑通初始化 / 分片 / 状态 / 合并 / 列表 / 下载 / 秒传 /
   断点续传 / 空文件 / 文本互传 / 删除 / 路径穿越 / CORS。
+- `check-lan-edge.mjs`（34 项）：边界 / 异常 / 重启恢复。
+- `e2e-headless.mjs`（44 项）：**真浏览器**（headless Edge/Chrome）端到端 —— 真渲染 + 真点击 +
+  真滚动位置断言，验的是 DOM 桩验不到的东西（尤其「点按钮不许把页面顶回最上」）。
 - `app-html.mjs`：单文件页面的定位（候选名 `原型.html` / `实验助手*.html` / `index.html` + mtime 兜底），
   上面几个脚本共用；**页面文件改名时只改这里**（本仓库里真源叫 `src/index.html`）。
 
-**四套必须全部 `失败 0` 才算没跑偏。** 这条同时是蓝图 §11 第 10 项验收标准。
+**必须全部 `失败 0` 才算没跑偏。** 这条同时是蓝图 §11 第 10 项验收标准。
 
 浏览器里还有一层手动自检（F12 控制台）：
 
 ```js
-INST_LIB.length          // -> 36
 KEYS.exps                // -> 'zhbit-lab-exps'
 parseHash()              // -> { view: 'home', param: null }
 Store.listExps().length  // -> 0（或你存进去的实验数量）
 NAV.length               // -> 7（含「局域网互传」）
+newExp('x','chemistry').steps[0].timer.mode  // -> 'stopwatch'（每步自带一个计时器）
 ```
 
 ---
 
 ## 十天目标对照
 
-| 天 | 谁 | 目标 |
-| --- | --- | --- |
-| D1 | 新手 | 打开 `index.html`，学会「改代码 → 保存 → 刷新看变化」 |
-| D2 | 新手 | 认准 `INST_LIB` 与 `NAV`：会加一个仪器、会改一个导航名 |
-| D3 | 队长 | `Store` / `Media` 吃透：刷新不丢数据，脏数据被拒 |
-| D4 | 新手 | `viewEdit` 五要素输入 + `viewRecord` 播放器能显示 |
-| D5 | 队长 | 画布 `canvasAct` 全部动作可用（**保底里程碑**） |
-| D6 | 队长 | `callLLM` + `buildLocalMarkdown` 双路报告都能出 |
-| D7 | 一起 | 主题三态、三端自适应、`check-page` 全绿、归档痕迹 |
+| 天 | 谁 | 目标 | 状态 |
+| --- | --- | --- | --- |
+| D1 | 新手 | 打开 `index.html`，学会「改代码 → 保存 → 刷新看变化」 | ✅ |
+| D2 | 新手 | 认准 `NAV` / `ICON` / `KEYS`：会改一个导航名、会加一个图标 | ✅ |
+| D3 | 队长 | `Store` / `Media` 吃透：刷新不丢数据，脏数据被拒 | ✅ |
+| D4 | 新手 | `viewEdit` 五要素输入 + `viewRecord` 播放器能显示 | ✅ |
+| D5 | 队长 | ~~画布 `canvasAct` 全部动作可用~~ → **保底里程碑改为「编辑/记录双模式闭环 + 报告可出」** | ✅ |
+| D6 | 队长 | `callLLM` + `buildLocalMarkdown` 双路报告都能出 | ✅ |
+| D7 | 一起 | 主题三态、三端自适应、`check-page` 全绿、归档痕迹 | ✅ |
 
-> 做到 D5 就算**保底成功**。别为了冲进度把前面的做塌。
+> ⚠️ **D5 的原始目标（画布 `canvasAct`）已于 2026-10-07 随「仪器摆放」整体移除**，
+> 保底里程碑相应改为「编辑 / 记录双模式闭环 + 报告可出」。上面已逐一勾掉实际完成情况。
+
+**十天之后的追加批次**（均已交付）：AI 生成实验步骤页 · 化学方程式输入器 · 局域网互传页 +
+「下载即导入」· 实验卡片一键分享 · 记录模式计时器（每步独立 + 自由计时器）· Tauri 双端打包
+（Windows exe / Android apk）· 图标统一为 ∞ 模板 · 设置页外链修复与教学卡折叠 · 版本 0.5.0。
 
 ---
 
