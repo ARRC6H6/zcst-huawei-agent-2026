@@ -1179,14 +1179,26 @@ const Timer = {
   },
 
   /* ---- 运行期集合 ---- */
+  /** 计时器的**稳定键**：实验 id + 步号（自由计时器用 "free"）。
+   *
+   *  ⚠️ 这里**不能用对象引用相等**去去重：`state.exp` 每次进页面 / 重载都会是**新对象**，
+   *  引用一变，`findIndex` 就找不到旧条目 → 同一计时器被重复 push，且停止后也清不掉，
+   *  `_active` 会无界增长（`tick()` 每 200ms 遍历一遍 → 白白耗电）。
+   *  改用 id + 步号这种跨对象稳定的键。 */
+  _keyOf(exp, step) {
+    const id = (exp && exp.id) || "?";
+    if (!step) return id + "|free";
+    const arr = (exp && exp.steps) || [];
+    const i = arr.indexOf(step);
+    return id + "|" + (i >= 0 ? i : "x");
+  },
   /** 把一个计时器放进待刷新集合；非 running 的会被移出 */
   track(exp, step, timer) {
     if (!exp || !timer) return;
-    const i = this._active.findIndex((a) => a.exp === exp && a.step === step);
-    if (timer.running) {
-      if (i >= 0) this._active[i].timer = timer;
-      else this._active.push({ exp: exp, step: step, timer: timer });
-    } else if (i >= 0) this._active.splice(i, 1);
+    const key = this._keyOf(exp, step);
+    /* 先清掉**同键的旧条目**（可能因为 exp 换成了新对象而残留多条），再按需插入最新的一条 */
+    this._active = this._active.filter((a) => this._keyOf(a.exp, a.step) !== key);
+    if (timer.running) this._active.push({ exp: exp, step: step || null, timer: timer });
     if (this._active.length) this.startTick();
     else this.stopTick();
   },
@@ -1339,9 +1351,18 @@ const Timer = {
   },
   tick() {
     const alive = [];
+    const seen = Object.create(null);
     this._active.forEach((a) => {
       const t = this.attach(a.step || a.exp);
       if (!t || !t.running) return;      // 已被暂停 / 归零
+      /* 同键去重，并保留**最新的 exp 引用**（否则 tick 写入的会是已被丢弃的旧实验对象） */
+      const key = this._keyOf(a.exp, a.step);
+      if (seen[key]) {
+        const cur = alive[seen[key] - 1];
+        if (a.exp && a.exp !== cur.exp) { cur.exp = a.exp; cur.step = a.step; cur.timer = t; }
+        return;
+      }
+      seen[key] = alive.length + 1;
       alive.push(a);
       const over = t.mode === "countdown" && t.target > 0
         && t.accumulated + Math.max(0, Date.now() - t.startAt) >= t.target * 1000;

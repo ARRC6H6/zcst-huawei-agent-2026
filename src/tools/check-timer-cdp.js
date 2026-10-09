@@ -95,28 +95,44 @@
   out.log2_usesStep2Timer = Timer.attach(state.exp.steps[1]).logs.length >= 1;
   out.log2_step1_untouched = state.exp.steps[0].record.note === out.log_note;
 
-  /* 自由计时器：独立于步骤，能单独跑、单独归零，且到点不写记录 */
+  /* 自由计时器：独立于步骤，能单独跑、单独归零，且到点不写记录
+     ⚠️ 断言别写死「steps[0].running === false」：前面翻到第 2 步时已经给**第 2 步**的计时器开了机，
+     这时步骤计时器本来就该在跑。正确的判据是「自由计时器的运行状态与任何步骤计时器都无关」。 */
   const freeT = () => Timer.attach(state.exp);
   out.free_initial_elapsed0 = Timer.elapsed(state.exp) === 0;
-  out.free_step1_running = Timer.attach(state.exp.steps[0]).running === false;
+  const runningSteps = () => state.exp.steps.map((s, i) => (s.timer && s.timer.running ? i : -1)).filter((i) => i >= 0);
+  out.free_steps_running_before = runningSteps();
   const freeToggle = Array.from(document.querySelectorAll('[data-timer-owner="free"] [data-act="timer-toggle"]'))[0];
   if (!freeToggle) throw new Error("找不到自由计时器的开始按钮");
   freeToggle.click();
   await wait(900);
   out.free_running = freeT().running === true;
-  out.free_does_not_touch_step = Timer.attach(state.exp.steps[0]).running === false;
+  /* 自由计时器开跑，不许改变任何步骤计时器的运行状态 */
+  out.free_steps_running_after = runningSteps();
+  out.free_does_not_touch_step =
+    JSON.stringify(out.free_steps_running_before) === JSON.stringify(out.free_steps_running_after);
+  /* 期望 _active = 当时在跑的步骤计时器数 + 自由计时器 1 条（且**不许重复**） */
   out.free_active_count = Timer._active.length;
+  out.free_active_expected = out.free_steps_running_after.length + 1;
+  out.free_active_no_dup =
+    new Set(Timer._active.map((a) => Timer._keyOf(a.exp, a.step))).size === Timer._active.length;
   const freeNoteBefore = state.exp.steps[0].record.note;
   freeT().mode = "countdown"; freeT().target = 1; freeT().accumulated = 0;
   freeT().startAt = Date.now() - 2000; freeT().rang = false;
   await wait(400);
   out.free_over_noWrite = freeT().rang === true && state.exp.steps[0].record.note === freeNoteBefore;
 
-  /* 归零（对第 1 步的计时器） */
+  /* 归零（对第 1 步的计时器）
+     ⚠️ 别写死 data-timer-src="0"：前面「翻到第 2 步」那一步已经把 ui.playIndex 变成 1，
+     编辑模式的计时卡宿主也跟着变成第 2 步了 —— 写死 0 会取到 null（真机上就是这么崩的）。 */
+  const playIdx = ui.playIndex;
+  const stepClock = () => document.querySelector('[data-timer-clock][data-timer-src="' + playIdx + '"]');
   fire('[data-act="timer-reset"]');
   await wait(200);
-  out.reset_elapsed0 = Timer.elapsed(state.exp.steps[0]) === 0;
-  out.reset_clock = document.querySelector('[data-timer-clock][data-timer-src="0"]').textContent;
+  out.reset_elapsed0 = Timer.elapsed(state.exp.steps[playIdx]) === 0;
+  const sc = stepClock();
+  if (!sc) throw new Error('找不到第 ' + playIdx + ' 步的时钟节点（data-timer-src="' + playIdx + '"）');
+  out.reset_clock = sc.textContent;
 
   /* ---------- 3. 报告：计时章节（逐条 + 自由计时器） ---------- */
   goTo("report", e.id);
