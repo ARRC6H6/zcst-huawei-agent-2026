@@ -65,6 +65,9 @@ const harness = `
 <script id="e2e-probe">
 (function () {
   const R = {};
+  let probeExp = null;
+  /* 下载捕获用的记录（F 段同步用、G 段异步也用，所以必须在最外层声明一次） */
+  const dl = { name: "", size: 0, blob: null };
   const mainEl = () => document.getElementById("main");
   const html = () => mainEl().innerHTML;
   try {
@@ -218,15 +221,117 @@ const harness = `
     R.md_hasSteps = md.indexOf("## 实验步骤") >= 0;
     R.report_noInstruments = collectReportData(state.exp).steps.every(function (s) { return !("instruments" in s); });
 
-    /* 收尾：清掉探针数据 */
-    Store.removeExp(e.id);
+    /* ---- F. 导出：真点「导出」→ 真出弹窗 → 真下载（捕获 Blob 与文件名）----
+       为什么在这里做：check-page.mjs 是自建 DOM 桩，验不到「点了按钮到底有没有下载」；
+       这一段在真 Blink 里点、真建 Blob。
+       ⚠️ 数据要写在 state.exp 上，不能只写本地变量 e：
+          goTo("home") 会先 persistExp()（把 state.exp 那一份写回 localStorage），
+          只改 e 的话会被这一笔覆盖掉，读回来就"丢字段"了。 */
+    const src = state.exp || e;
+    src.steps[0].equation = "Ag+ + Cl^- -> AgCl v";
+    src.steps[0].record.note = "试管里出现白色沉淀，加稀硝酸后不溶解。";
+    src.steps[0].images = [{ id: "m_e2e_img", kind: "image", name: "现象.png", store: "idb" }];
+    src.steps[0].timer.mode = "countdown";
+    src.steps[0].timer.target = 120;
+    src.steps[0].timer.accumulated = 96000;
+    src.steps[0].timer.logs = [{ at: Date.UTC(2026, 9, 9, 10, 30), ms: 96000, step: 1 }];
+    src.log.total = "E2E 总记录：全程顺利。";
+    Store.saveExp(src);
+    const probeId = src.id;
+    goTo("home", null);
+
+    const cardExport = document.querySelector('[data-act="exp-export"]');
+    R.exp_exportBtnFound = !!cardExport;
+    if (cardExport) cardExport.click();
+    R.exp_dialogOpened = !!document.querySelector("#dialogHost .dlg-mask");
+    R.exp_dialogTwoOptions = !!document.querySelector('[data-act="exp-export-md"]') &&
+      !!document.querySelector('[data-act="exp-export-json"]');
+    /* 点弹窗内部不该关；点遮罩空白处才关 */
+    const dlgInner = document.querySelector("#dialogHost .dlg");
+    if (dlgInner) dlgInner.click();
+    R.exp_clickInsideKeepsOpen = !!document.querySelector("#dialogHost .dlg-mask");
+    const maskEl = document.querySelector("#dialogHost .dlg-mask");
+    if (maskEl) maskEl.click();
+    R.exp_clickMaskCloses = !document.querySelector("#dialogHost .dlg-mask");
+
+    /* 捕获下载：download() 会 createObjectURL + a.click()，把这两步换成记录 */
+    dl.origCreate = URL.createObjectURL;
+    dl.origClick = HTMLAnchorElement.prototype.click;
+    URL.createObjectURL = function (b) { dl.size = b.size; dl.blob = b; return "blob:e2e"; };
+    HTMLAnchorElement.prototype.click = function () { dl.name = this.download; };
+    try {
+      /* JSON 分支是同步的，这里就能断言 */
+      document.querySelector('[data-act="exp-export"]').click();
+      document.querySelector('[data-act="exp-export-json"]').click();
+      R.exp_jsonNameLooksRight = /\.json$/.test(dl.name);
+      R.exp_pickClosesDialog = !document.querySelector("#dialogHost .dlg-mask");
+    } finally {
+      URL.createObjectURL = dl.origCreate;
+      HTMLAnchorElement.prototype.click = dl.origClick;
+    }
+    probeExp = Store.getExp(probeId);
   } catch (err) {
     R.error = String((err && err.stack) || err);
   }
-  const out = document.createElement("div");
-  out.id = "E2E-RESULT";
-  out.textContent = "E2E::" + JSON.stringify(R) + "::END";
-  document.body.appendChild(out);
+
+  /* 结果节点：**先同步写一份**（保证 --dump-dom 一定拿得到东西），
+     异步链跑完再覆盖同一个节点。这样即使异步没赶上 dump，也是一条明确的 FAIL，而不是"没结果"。 */
+  const outEl = document.createElement("div");
+  outEl.id = "E2E-RESULT";
+  document.body.appendChild(outEl);
+  let written = false;
+  const finish = function () {
+    outEl.textContent = "E2E::" + JSON.stringify(R) + "::END";
+    written = true;
+  };
+  finish();
+
+  /* ---- G. 真点「导出 → 离线 Markdown」，并读回**下载到手的那个文件** ----
+     必须异步：expExportMD 要先 await buildOfflineMarkdown。
+     断言直接打在下下来的 Markdown 文本上 —— 比"调一下构造函数"更接近交付物。
+     ⚠️ 这里把 Media.dataURL 换成「立即 resolve」的假实现：
+        --dump-dom 在 load 后就把 DOM 取走了，真去开 IndexedDB（宏任务）会赶不上 dump；
+        换成微任务级别的假实现，整条链在微任务里就跑完。图片内嵌分支仍然被真实覆盖到。 */
+  const runExportMd = function () {
+    const ex = probeExp;
+    if (!ex) { R.md_offline_err = "探针实验没保存下来"; return Promise.resolve(); }
+    const realDataURL = Media.dataURL;
+    Media.dataURL = function () { return Promise.resolve("data:image/png;base64,E2E"); };
+    URL.createObjectURL = function (b) { dl.size = b.size; dl.blob = b; return "blob:e2e"; };
+    HTMLAnchorElement.prototype.click = function () { dl.name = this.download; };
+    return expExportMD(ex.id)
+      .then(function () {
+        Media.dataURL = realDataURL;
+        R.exp_mdNameLooksRight = /离线版.*\.md$/.test(dl.name);
+        R.exp_mdBlobNotSmall = dl.size > 200;
+        R.exp_mdDialogClosed = !document.querySelector("#dialogHost .dlg-mask");
+        if (!dl.blob || typeof dl.blob.text !== "function") { R.md_offline_err = "没拿到下载的 Blob"; return ""; }
+        return dl.blob.text();
+      })
+      .then(function (t) {
+        if (typeof t !== "string" || !t) return;
+        R.md_offline_title = t.indexOf("# E2E 探针") === 0;
+        R.md_offline_head = t.indexOf("学科：化学") > 0 && t.indexOf("共 5 个步骤") > 0;
+        R.md_offline_eq = t.indexOf("## 反应方程式一览") > 0 && t.indexOf("Ag+ + Cl^- -> AgCl v") > 0;
+        R.md_offline_step = t.indexOf("## 步骤 1 · 步骤 1") > 0 && t.indexOf("**安全小 TIPS**") > 0;
+        R.md_offline_record = t.indexOf("**现象 / 数据**") > 0 && t.indexOf("加稀硝酸后不溶解") > 0;
+        R.md_offline_timer = t.indexOf("**计时**") > 0 && t.indexOf("| 记录时间 | 用时 |") > 0;
+        R.md_offline_recordedTime = t.indexOf("2026-10-09") > 0;
+        R.md_offline_imgEmbedded = t.indexOf("](data:image/png;base64,E2E)") > 0 && t.indexOf("未能内嵌") < 0;
+        R.md_offline_total = t.indexOf("## 总记录") > 0 && t.indexOf("全程顺利") > 0;
+        R.md_offline_noUndef = t.indexOf("undefined") < 0 && t.indexOf("[object Object]") < 0;
+        R.md_offline_footer = t.indexOf("<!-- 由「实验助手") > 0;
+      })
+      .catch(function (err) { R.md_offline_err = String((err && err.message) || err); })
+      .then(function () { Store.removeExp(ex.id); });
+  };
+
+  try {
+    runExportMd().then(finish, function (err) { R.md_offline_err = String((err && err.message) || err); finish(); });
+  } catch (err) {
+    R.md_offline_err = String((err && err.message) || err);
+    finish();
+  }
 })();
 </script>
 `;
@@ -275,7 +380,13 @@ const dom = await new Promise((resolve, reject) => {
   cp.stdout.on("data", (d) => { out += d; });
   cp.stderr.on("data", (d) => { err += d; });
   cp.on("error", reject);
-  cp.on("close", (code) => resolve({ out, err, code }));
+  cp.on("close", (code) => { clearTimeout(killer); resolve({ out, err, code }); });
+  /* 硬超时：页面里若出现死循环，虚拟时间永远消耗不完，浏览器不会自己退出 ——
+     没有这个兜底，整个自检会无限挂着（真踩过）。40s 足够跑完这套断言。 */
+  const killer = setTimeout(() => {
+    try { cp.kill("SIGKILL"); } catch (e) { /* ignore */ }
+    resolve({ out, err, code: "timeout" });
+  }, 40000);
 });
 
 server.close();
@@ -304,6 +415,14 @@ const EXPECT = [
   "rec_running", "rec_btnSaysPause",
   "gov_playBtnFound", "gov_play_kept", "gov_play_moved",
   "md_noInstSection", "md_hasSteps", "report_noInstruments",
+  /* 导出：真点真下载（新增） */
+  "exp_exportBtnFound", "exp_dialogOpened", "exp_dialogTwoOptions", "exp_clickInsideKeepsOpen",
+  "exp_clickMaskCloses", "exp_mdNameLooksRight", "exp_mdBlobNotSmall", "exp_jsonNameLooksRight",
+  "exp_pickClosesDialog",
+  /* 离线 Markdown 的真实内容（新增）：断言打在**下载下来的那个文件**上 */
+  "md_offline_title", "md_offline_head", "md_offline_eq", "md_offline_step", "md_offline_record",
+  "md_offline_timer", "md_offline_recordedTime", "md_offline_imgEmbedded", "md_offline_total",
+  "md_offline_noUndef", "md_offline_footer", "exp_mdDialogClosed",
 ];
 
 console.log("\n--- 真浏览器自检结果 ---");
@@ -321,7 +440,8 @@ console.log("  scroll_before=" + R.scroll_before + " scroll_after=" + R.scroll_a
   " clock=" + JSON.stringify(R.clock_text));
 
 fs.rmSync(probePath, { force: true });
-fs.rmSync(path.join(here, "e2e-profile"), { recursive: true, force: true, maxRetries: 3 });
+/* profile 目录可能还被浏览器占着（Windows 上删不掉就是 EPERM）—— 清不掉不算失败 */
+try { fs.rmSync(path.join(here, "e2e-profile"), { recursive: true, force: true, maxRetries: 3 }); } catch (e) { /* ignore */ }
 
 if (bad.length) { console.error("\nFAIL：" + bad.length + " 项不达标"); process.exit(1); }
 console.log("\nPASS：真浏览器端到端全部通过（" + EXPECT.length + " 项）");

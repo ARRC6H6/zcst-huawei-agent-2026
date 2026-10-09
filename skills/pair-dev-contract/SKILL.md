@@ -9,7 +9,7 @@ description: >
   凡是要写、改、查、解释这个项目的代码，必须先读本文件，并遵守其中全部铁律，
   接口签名一律不许私自改。本文件是原 `shishi-protocol`（拾事 Shishi）的替代版（旧版已作废）。
   ⛔ 注意：「仪器摆放」画布与仪器库已于 2026-10-07 整体移除，§3.4 / §3.5 仅为历史留档。
-version: 3.2.0
+version: 3.3.0
 updated: 2026-10-08
 applies_to: 实验助手 Lab Studio（单文件 HTML · 零依赖 · 桌面/平板/手机三端自适应）
 ---
@@ -86,7 +86,7 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
 | 9 | ~~仪器一律先追加 `INST_LIB` 条目~~ → **已作废**：仪器库与画布已于 2026-10-07 整体移除（§3.4 / §3.5）。现在**不许再引用** `INST_LIB` / `canvasAct` / `cv-*` | 功能已删，残留引用会被 `check-page.mjs` 的反向断言判死 |
 | 10 | **不许私自改动 §3 的任何签名、字段名、枚举值、key、token 名** | 接口是唯一能让多人并行不返工的东西 |
 | 11 | 存储层**永不抛异常**（返回 `false` / `null` / `fallback`）；只有网络层允许 `throw` | 单文件应用抛异常就是白屏，用户没有任何恢复手段 |
-| 12 | 改完必须跑校验，**全绿（失败 0 / 跳过项不算失败）**才许提交：`check-syntax`（2）、`check-page`（271：本仓库 263 项 + 8 项依赖 Tauri 工程的自动 SKIP）、`check-isotope`（25）、`check-lan`（44）、`check-lan-edge`（34）、`e2e-headless`（44，真浏览器） | 这是唯一能挡住「我这边是好的」的机器校验 |
+| 12 | 改完必须跑校验，**全绿（失败 0 / 跳过项不算失败）**才许提交：`check-syntax`（2）、`check-page`（303：本仓库 295 项 + 8 项依赖 Tauri 工程的自动 SKIP）、`check-isotope`（25）、`check-ion`（57）、`check-mobile`（69，真浏览器手机视口）、`check-chem-ui`（15，真浏览器离子输入）、`check-lan`（44）、`check-lan-edge`（34）、`e2e-headless`（65，真浏览器） | 这是唯一能挡住「我这边是好的」的机器校验 |
 
 ---
 
@@ -443,6 +443,8 @@ lan-connect / lan-refresh / lan-copy / lan-pick / lan-clear
 lan-dl / lan-del / lan-clip-send / lan-clip-copy
 timer-toggle / timer-reset / timer-log / timer-mode / timer-target
 timer-clear-target / timer-custom / go-edit-timer
+exp-export-md / exp-export-json / exp-export-close      （导出格式选择，2026-10-09 新增）
+fit-reset                                             （撤销溢出兜底缩放，2026-10-09 新增）
 data-export-all / data-clear           （default → lan-* → lanAct；不再有 cv-* 转发）
 ```
 
@@ -517,6 +519,24 @@ callLLM(prompt)  // POST {baseUrl}/chat/completions
 | --- | --- | --- |
 | 单实验可分享文件 | `"zhbit-lab-experiment"` | `{ kind, v, exportedAt, exp, report }` |
 | 全量备份 | `"zhbit-lab-backup"` | `{ kind, v, exportedAt, exps: Exp[] }` |
+| 单实验离线文件 | （不是 JSON，见下）`*.md` | 纯 Markdown 文本，**单向**（不可再导入） |
+
+> ⭐ **「导出」先选格式**（2026-10-09）：`data-act="exp-export"` 不再直接下 JSON，而是打开格式选择弹窗
+> （挂载在独立的 `#dialogHost` 上，**不在 `#main` 里**，所以整页 `render()` 不碰它、也不会被顺带清掉）：
+> `exp-export-json` = 原「可分享文件」（上表第一行，**结构一字未改**）；
+> `exp-export-md` = 离线 Markdown（下表）。弹窗关闭：点遮罩空白处（点 `.dlg` 内部不算）/ Esc / `exp-export-close`。
+> 打开与关闭走 `openExportDialog(id)` / `closeExportDialog()`，状态是 `ui.exportId`。
+
+**离线 Markdown（`buildOfflineMarkdown(exp, resolveImage?)`，2026-10-09 新增）：**
+
+- 定位：**一个 `.md` 带走整个实验**，离线可读、可打印、不依赖 App 与网络 —— 所以图片一律
+  经 `Media.dataURL(ref)`（内部 `blobToDataURL()`，`FileReader.readAsDataURL`）转 **base64 内嵌**。
+- 内容顺序：`# 实验名` → 元信息引用块 → `## 实验简介` → `## 反应方程式一览` → 每步一节
+  （正文 / `**反应方程式**` / `**安全小 TIPS**` / `**图片**` / `**现象 / 数据**` / `**记录图片**` / `**计时**` + 日志表）
+  → `## 总记录` → `## 自由计时器（不绑定步骤）` → 导出标记注释。每步之间用 `---` 分隔。
+- 硬约定：图片读不到（本机 IndexedDB 被清）时**如实写一行「未能内嵌」占位**，不许静默丢图；
+  视频不内嵌，只登记文件名；`resolveImage` 可注入（自检脚本用它塞假图，避免依赖 IndexedDB）。
+- 与 `buildLocalMarkdown()` 是**两份不同的东西**：后者是「实验报告」口吻、进报告页；前者是「离线实验文件」。
 
 导入规则：读 `data.exp ? data.exp : data` → **必须过 `isValidExp`**（不过就 toast「文件结构不合法，已拒绝」）→
 `normalizeExp` → **重新分配 `exp_` id**（避免覆盖本机同 id 实验）→ 名字追加「（导入）」→
@@ -679,6 +699,34 @@ exp.timer = { ...同上 }      // ★ 自由计时器（不绑定任何步骤）
 
 > 🔴 **加新的计时器按钮时，务必把它放进带 `data-timer-src` 的卡里**，否则动作会落到错误的计时器上。
 
+### 3.13 方程式输入 `chem-input`（内联组件，2026-10-09 补文档）
+
+组件源码在**另一个工程**（`正式项目\实验助手-化学方程式输入板块\chem-input`，React + KaTeX + mhchem），
+打包产物**内联**在页面的 `<script id="chem-input-lib">` 里。
+
+| 项 | 约定 |
+| --- | --- |
+| 元素与属性 | `<chem-input value="..." placeholder="..." max-history="20">`；`value` 与页面双向同步 |
+| 事件（冻结） | `chem-change` → `detail = { raw, latex }`；`chem-balance` → `detail = BalanceResult`。页面侧只在 `hydrateChemInputs()` 里收口 |
+| 改组件源码后 | `npm run build` → `node tools\inline-chem.mjs`（`--check` 只比对）；**页面里那份不重新内联就还是旧组件** |
+| 离子电荷输入（新增） | 工具条 `.chem-ion-bar`：`.chem-ion-num`（1~9）+ `.chem-ion-btn-plus` / `.chem-ion-btn-minus`，各自带 `.chem-ion-preview` 真渲染预览 |
+| 电荷写法（冻结） | 插到光标处的片段为 `^3+` / `^+`（±1 省略数字）/ `^2-` / `^-`；纯函数 `ionChargeToken(n, sign)`、`ionSnippet(formula, n, sign)`、`ionPrefixAt(raw, caret)` |
+| 电荷渲染（冻结） | `smartConvert()` 必须把电荷粘成 `^{3+}` / `^{2-}`，且**必须在 `\s*\+\s* → ' + '` 空格归一化之前做**（归一化会把 `^3+` 拆成 `^3 + `，mhchem 于是只把 `3` 放进右上角、`+` 掉到外面变成独立一项）。只认**紧挨着**的形态：`^` 紧贴前面的原子、符号紧贴数字/`^`。末尾可再兜一次**花括号**形态（`^{3 + }` → `^{3+}`） |
+| ⚠️ 电荷归一化的红线 | **绝不许**把「气体/沉淀记号后面的加号」当电荷：`5Cl2 ^ + 8H2O` 里那个 `^ +` 是「↑ + 反应物分隔符」，被吃成 `5Cl2 ^{+} 8H2O` 会让 `parseFormula` 崩、`chem-input` 的 shadow root 渲染成空 div（**方程式输入框整块消失**）。历史上真发生过，且桌面校验全绿、只有真机才抓到 —— 所以 `check-ion.mjs` 专门有「气体/沉淀记号后的 + 是分隔符」两项，别再放宽这条正则 |
+| 解析容错（冻结） | `parseFormula()` / `checkBalance()` **永远不许抛异常**（它们跑在 React 渲染里，抛出去就是整个组件白屏式消失）：多余的右括号、只有括号、空箭头等畸形输入一律返回可读提示 |
+
+### 3.14 手机端适配与溢出兜底（2026-10-09 新增）
+
+| 项 | 约定 |
+| --- | --- |
+| 第一手段 | 响应式布局（`@media` 档位）。**优先修根因**：网格轨道一律 `minmax(0, 1fr)`，会在窄屏撑宽的文本容器加 `min-width: 0`（`.step-item-name` 这种 `nowrap` 标题必须 `flex:1;min-width:0`） |
+| 兜底触发 | 只有**真量到**有元素画到视口右边界之外（`.bg` 光斑是故意出血的装饰，排除）才整页缩小；判据见 `Fit.quickOverflow()` + `Fit.overflow()` |
+| 兜底实现（冻结） | `<html data-fit>` + `--fit-s`（缩放系数）→ CSS `html[data-fit] { zoom: var(--fit-s) }`；缩放下限 `Fit.MIN = 0.55` |
+| 高度补偿（冻结） | `html[data-fit] body { min-height: calc(100dvh / var(--fit-s)) }`、`html[data-fit] .frame { height: calc(100dvh / var(--fit-s)) }`。**zoom 不影响 vh/dvh**，漏了这条整页会缩成一条 |
+| 用户可见 | `.fit-hint`「已自动缩小到 N% 以适应屏幕」+ `data-act="fit-reset"`（`Fit.reset()`：本次会话不再自动缩，直到窗口尺寸变化）。**不许静默改尺寸** |
+| 为什么用 `zoom` 不用 `transform: scale` | painted 几何量与 `window.innerWidth` 同坐标系（量得准）、布局视口变成 `innerWidth / zoom`（真的多给内容 CSS 像素）、`position:fixed`（tabbar / toast）仍相对视口定位 |
+| 验收 | `node tools/check-mobile.mjs`：同源 iframe 造 320/360/412 真手机视口（headless 窗口有 ~504px 最小宽度，`--window-size=360` 拿不到真视口），逐页断言「无元素越过视口右边界 + `#main` 没被横向裁掉 + 不该无谓缩放」，并验兜底「缩完真不溢出 / 高度补偿对 / 能还原」 |
+
 ---
 
 ## 4. 命名与统一错误
@@ -771,6 +819,7 @@ exp.timer = { ...同上 }      // ★ 自由计时器（不绑定任何步骤）
 | 3.0.0 | 2026-10-02 | **全面重写**：作品改为「实验助手 Lab Studio」单文件 HTML；`ScheduleEvent`/适配器/冲突/BLE 全部作废，替换为 `Exp`/`Step`/`mediaRef`/`CanvasItem`、`Store`/`Media`、`INST_LIB` 替换接口、`canvasAct` 动作集、哈希路由与 `data-act` 事件委托、`REPORT_PROMPT` 与 OpenAI 兼容接入、新设计 token；定义 `EXP_VERSION = 1` | — |
 | 3.1.0 | 2026-10-05 | **补齐 v3.0.0 之后落地的三个能力，并修正与现实不符的条款**：① 新增 §3.11「AI 生成实验步骤页」；② 新增 §3.10「局域网互传」（`#/lan` + 可选 `src/lan-server.py`，含存储 key `zhbit-lab-lan`、10 个 HTTP 接口、分片/秒传/续传/局部重绘/5 秒轮询约定、无鉴权安全边界）；③ §3.7 视图表补 `aigen`/`lan`，`BARE_VIEWS` 明确为 4 个，动作清单补 `ai-*` / `lan-*` 与 `lan-` 前缀转发；④ 铁律 2 由「只有 `callLLM()` 能发请求」改为「`callLLM()` + `#/lan` 互传模块两处收口」；⑤ 铁律 5 / 红线① 补记**已内联并登记**的 React 18.3.1 / KaTeX / mhchem；⑥ 铁律 12 由「`check-page` 88 项」改为**三套校验**（153/155 + 25 + 33）；⑦ §7 补「G. 局域网互传」坑表。**`EXP_VERSION` 仍为 1**（`Exp` 数据结构未变），互传只新增独立 storage key | — |
 | **3.2.0** | **2026-10-08** | **① 计时器改为「每步一个 + 自由计时器」**（新增 §3.12）：`step.timer` 每步独立，`exp.timer` 变为不绑定步骤的**自由计时器**；§3.2 的 `Step` 结构补 `timer` 字段；§3.7 动作清单补 8 个 `timer-*` / `go-edit-timer`；新增 **`data-timer-src` 动作路由**（`resolveTimer()`）与 `data-timer-host` / `data-timer-owner` / `data-timer-clock` 标记约定；`migrateTimers()` 幂等迁移旧数据。② **「仪器摆放」整体移除**：§3.4（画布 `CanvasItem`/`Link`）与 §3.5（`INST_LIB` 仪器库）标为 ⛔ 仅留档，其数据结构、运行时、13 个 `cv-*` 动作、`cv-` 前缀转发、`step.canvas` 字段全部作废；§3.2 去掉 `canvas` 字段；§3.7 的 `default` 只保留 `lan-` 前缀转发。③ 命名铁律第 9 条（先追加 `INST_LIB`）作废；`i_` / `l_` id 规则作废。④ **铁律 12 的校验基线更新**为 2 / 271（本仓库 263 + 8 SKIP）/ 25 / 44 / 34 / 44。⑤ 新增折叠卡存储 key `zhbit-lab-fold`。**`EXP_VERSION` 仍为 1**（旧字段只增不改：`step.timer` 为新增；旧 `exp.timer` 语义变更但字段名沿用，旧数据由 `migrateTimers()` 兼容） | — |
+| **3.3.0** | **2026-10-09** | **① 导出改为格式二选一**：`exp-export` 打开格式选择弹窗（新动作 `exp-export-md` / `exp-export-json` / `exp-export-close`，宿主 `#dialogHost`，状态 `ui.exportId`）；新增 **离线 Markdown**（`buildOfflineMarkdown()` + `Media.dataURL()`，图片 base64 内嵌，读不到图写占位）——JSON 包结构与导入规则**一字未改**。② **新增 §3.13「方程式输入 `chem-input`」**：补记元素属性/事件契约、`tools/inline-chem.mjs` 重新内联流程、离子电荷写法（`^3+` / `^+` / `^2-` / `^-`）与 **`smartConvert()` 必须把电荷粘成 `^{3+}`** 的冻结规则（否则 mhchem 把 +/− 挤出右上角上标）。③ **新增 §3.14「手机端适配与溢出兜底」**：`minmax(0,1fr)` / `min-width:0` 硬化约定、`<html data-fit>` + `--fit-s` + `zoom` 兜底、`calc(100dvh / var(--fit-s))` 高度补偿、`.fit-hint` + `fit-reset`。④ **铁律 12 校验基线**更新为 2 / 306（本仓库 298 + 8 SKIP）/ 25 / 64 / 75 / 18 / 65 / 44 / 34。⑤ **兜底缩放改两条路，运行时实测选一条**：`zoom` 与 `transform: scale()`（只缩 `#main > .view`，多出的布局高度用负 margin 收掉）；**不能只看 `CSS.supports("zoom")`** —— Android WebView（Chrome/113）上 `zoom` 假生效（supports 与 computed 都报 0.5，元素一个像素没缩），必须用 100px 探针实测（`Fit.detectZoom()`）。走 transform 那条时还要 `html[data-fit-tf] #main > .view { animation: none }`（CSS 动画优先级高于内联 `transform`）。⑥ §3.13 补两条红线：电荷归一化**只在紧挨着时**生效且必须在空格归一化之前（否则吃掉 `5Cl2 ^ + 8H2O` 的 `+`，`chem-input` 直接渲染成空 div）；`parseFormula` / `checkBalance` **永不抛异常**。**`EXP_VERSION` 仍为 1**（`Exp` / `Step` 数据结构未变：只新增导出格式与 UI） | — |
 
 ---
 

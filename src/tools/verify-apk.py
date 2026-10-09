@@ -29,6 +29,10 @@ import zipfile
 MARKERS_MUST_HAVE = [
     (b"lan-become-server", "前端互传按钮锚点"),
     (b'<details class="card card-fold">', "前端折叠卡片结构"),
+    # 0.5.1 三个新能力的内嵌锚点：任何一个缺失，都说明 apk 里那份前端是旧的
+    (b"chem-ion-bar", "离子电荷输入（2026-10-09）"),
+    (b"exp-export-md", "导出格式选择 / 离线 MD（2026-10-09）"),
+    (b"data-fit-tf", "手机溢出兜底缩放（2026-10-09）"),
 ]
 MARKERS_MUST_NOT_HAVE = [
     (b"Failed to request ", "dev 反代路径（custom-protocol 未生效）"),

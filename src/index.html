@@ -74,6 +74,11 @@
   --track: rgba(120, 132, 165, 0.14);
   --scroller: rgba(120, 132, 165, 0.24);
   --scroller-hover: rgba(120, 132, 165, 0.42);
+
+  /* 溢出兜底缩放系数（见「强制缩放以适应屏幕」一节）：平时恒为 1，
+     只有 JS 量到真的横向溢出时才把 html[data-fit] 打开并改写它。
+     在 :root 里给个静态默认值，是为了「JS 没跑起来时 CSS 也不出错」。 */
+  --fit-s: 1;
 }
 
 .t-paper   { --tint:#ffffff; --tint-2:#f4f6fb; --tint-line:rgba(130,142,175,.20); --tone:#8d97b4; }
@@ -203,7 +208,10 @@ body {
 .frame {
   position: relative; z-index: 1;
   width: min(1280px, 100%); height: min(860px, calc(100vh - 48px));
-  display: grid; grid-template-columns: 264px 1fr;
+  /* minmax(0, 1fr)：轨道不许被内容的 min-content 撑宽。
+     用裸 1fr 时，只要侧栏里有个 white-space:nowrap 的长标题（步骤名就是），
+     整条轨道就会被顶到 380px 以上，窄屏上看不见的那部分会被 overflow:hidden 直接裁掉。 */
+  display: grid; grid-template-columns: 264px minmax(0, 1fr);
   background: linear-gradient(158deg, var(--bg-a), var(--bg-b));
   backdrop-filter: blur(42px) saturate(180%);
   -webkit-backdrop-filter: blur(42px) saturate(180%);
@@ -252,7 +260,7 @@ body {
 .theme-btn:active { transform: scale(.9); }
 .theme-ico { font-size: 14px; line-height: 1; }
 
-.main { overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; }
+.main { overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; min-width: 0; }
 .view { padding: 26px 28px 40px; animation: cardIn .35s var(--ease); }
 
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -304,10 +312,11 @@ body {
 .exp-meta { display: flex; justify-content: space-between; margin-top: 12px; font-size: 11px; color: var(--ink-faint); }
 .exp-ops { display: flex; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--tint-line, var(--line-soft)); }
 
-.editor-layout { display: grid; grid-template-columns: 208px 1fr; gap: 16px; align-items: start; }
+.editor-layout { display: grid; grid-template-columns: 208px minmax(0, 1fr); gap: 16px; align-items: start; }
 .step-rail, .card {
   border-radius: var(--r-card); border: 1px solid var(--line-soft);
   background: var(--surface-2); box-shadow: var(--shadow-card); padding: 14px;
+  min-width: 0;   /* 同上：别让卡片里的长文本把整条网格轨道顶出去 */
 }
 .rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
   font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--ink-faint); }
@@ -324,7 +333,10 @@ body {
 .step-no { width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; flex: none;
   background: var(--surface-hi); font-size: 11px; font-weight: 700; color: var(--ink-faint); }
 .step-item.on .step-no { background: var(--accent); color: #fff; }
-.step-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* flex:1 + min-width:0：标题必须能被压扁成省略号；
+   只有 overflow:hidden 时它的自动最小尺寸仍是 0，但**不写 flex:1** 时它按内容收缩，
+   长标题依然会把侧栏的 min-content 顶大，进而把整条轨道撑宽（窄屏被裁的根因）。 */
+.step-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .editor-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .card-title { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; font-weight: 700; flex-wrap: wrap; }
@@ -537,6 +549,28 @@ a.btn { text-decoration: none; }
 
 @media (max-width: 1100px) { .lan-grid { grid-template-columns: 1fr; } }
 
+/* ---------- 导出格式选择弹窗（实验卡片「导出」） ---------- */
+.dlg-mask { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(26, 31, 51, 0.34); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  animation: fadeIn .18s var(--ease); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.dlg { width: min(540px, 100%); max-height: calc(100dvh - 40px); overflow: auto;
+  border-radius: var(--r-window); border: 1px solid var(--app-border); padding: 20px;
+  background: linear-gradient(158deg, var(--tab-a), var(--tab-b)); box-shadow: var(--shadow-app);
+  animation: cardIn .22s var(--ease); }
+.dlg-title { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.dlg-sub { margin: 0 0 14px; font-size: 12.5px; color: var(--ink-faint); }
+.dlg-opt { display: flex; align-items: flex-start; gap: 11px; width: 100%; text-align: left; cursor: pointer;
+  padding: 13px; margin-bottom: 9px; border-radius: var(--r-card); border: 1px solid var(--line);
+  background: var(--surface-2); color: var(--ink); font: inherit; transition: all var(--fast); }
+.dlg-opt:hover { border-color: var(--accent); background: var(--surface-hi); transform: translateY(-1px); box-shadow: var(--shadow-card); }
+.dlg-opt:active { transform: scale(.985); }
+.dlg-opt svg { width: 20px; height: 20px; flex: none; margin-top: 1px; color: var(--accent); }
+.dlg-opt-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dlg-opt-text b { font-size: 13.5px; font-weight: 700; }
+.dlg-opt-text i { font-style: normal; font-size: 12px; line-height: 1.65; color: var(--ink-faint); }
+.dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
 .toast { position: fixed; left: 50%; bottom: 34px; transform: translate(-50%, 20px); z-index: 60;
   padding: 11px 20px; border-radius: 12px; background: rgba(26,31,51,.92); color: #fff; font-size: 13px; font-weight: 600;
   opacity: 0; pointer-events: none; transition: opacity var(--mid), transform var(--mid); backdrop-filter: blur(8px); }
@@ -545,8 +579,8 @@ a.btn { text-decoration: none; }
 .tabbar { display: none; }
 
 @media (max-width: 980px) {
-  .editor-layout { grid-template-columns: 1fr; }
-  .player-stage, .record-grid, .field-row { grid-template-columns: 1fr; }
+  .editor-layout { grid-template-columns: minmax(0, 1fr); }
+  .player-stage, .record-grid, .field-row { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 860px) {
   body { padding: 0; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
@@ -583,6 +617,50 @@ a.btn { text-decoration: none; }
   .step-item { min-height: 42px; }
 }
 @media (max-width: 560px) { .exp-grid { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   强制缩放以适应屏幕（横向溢出兜底）
+   —— 优先走上面的响应式布局；**只有真的画到视口右边界之外**时才整页缩小。
+   实现：在 <html> 上设 zoom（由 JS 写 --fit-s）。
+     · painted 几何量（getBoundingClientRect / scrollWidth）与 window.innerWidth 同坐标系，
+       所以量出来的溢出是「屏幕上真实的溢出」；
+     · 布局视口会变成 innerWidth / zoom —— 等于白送给内容更多 CSS 像素，定宽内容才放得下。
+   ⚠️ zoom 不影响 vh / dvh 的取值：按 100dvh 定高的元素必须除以缩放系数，
+      否则整页会缩成一条、底下空一大截。
+   ============================================================ */
+/* 缩放兜底有**两条路**，运行时由 Fit.detectZoom() 实测决定走哪条：
+   ① `zoom`（Chrome / Edge / Safari 正常生效）—— 布局视口会变宽，但 **zoom 不影响 vh / dvh**，
+      所以按 100dvh 定高的元素必须除以缩放系数，否则整页缩成一条、底下空一大截。
+   ② `transform: scale()`（Android WebView 113 这类「认 zoom、算得出 computed 值、却根本不缩」的引擎）
+      —— 只缩 #main 里的内容区（页脚固定条 / 提示条不动），多出来的布局高度由 JS 用负 margin 收掉；
+      这条路**不写** dvh 补偿（没缩放，dvh 本来就是对的）。
+   `data-fit` = 兜底生效中；`data-fit-tf` = 走的是第 ② 条。
+   ⚠️ 为什么必须两条：Android WebView（Chrome/113）上 `zoom` 完全无效 —— 真机实测 200px 的元素
+      设了 zoom:.5 缩完还是 200px，而 `getComputedStyle().zoom` 照样报 0.5（"看起来生效了"）。 */
+html[data-fit]:not([data-fit-tf]) { zoom: var(--fit-s, 1); }
+html[data-fit]:not([data-fit-tf]) body { min-height: calc(100dvh / var(--fit-s, 1)); }
+html[data-fit]:not([data-fit-tf]) .frame { height: calc(100dvh / var(--fit-s, 1)); }
+/* ⚠️ 走第 ② 条时必须先关掉 .view 的入场动画：**CSS 动画的优先级高于内联 style**，
+   动画期间它会把我们写在 .view 上的 transform 覆盖成 translateY(6px)（真踩过：
+   computed 变成 matrix(1,0,0,1,0,6)，量出来还是没缩的布局宽度）。
+   动画本身只有 .35s 且结束即无 fill，但启动/重绘瞬间正好会撞上，所以直接关掉更稳。 */
+html[data-fit-tf] #main > .view { animation: none; }
+
+.fit-hint { position: fixed; left: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 70;
+  display: none; align-items: center; gap: 9px; max-width: min(92vw, 430px);
+  padding: 8px 10px 8px 12px; border-radius: 12px; border: 1px solid var(--app-border);
+  background: linear-gradient(158deg, var(--tab-a), var(--tab-b));
+  backdrop-filter: blur(24px) saturate(170%); -webkit-backdrop-filter: blur(24px) saturate(170%);
+  box-shadow: var(--shadow-pop); font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.fit-hint.on { display: flex; }
+.fit-hint b { font-family: var(--mono); color: var(--ink); }
+.fit-hint-btn { flex: none; border: 0; border-radius: 8px; padding: 5px 10px; cursor: pointer;
+  font: inherit; font-size: 11.5px; font-weight: 700; background: var(--surface-hi); color: var(--accent);
+  box-shadow: var(--shadow-icon); transition: color var(--fast), transform var(--fast); }
+.fit-hint-btn:hover { color: var(--ink); }
+.fit-hint-btn:active { transform: scale(.94); }
+/* 手机端底部工具条占了 ~104px，提示条别压在它上面 */
+@media (max-width: 860px) { .fit-hint { bottom: calc(88px + env(safe-area-inset-bottom)); } }
 
 /* ============================================================
    App 形态（Tauri 桌面）：无边框 + 透明窗口 + 系统亚克力
@@ -728,6 +806,8 @@ body.wb-on .rz-se { right: 0; bottom: 0; width: 11px; height: 11px; cursor: nwse
 
 <nav class="tabbar" id="tabbar" aria-label="底部导航"></nav>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<!-- 弹窗宿主：整页重绘时不动它，由 renderDialog() 单独按 ui.exportId 画/清 -->
+<div id="dialogHost"></div>
 
 <script>
 /* ============================================================
@@ -846,6 +926,13 @@ function fmtDate(ts) {
 function fileStamp() {
   const d = new Date(), p = (n) => String(n).padStart(2, "0");
   return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+}
+/** 人读的字节数（导出提示里用） */
+function fmtSize(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+  return (n / 1024 / 1024).toFixed(2) + " MB";
 }
 function download(name, text, mime) {
   const blob = new Blob([text], { type: mime || "application/json;charset=utf-8" });
@@ -1026,6 +1113,7 @@ function newExp(name, subject) {
 const Media = {
   _db: null,
   _urls: new Map(),
+  _data: new Map(),
   open() {
     if (this._db) return Promise.resolve(this._db);
     return new Promise((resolve) => {
@@ -1087,11 +1175,37 @@ const Media = {
     if (!ok) ref.store = "external";
     return ref;
   },
+  /** 图片 → data: URL（离线 MD 内嵌用）。
+   *  cache 是必须的：同一个 ref 在一次导出里可能被读两次（步骤图 + 记录图），
+   *  base64 转换是同步的重活，别重复做。 */
+  async dataURL(ref) {
+    if (!ref) return "";
+    if (ref.store !== "idb") return "";
+    if (this._data.has(ref.id)) return this._data.get(ref.id);
+    const blob = await this.get(ref.id);
+    if (!blob) return "";
+    const url = await blobToDataURL(blob);
+    if (url) this._data.set(ref.id, url);
+    return url;
+  },
   addVideo(file) {
     return { id: uid("m_"), kind: "video", name: file ? file.name : "视频",
       type: file ? file.type : "", size: file ? file.size : 0, store: "external", url: "", w: 0, h: 0 };
   },
 };
+
+/** Blob → data: URL（离线 MD 的图片内嵌都走这里）。
+ *  FileReader 在部分环境的 indexDB 外读取更稳；失败时 resolve("")，调用方写占位行。 */
+function blobToDataURL(blob) {
+  return new Promise((resolve) => {
+    try {
+      const rd = new FileReader();
+      rd.onload = () => resolve(typeof rd.result === "string" ? rd.result : "");
+      rd.onerror = () => resolve("");
+      rd.readAsDataURL(blob);
+    } catch (e) { resolve(""); }
+  });
+}
 
 function compressImage(file, max) {
   max = max || 1280;
@@ -1612,6 +1726,7 @@ const ui = {
   step: 0,
   playIndex: 0,
   showForm: false,
+  exportId: null,   // 正在选择导出格式的实验 id（null = 没开弹窗）
 };
 
 const state = {
@@ -1982,6 +2097,11 @@ function render(toTop) {
   Timer.syncView(state.exp);
   if (state.view === "lan") { lanBind(); lanSyncServerStatus(); lanMaybeAutoConnect(); }
   else lanStopPoll();
+  /* 弹窗不在 #main 里，整页重绘不会碰它；但重绘后要保证它和当前 ui 状态一致 */
+  if (ui.exportId && !Store.getExp(ui.exportId)) ui.exportId = null;
+  renderDialog();
+  /* 换页/换步骤后内容宽度会变（比如编辑页的化学方程式预览），重新量一次是否要兜底缩放 */
+  Fit.schedule();
 }
 
 /** 可折叠卡片的展开状态（按 data-fold 键记住；默认收起）
@@ -2143,6 +2263,149 @@ function buildLocalMarkdown(e) {
 
   if (has(e.log.total)) L.push("## 总记录", e.log.total, "");
   return L.join("\n");
+}
+
+/* ============================================================
+   11.5 离线实验 Markdown（实验卡片「导出 → 离线 Markdown」）
+   ------------------------------------------------------------
+   和上面的 buildLocalMarkdown 是**两份不同的东西**：
+     · buildLocalMarkdown = 「实验报告」，放进 App 的报告页，是报告口吻；
+     · buildOfflineMarkdown = 「离线实验文件」，目标是**一个 .md 带走整个实验**：
+       离线可读、可打印、不依赖 App 与网络，所以图片一律 base64 内嵌。
+
+   两个刻意的设计：
+     1) 图片读不到时**如实写一行占位**，不假装有图（本机 IndexedDB 被清过就会出现）；
+     2) resolveImage 可注入 —— 自检脚本用它塞假图，从而不依赖 IndexedDB 也能验格式。
+   ============================================================ */
+function mdSafeInline(s) { return String(s == null ? "" : s).replace(/[\[\]]/g, "（").replace(/\r?\n/g, " ").trim(); }
+
+function fmtStampFull(ts) {
+  const d = new Date(ts), p = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+async function buildOfflineMarkdown(e, resolveImage) {
+  const pick = resolveImage || ((ref) => Media.dataURL(ref));
+  const stamp = Date.now();
+  const subjectLabel = { chemistry: "化学", biology: "生物", biochem: "生化" }[e.subject] || "化学";
+  const L = [];
+  const stat = { embedded: 0, missing: 0, videos: 0 };
+
+  L.push("# " + (e.name || "未命名实验"), "");
+  L.push("> **实验助手 · Lab Studio** 离线实验文件");
+  L.push("> 导出时间：" + fmtStampFull(stamp) + " · 学科：" + subjectLabel + " · 共 " + e.steps.length + " 个步骤");
+  L.push("> 不依赖 App 与网络：双击即可用任意 Markdown 阅读器打开，图片已内嵌。", "");
+
+  if (has(e.desc)) L.push("## 实验简介", "", String(e.desc).trim(), "");
+
+  const eqs = e.steps.map((s, i) => ({ s, i })).filter((x) => has(x.s.equation));
+  if (eqs.length) {
+    L.push("## 反应方程式一览", "");
+    eqs.forEach((x) => L.push("- 第 " + (x.i + 1) + " 步：`" + x.s.equation + "`"));
+    L.push("");
+  }
+
+  /* 每步一个计时器：按步号取，只写用过的（和报告同一套判据 Timer._used） */
+  const sum = Timer.summary(e) || { steps: [] };
+  const timerOf = (no) => (sum.steps || []).find((t) => t.no === no) || null;
+
+  L.push("---", "");
+
+  for (let i = 0; i < e.steps.length; i++) {
+    const s = e.steps[i];
+    L.push("## 步骤 " + (i + 1) + " · " + stepTitle(s, i), "");
+    if (has(s.text)) L.push(String(s.text).trim(), "");
+    if (has(s.equation)) L.push("**反应方程式**", "", "`" + s.equation + "`", "");
+    if (has(s.tips)) L.push("**安全小 TIPS**", "", "> " + String(s.tips).trim().replace(/\r?\n/g, "\n> "), "");
+
+    if (s.images.length) {
+      L.push("**图片**", "");
+      const lines = await mdImageLines(pick, s.images, "第 " + (i + 1) + " 步", stat);
+      lines.forEach((x) => L.push(x));
+      L.push("");
+    }
+    if (s.videos.length) {
+      stat.videos += s.videos.length;
+      L.push("**视频（" + s.videos.length + " 个，仅登记文件名，未内嵌）**", "");
+      s.videos.forEach((v) => L.push("- " + mdSafeInline(v.name || "视频")));
+      L.push("");
+    }
+
+    if (has(s.record.note)) L.push("**现象 / 数据**", "", String(s.record.note).trim(), "");
+    if (s.record.images.length) {
+      L.push("**记录图片**", "");
+      const lines = await mdImageLines(pick, s.record.images, "第 " + (i + 1) + " 步记录", stat);
+      lines.forEach((x) => L.push(x));
+      L.push("");
+    }
+
+    const t = timerOf(i + 1);
+    if (t) {
+      L.push("**计时**", "");
+      L.push("- 计时模式：" + t.modeText);
+      if (t.mode === "countdown" && String(t.targetText).indexOf("倒计时") === 0) {
+        L.push("- 目标时长：" + String(t.targetText).replace(/^倒计时\s*/, ""));
+      }
+      L.push("- 本次用时：" + t.elapsedText);
+      if (t.logs.length) {
+        L.push("", "| 记录时间 | 用时 |", "| --- | --- |");
+        t.logs.forEach((l) => L.push("| " + cell(fmtStampFull(l.at)) + " | " + cell(l.text) + " |"));
+        L.push("");
+      }
+      L.push("");
+    }
+    L.push("---", "");
+  }
+
+  if (has(e.log.total)) L.push("## 总记录", "", String(e.log.total).trim(), "");
+
+  if (sum.free) {
+    L.push("## 自由计时器（不绑定步骤）", "");
+    L.push("- 计时模式：" + sum.free.modeText);
+    L.push("- 本次用时：" + sum.free.elapsedText);
+    if (sum.free.logs.length) {
+      L.push("", "| 记录时间 | 用时 | 步 |", "| --- | --- | --- |");
+      sum.free.logs.forEach((l) => L.push("| " + cell(fmtStampFull(l.at)) + " | " + cell(l.text) + " | " + (l.step || "—") + " |"));
+      L.push("");
+    }
+    L.push("");
+  }
+
+  L.push("---", "");
+  L.push("<!-- 由「实验助手 · Lab Studio」导出 · " + fmtStampFull(stamp) + " -->");
+
+  const md = L.join("\n");
+  return { md: md, bytes: utf8ByteLength(md), embedded: stat.embedded, missing: stat.missing, videos: stat.videos };
+}
+
+/** 一组图片 → Markdown 行；拿不到 blob 就写占位（不静默丢图） */
+async function mdImageLines(pick, refs, where, stat) {
+  const out = [];
+  for (let k = 0; k < refs.length; k++) {
+    const ref = refs[k] || {};
+    let data = "";
+    try { data = await pick(ref); } catch (e) { data = ""; }
+    if (data) {
+      stat.embedded += 1;
+      out.push("", "![ " + mdSafeInline(where + " · " + (ref.name || "图片")) + " ](" + data + ")");
+    } else {
+      stat.missing += 1;
+      out.push("", "> 图片「" + mdSafeInline(ref.name || "未命名") + "」：本机缓存里找不到原图，未能内嵌（原文件已不在本机）。");
+    }
+  }
+  return out;
+}
+
+/** UTF-8 字节数（提示用；按码点算，中英文都对） */
+function utf8ByteLength(s) {
+  let n = 0;
+  const str = String(s || "");
+  for (let i = 0; i < str.length; i++) {
+    const c = str.codePointAt(i);
+    if (c > 0xffff) i++;
+    n += c <= 0x7f ? 1 : c <= 0x7ff ? 2 : c <= 0xffff ? 3 : 4;
+  }
+  return n;
 }
 
 function localReport() {
@@ -3858,13 +4121,79 @@ function expDel(id) {
   else render();
   toast("已删除");
 }
-function expExport(id) {
+/* ---------- 导出：先选格式，再落地 ----------
+ *  两种格式职责不同，所以「导出」不再直接下载：
+ *    · 在线 JSON —— 原「可分享文件」：字段完整、可再导入继续编辑，也是局域网互传的格式；
+ *    · 离线 MD  —— 完整实验的一个 Markdown 文件，图片 base64 内嵌，脱离 App 也能读/打印。
+ *  包结构（JSON）一个字都没改：老的导出文件、互传、导入链路全都照旧。 */
+function openExportDialog(id) {
+  if (!Store.getExp(id)) return;
+  ui.exportId = id;
+  renderDialog();
+}
+function mediaCount(e) {
+  let n = 0;
+  (e.steps || []).forEach((s) => { n += s.images.length + s.record.images.length; });
+  return n;
+}
+function exportDialogHTML(id) {
+  const e = Store.getExp(id);
+  if (!e) return "";
+  const imgs = mediaCount(e);
+  const vids = (e.steps || []).reduce((n, s) => n + s.videos.length, 0);
+  const meta = [e.steps.length + " 个步骤"];
+  if (imgs) meta.push(imgs + " 张图片");
+  if (vids) meta.push(vids + " 个视频");
+  meta.push("两种格式都在本机生成，不联网");
+  return `<div class="dlg-mask">
+    <div class="dlg" role="dialog" aria-modal="true" aria-label="导出实验">
+      <h3 class="dlg-title">导出「${esc(e.name || "未命名实验")}」</h3>
+      <p class="dlg-sub">${esc(meta.join(" · "))}</p>
+      <button class="dlg-opt" type="button" data-act="exp-export-md">${ICON.report}
+        <span class="dlg-opt-text"><b>离线 Markdown（.md）</b>
+        <i>完整实验：简介 / 每一步的标题、正文、方程式、安全小 TIPS、现象记录与计时，图片以 base64 内嵌。一个文件带走，离线可读，也能直接打印或交给老师。</i></span></button>
+      <button class="dlg-opt" type="button" data-act="exp-export-json">${ICON.download}
+        <span class="dlg-opt-text"><b>在线 JSON（.json）</b>
+        <i>「可分享文件」：字段完整、可再次导入继续编辑，也是局域网互传用的格式。不含 LLM 密钥。</i></span></button>
+      <div class="dlg-foot"><button class="btn" type="button" data-act="exp-export-close">取消</button></div>
+    </div>
+  </div>`;
+}
+/** 弹窗单独挂在 #dialogHost 上：render() 整页重绘不碰它，关掉也不用重绘整页 */
+function renderDialog() {
+  const host = $("dialogHost");
+  if (!host) return;
+  host.innerHTML = ui.exportId ? exportDialogHTML(ui.exportId) : "";
+}
+function closeExportDialog() {
+  ui.exportId = null;
+  renderDialog();
+}
+function expExportJSON(id) {
   const e = Store.getExp(id);
   if (!e) return;
   const rep = Store.report(id);
   const pack = { kind: "zhbit-lab-experiment", v: EXP_VERSION, exportedAt: Date.now(), exp: e, report: rep };
   download((e.name || "实验") + "-" + fileStamp() + ".json", JSON.stringify(pack, null, 2));
-  toast("已导出可分享文件");
+  toast("已导出可分享文件（.json）");
+}
+async function expExportMD(id) {
+  const e = Store.getExp(id);
+  if (!e) return;
+  closeExportDialog();
+  const imgs = mediaCount(e);
+  toast(imgs ? "正在打包离线 MD（" + imgs + " 张图片转 base64，请稍候）…" : "正在打包离线 MD…", 2600);
+  try {
+    const r = await buildOfflineMarkdown(e);
+    download((e.name || "实验") + "-离线版-" + fileStamp() + ".md", r.md, "text/markdown;charset=utf-8");
+    let msg = "已导出离线 MD";
+    if (r.embedded) msg += "（内嵌 " + r.embedded + " 张图片，约 " + fmtSize(r.bytes) + "）";
+    if (r.missing) msg += "；" + r.missing + " 张图片在本机缓存里找不到，已写成占位说明";
+    if (r.videos) msg += "；" + r.videos + " 个视频只登记了文件名（视频不内嵌）";
+    toast(msg, 4200);
+  } catch (err) {
+    toast("离线 MD 导出失败：" + ((err && err.message) || "未知错误"));
+  }
 }
 /* 分享：把实验打包成与「导出」一致的 .json，直接上传到局域网互传（不跳转互传页）。
    未连接时先静默尝试连接，连不上再提示用户去互传页处理。 */
@@ -4021,7 +4350,15 @@ async function handleAct(action, el) {
     case "exp-open": goTo("edit", el.dataset.id); return;
     case "exp-dup": expDup(el.dataset.id); return;
     case "exp-del": expDel(el.dataset.id); return;
-    case "exp-export": expExport(el.dataset.id); return;
+    case "exp-export": openExportDialog(el.dataset.id); return;
+    case "exp-export-md": expExportMD(ui.exportId); return;
+    case "exp-export-json": {
+      const id = ui.exportId;
+      closeExportDialog();
+      expExportJSON(id);
+      return;
+    }
+    case "exp-export-close": closeExportDialog(); return;
     case "exp-share": expShare(el.dataset.id); return;
     case "exp-import": expImport(); return;
 
@@ -4150,10 +4487,173 @@ async function handleAct(action, el) {
     case "data-export-all": exportAll(); return;
     case "data-clear": clearAll(); return;
 
+    case "fit-reset": Fit.reset(); return;
+
     default:
       if (action && action.indexOf("lan-") === 0) { lanAct(action, el); return; }
   }
 }
+
+/* ============================================================
+   14.5 溢出兜底：整页强制缩放以适应屏幕
+   ------------------------------------------------------------
+   背景：单文件页面在手机上跑时，响应式布局是**第一手段**（@media 逐档重排）。
+   但「重排」治不了所有情况：定宽内容、用户粘贴的一长串不可断词、
+   某些第三方渲染物（KaTeX 行内公式）都可能仍有像素画到视口右边之外，
+   而 .frame / #main 都是 overflow:hidden —— 后果是**被静默裁掉**，不是出现滚动条，
+   用户只看到「右边少了一块」。
+
+   所以这里加一层兜底：真的量到溢出，就把整页按比例缩小到刚好放下，
+   并在左下角给一条可点「按原尺寸看」的提示，绝不悄悄改尺寸。
+
+   判据（缺一不可）：
+     1) quickOverflow()：html / body / #main 任一出现横向溢出才继续（便宜的先决条件）；
+     2) overflow()：真的有元素的右边界画到 window.innerWidth 之外（.bg 光斑故意出血，排除）。
+   缩放下限 MIN：再小就没法读了，宁可留一点裁切。
+
+   实测（Edge headless，360px 视口）确认过的 zoom 语义：
+     · getBoundingClientRect / scrollWidth 返回的是缩放后的 painted 值，可直接与 innerWidth 比；
+     · 布局视口变成 innerWidth / zoom（这是能真正解决定宽内容的原因）；
+     · position:fixed 仍相对视口定位（底部工具条不会被甩到文档底部）；
+     · vh / dvh 不受 zoom 影响 → 由 CSS 里的 html[data-fit] .frame 做除法补偿。
+   ============================================================ */
+
+const Fit = {
+  MIN: 0.55,
+  scale: 1,
+  zoomWorks: null,    // 惰性探测：zoom 到底会不会真的缩（见 detectZoom）
+  dismissed: false,   // 用户点了「按原尺寸看」：本次会话不再自动缩，直到窗口尺寸再变化
+  _t: 0,
+  _hint: null,
+
+  quickOverflow() {
+    const iw = window.innerWidth;
+    const cands = [document.documentElement, document.body, $("main")];
+    for (const el of cands) {
+      if (!el) continue;
+      if (el.scrollWidth > el.clientWidth + 1 || el.scrollWidth > iw + 1) return true;
+    }
+    return false;
+  },
+
+  /** 找画到视口右边界之外的元素；返回最靠右的那个（用于估算要缩多少） */
+  overflow() {
+    const vw = window.innerWidth;
+    const bg = document.querySelector(".bg");
+    let worstRight = 0, who = null;
+    document.querySelectorAll("body *").forEach((el) => {
+      if (bg && bg.contains(el)) return;
+      if (this._hint && this._hint.contains(el)) return;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) return;
+      if (r.right > worstRight) { worstRight = r.right; who = el; }
+    });
+    return { vw: vw, right: worstRight, over: Math.max(0, worstRight - vw), who: who };
+  },
+
+  /** `zoom` 是不是**真的**会缩？必须实测，不能只看 `CSS.supports("zoom","0.5")`：
+   *  Android WebView（Chrome/113）上 supports 返回 true、computed 也报 0.5，
+   *  但元素一个像素都没缩（真机实测 200px 缩完还是 200px）。探测只做一次并缓存。 */
+  detectZoom() {
+    if (this.zoomWorks !== null) return this.zoomWorks;
+    let ok = false, probe = null;
+    try {
+      probe = document.createElement("div");
+      probe.style.cssText = "position:fixed;left:0;top:0;width:100px;height:2px;visibility:hidden;pointer-events:none";
+      document.body.appendChild(probe);
+      document.documentElement.style.zoom = "0.5";
+      ok = probe.getBoundingClientRect().width < 90;
+      document.documentElement.style.zoom = "";
+    } catch (e) { ok = false; }
+    if (probe && probe.remove) probe.remove();
+    this.zoomWorks = ok;
+    return ok;
+  },
+
+  /** 走 transform 兜底时要缩的那个内容区（固定页脚 / 提示条都在它外面） */
+  contentEl() {
+    return document.querySelector("#main > .view") || document.querySelector("#main .view") || null;
+  },
+
+  apply(s) {
+    const root = document.documentElement;
+    s = clamp(s, this.MIN, 1);
+    this.scale = s;
+    /* 先把两条路的痕迹都清掉，再按需要设一条 —— 幂等，反复调用不会叠第二层 */
+    const view = this.contentEl();
+    if (view) {
+      view.style.transform = "";
+      view.style.transformOrigin = "";
+      view.style.width = "";
+      view.style.marginBottom = "";
+    }
+    if (s >= 0.999) {
+      root.removeAttribute("data-fit");
+      root.removeAttribute("data-fit-tf");
+      root.style.removeProperty("--fit-s");
+      return;
+    }
+    root.style.setProperty("--fit-s", s.toFixed(4));
+    root.setAttribute("data-fit", "");
+    if (this.detectZoom()) { root.removeAttribute("data-fit-tf"); return; }
+    /* ② transform 兜底：内容区放大到 100% / s 的布局宽度再整体缩小；
+       布局高度不受 transform 影响，所以多出来的那截要用负 margin 收掉，否则底部会空一大段可滚区域。 */
+    root.setAttribute("data-fit-tf", "");
+    if (!view) return;
+    view.style.transformOrigin = "0 0";
+    view.style.transform = "scale(" + s + ")";
+    view.style.width = (100 / s).toFixed(4) + "%";
+    const h = view.offsetHeight;
+    if (h > 0) view.style.marginBottom = (-(h * (1 - s))).toFixed(1) + "px";
+  },
+
+  /** 一次完整的量 → 缩循环。缩放会改变布局宽度，所以要「先归零再量、逐步收敛」。 */
+  run() {
+    if (this.dismissed) return;
+    this.apply(1);
+    if (!this.quickOverflow()) { this.paintHint(); return; }
+    let s = 1;
+    for (let i = 0; i < 3; i++) {
+      const o = this.overflow();
+      if (o.over <= 1 || o.right <= 0) break;
+      const next = clamp(s * (o.vw / o.right), this.MIN, 1);
+      if (next >= s - 0.005) break;
+      s = next;
+      this.apply(s);
+    }
+    /* 缩到底还有溢出（说明是极窄屏 + 极长的不可断内容）：如实提示，不假装解决了 */
+    this.paintHint();
+  },
+
+  schedule() { clearTimeout(this._t); this._t = setTimeout(() => this.run(), 180); },
+
+  hintEl() {
+    if (this._hint && this._hint.isConnected) return this._hint;
+    const el = document.createElement("div");
+    el.className = "fit-hint";
+    el.setAttribute("role", "status");
+    el.innerHTML = `<span>已自动缩小到 <b>100%</b> 以适应屏幕</span>` +
+      `<button class="fit-hint-btn" type="button" data-act="fit-reset">按原尺寸看</button>`;
+    document.body.appendChild(el);
+    this._hint = el;
+    return el;
+  },
+
+  paintHint() {
+    if (this.scale >= 0.999) { if (this._hint) this._hint.classList.remove("on"); return; }
+    const el = this.hintEl();
+    const b = el.querySelector("b");
+    if (b) b.textContent = Math.round(this.scale * 100) + "%";
+    el.classList.add("on");
+  },
+
+  reset() {
+    this.dismissed = true;
+    this.apply(1);
+    this.paintHint();
+    toast("已按原尺寸显示：内容较宽时可左右拖动查看");
+  },
+};
 
 /* ============================================================
    15. 启动
@@ -4166,10 +4666,18 @@ function boot() {
   initTheme();
 
   document.addEventListener("click", (ev) => {
+    /* 弹窗之外的遮罩点一下 = 关闭；点弹窗内部不算（否则点正文也会关） */
+    const mask = ev.target.closest ? ev.target.closest(".dlg-mask") : null;
+    if (mask && !(ev.target.closest && ev.target.closest(".dlg"))) { closeExportDialog(); return; }
     const goEl = ev.target.closest("[data-go]");
     if (goEl) { goTo(goEl.dataset.go, goEl.dataset.param || null); return; }
     const actEl = ev.target.closest("[data-act]");
     if (actEl) handleAct(actEl.dataset.act, actEl);
+  });
+
+  /* Esc 关弹窗（键盘用户不必去找「取消」） */
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && ui.exportId) closeExportDialog();
   });
 
   /* 可折叠卡片（设置页「获取 API 教学」等）：默认收起，展开状态记在本机。
@@ -4209,6 +4717,11 @@ function boot() {
   suppressHash = true;
   goTo(view, param);
   suppressHash = false;
+
+  /* 溢出兜底：任何屏幕只要真的溢出就生效；尺寸一变就重新判定（并撤销「按原尺寸看」） */
+  window.addEventListener("resize", () => { Fit.dismissed = false; Fit.schedule(); });
+  window.addEventListener("orientationchange", () => { Fit.dismissed = false; Fit.schedule(); });
+  Fit.schedule();
 }
 
 boot();
@@ -24327,13 +24840,52 @@ function ElementPanel({ onPick }) {
 ];
 function ConditionBar({ onToken, onCondition }) {
     return (jsxRuntimeExports.jsx("div", { className: "chem-condition-bar", children: CONDITIONS.map(c => (jsxRuntimeExports.jsx("button", { type: "button", className: "chem-cond-btn", title: c.tip, onClick: () => c.kind === 'token' ? onToken(c.value) : onCondition(c.value), children: c.label }, c.id))) }));
-}function HistoryList({ items, onPick, onRemove, onClear }) {
-    return (jsxRuntimeExports.jsxs("div", { className: "chem-history", children: [jsxRuntimeExports.jsxs("div", { className: "chem-history-head", children: [jsxRuntimeExports.jsx("span", { className: "chem-history-title", children: "\u5386\u53F2\u8BB0\u5F55" }), items.length > 0 && (jsxRuntimeExports.jsx("button", { type: "button", className: "chem-history-clear", onClick: onClear, children: "\u6E05\u7A7A" }))] }), items.length === 0 ? (jsxRuntimeExports.jsx("div", { className: "chem-history-empty", children: "\u6682\u65E0\u8BB0\u5F55\uFF0C\u914D\u5E73\u6210\u529F\u540E\u5C06\u81EA\u52A8\u4FDD\u5B58" })) : (jsxRuntimeExports.jsx("ul", { className: "chem-history-list", children: items.map((item, i) => (jsxRuntimeExports.jsxs("li", { className: "chem-history-item", children: [jsxRuntimeExports.jsx("button", { type: "button", className: "chem-history-pick", onClick: () => onPick(item), children: item }), jsxRuntimeExports.jsx("button", { type: "button", className: "chem-history-del", onClick: () => onRemove(i), title: "\u5220\u9664", children: "\u00D7" })] }, `${i}-${item}`))) }))] }));
+}/** 离子电荷输入（右上角带上正负号的电荷上标）
+ *
+ *  为什么不自己做排版：mhchem 已经把 `^3+` / `^+` / `^-` 渲染成**元素符号右上角**的
+ *  电荷上标（`tools/check-ion.mjs` 用真 KaTeX 的 HTML 结构锁住了这一点）。
+ *  所以这里只负责「生成正确的文本写法」，排版交给已有的渲染链路。
+ *
+ *  写法约定（刻意不加花括号，和既有 smartConvert / check-isotope 的用例保持一致）：
+ *    · 电荷为 ±1 时省略数字：Na^+ / Cl^-
+ *    · 多电荷带数字：Fe^3+ / SO4^2-（负号用半角 `-`，与历史数据一致）
+ */
+const ION_MAX_CHARGE = 9;
+/** 合法化电荷数：四舍五入成整数，范围 1~ION_MAX_CHARGE（0 / NaN 都当 1） */
+function clampCharge(n) {
+    const k = Math.round(Number(n));
+    if (!Number.isFinite(k) || k < 1)
+        return 1;
+    return Math.min(ION_MAX_CHARGE, k);
+}
+/** 要插入文本框的电荷片段：`^3+` / `^+` / `^2-` / `^-` */
+function ionChargeToken(n, sign) {
+    const k = clampCharge(n);
+    return '^' + (k > 1 ? String(k) : '') + (sign === '-' ? '-' : '+');
+}
+/** 完整片段：离子式 + 电荷。预览与插入共用同一个函数，保证「所见即所插」 */
+function ionSnippet(formula, n, sign) {
+    return String(formula == null ? '' : formula) + ionChargeToken(n, sign);
+}
+/** 光标前那一段「像化学式」的东西（预览用）：字母/数字/括号/水合点，最多 14 个字符。
+ *  取不到就返回空串 —— 预览会退回用占位符号 X，而不是瞎猜。 */
+function ionPrefixAt(raw, caret) {
+    const s = String(raw == null ? '' : raw);
+    const end = Math.max(0, Math.min(Number(caret) || 0, s.length));
+    const m = s.slice(0, end).match(/[A-Za-z0-9()[\]·.]{1,14}$/);
+    return m ? m[0] : '';
 }const ARROW_RE = /(<=>|<->|->|=>)/g;
 function smartConvert(input) {
     let s = input
         .replace(/<=>|<->/g, '<=>')
         .replace(/=>/g, '->');
+    // 0) 电荷先「趁紧挨着」粘成花括号写法：Fe^3+ → Fe^{3+}、Na^+ → Na^{+}、SO4^2- → SO4^{2-}。
+    //    为什么必须在下面的空格归一化**之前**做：mhchem 只在 `^3+` 紧挨着时把 +/- 并进右上角上标，
+    //    一旦被 `\s*\+\s*` 拆成 `Fe^3 + `，渲染出来就是「右上角只有 3、+ 掉到外面」（Fe³ +）。
+    //    ⚠️ 只在**符号紧挨着**（^ 紧贴前面的原子、符号紧贴数字/^）时才算电荷。
+    //       反应式的「气体↑ + 分隔符」= `5Cl2 ^ + 8H2O`：那个 ^ 前面是空格、后面隔着空格才有 +，
+    //       绝不能被当成电荷 —— 曾经把它吃成 `^{...}`，`parseFormula` 直接崩、整个输入框空白。
+    s = s.replace(/(\S)\^(\d*)([+\-])(?![A-Za-z0-9])/g, (_m, pre, n, sign) => `${pre}^{${n}${sign}}`);
     s = s.replace(/([A-Za-z0-9\)\]\}])\s*=\s*(?=[A-Za-z0-9(])/g, '$1 -> ');
     s = s.replace(ARROW_RE, ' $1 ');
     s = s.replace(/\s*([+\-])\s*(?=[A-Za-z0-9(])/g, (m, sign) => {
@@ -24348,12 +24900,15 @@ function smartConvert(input) {
     s = s.replace(/\^\s*\{\s*(\d+)\s*\}/g, '^{$1}');
     // 2) 质量数写在元素符号「后面」时（O^18 / H2O^{18} / C^14O2），搬到该元素符号的左上角，
     //    否则 mhchem 会把它当成右侧电荷上标渲染到右上角（电荷带 +/- 号，紧邻数字，不受影响）。
-    s = s.replace(/([A-Z][a-z]?)\^\{?(\d+)\}?(?![0-9+\-])/g, (m, el, n) => `^{${n}}${el}`);
+    s = s.replace(/([A-Z][a-z]?)\^\{?(\d+)\}?(?![0-9+\-])/g, (_m, el, n) => `^{${n}}${el}`);
     // 3) 质量数写在元素符号「前面」时（^18O / 6^18O2），mhchem 原生按左上标渲染，只规范成 ^{18}。
     s = s.replace(/\^\{?(\d+)\}?\s*(?=[A-Z][a-z]?)/g, '^{$1}');
     s = s.replace(/\s*->\s*/g, ' -> ');
     s = s.replace(/\s*<=>\s*/g, ' <=> ');
     s = s.replace(/\s*\+\s*/g, ' + ');
+    // 4) 末尾收尾：把第 0 步粘好的花括号电荷、又被上面的 `\s*\+\s*` 拆开的情况重新粘紧
+    //    （`^{3 + }` → `^{3+}`）。这里只认**花括号**形态，所以不会再误吃反应式的 `+` 分隔符。
+    s = s.replace(/\^\{\s*(\d*)\s*([+\-])\s*\}/g, (_m, n, sign) => `^{${n}${sign}}`);
     return s;
 }
 function toLatex(raw) {
@@ -24368,6 +24923,30 @@ function replaceArrowWithCondition(text, condition) {
         return text;
     const arrow = m[1] === '<=>' || m[1] === '<->' ? '<=>' : '->';
     return text.replace(/(<=>|<->|->|=>)/, `${arrow}[${condition}]`);
+}/** 一个电荷的迷你预览：把「离子式 + 电荷」真的用 mhchem 渲染一遍。
+ *  两个按钮各自渲染自己那一个 —— 点下去之前就看得到「右上角带正负号」的结果。 */
+function IonPreview({ formula, charge, sign }) {
+    const ref = reactExports.useRef(null);
+    const raw = ionSnippet(formula || 'X', charge, sign);
+    reactExports.useEffect(() => {
+        if (!ref.current)
+            return;
+        try {
+            ref.current.innerHTML = katex.renderToString(toLatex(raw), { throwOnError: false });
+        }
+        catch {
+            ref.current.textContent = raw;
+        }
+    }, [raw]);
+    return jsxRuntimeExports.jsx("span", { ref: ref, className: "chem-ion-preview" });
+}
+/** 工具条上的「离子电荷」输入：填数字 → 点 ＋ / － → 把 `^3+` / `^2-` 插到光标处。
+ *  负号用半角 `-`（与历史数据、smartConvert 的用例一致），渲染出来是右上角的 −。 */
+function IonBar({ charge, onCharge, target, onInsert }) {
+    const n = clampCharge(charge);
+    return (jsxRuntimeExports.jsxs("div", { className: "chem-ion-bar", children: [jsxRuntimeExports.jsx("span", { className: "chem-ion-label", children: "\u79BB\u5B50\u7535\u8377" }), jsxRuntimeExports.jsx("input", { className: "chem-ion-num", type: "number", min: 1, max: ION_MAX_CHARGE, step: 1, value: n, title: `电荷数（1~${ION_MAX_CHARGE}）：1 时省略数字，只写 ＋ / －`, onChange: e => onCharge(clampCharge(Number(e.target.value))) }), jsxRuntimeExports.jsxs("button", { type: "button", className: "chem-ion-btn chem-ion-btn-plus", title: "\u63D2\u5165\u6B63\u7535\u8377\uFF1A\u5143\u7D20\u7B26\u53F7\u53F3\u4E0A\u89D2\u5E26 + \u53F7\uFF0C\u5982 Fe^3+ \u2192 Fe\u00B3\u207A", onClick: () => onInsert('+'), children: [jsxRuntimeExports.jsx("span", { className: "chem-ion-sign", children: "\uFF0B" }), jsxRuntimeExports.jsx(IonPreview, { formula: target, charge: n, sign: "+" })] }), jsxRuntimeExports.jsxs("button", { type: "button", className: "chem-ion-btn chem-ion-btn-minus", title: "\u63D2\u5165\u8D1F\u7535\u8377\uFF1A\u5143\u7D20\u7B26\u53F7\u53F3\u4E0A\u89D2\u5E26 \u2212 \u53F7\uFF0C\u5982 SO4^2- \u2192 SO\u2084\u00B2\u207B", onClick: () => onInsert('-'), children: [jsxRuntimeExports.jsx("span", { className: "chem-ion-sign", children: "\uFF0D" }), jsxRuntimeExports.jsx(IonPreview, { formula: target, charge: n, sign: "-" })] })] }));
+}function HistoryList({ items, onPick, onRemove, onClear }) {
+    return (jsxRuntimeExports.jsxs("div", { className: "chem-history", children: [jsxRuntimeExports.jsxs("div", { className: "chem-history-head", children: [jsxRuntimeExports.jsx("span", { className: "chem-history-title", children: "\u5386\u53F2\u8BB0\u5F55" }), items.length > 0 && (jsxRuntimeExports.jsx("button", { type: "button", className: "chem-history-clear", onClick: onClear, children: "\u6E05\u7A7A" }))] }), items.length === 0 ? (jsxRuntimeExports.jsx("div", { className: "chem-history-empty", children: "\u6682\u65E0\u8BB0\u5F55\uFF0C\u914D\u5E73\u6210\u529F\u540E\u5C06\u81EA\u52A8\u4FDD\u5B58" })) : (jsxRuntimeExports.jsx("ul", { className: "chem-history-list", children: items.map((item, i) => (jsxRuntimeExports.jsxs("li", { className: "chem-history-item", children: [jsxRuntimeExports.jsx("button", { type: "button", className: "chem-history-pick", onClick: () => onPick(item), children: item }), jsxRuntimeExports.jsx("button", { type: "button", className: "chem-history-del", onClick: () => onRemove(i), title: "\u5220\u9664", children: "\u00D7" })] }, `${i}-${item}`))) }))] }));
 }const OPEN = '([{';
 const CLOSE = ')]}';
 function readNumber(s, i) {
@@ -24408,6 +24987,10 @@ function parseFormula(formula) {
         }
         if (CLOSE.includes(ch)) {
             const top = stack.pop() ?? new Map();
+            /* 多出来的右括号（用户随手打了个 `)`）：别把栈抽空到没有宿主可用，
+               否则后面一个元素就会 `layer.set` 到 undefined 上抛异常。 */
+            if (!stack.length)
+                stack.push(new Map());
             const host = stack[stack.length - 1] ?? result;
             i++;
             const [mul, ni] = readNumber(clean, i);
@@ -24426,7 +25009,10 @@ function parseFormula(formula) {
             i = ni;
             const [mul, nj] = readNumber(clean, i);
             i = nj;
-            const layer = stack[stack.length - 1];
+            /* ⭐ 兜底 `?? stack[0] ?? result`：历史上这里一旦拿到 undefined（栈被多余的右括号抽空）
+               就会抛 `Cannot read properties of undefined (reading 'set')`，
+               而它跑在 React 渲染里 → 整个 chem-input 的 shadow root 变成空 div（用户看到输入框整块消失）。 */
+            const layer = stack[stack.length - 1] ?? stack[0] ?? result;
             if (ELEMENT_BY_SYMBOL[sym] || /^[A-Z][a-z]?$/.test(sym)) {
                 layer.set(sym, (layer.get(sym) ?? 0) + mul);
             }
@@ -24434,7 +25020,7 @@ function parseFormula(formula) {
         }
         i++;
     }
-    const top = stack[0];
+    const top = stack[0] ?? result;
     for (const [k, v] of top)
         result.set(k, v);
     return result;
@@ -24468,45 +25054,50 @@ function splitEquation(raw) {
         }
     }
     return null;
-}function checkBalance(equation) {
-    const split = splitEquation(equation);
-    if (!split) {
-        return {
-            balanced: false, hasArrow: false,
-            left: new Map(), right: new Map(),
-            missing: [], extra: [],
-            message: '未检测到反应箭头（-> 或 =）'
-        };
-    }
-    const left = parseSide(split.left);
-    const right = parseSide(split.right);
-    const allKeys = new Set([...left.total.keys(), ...right.total.keys()]);
-    const missing = [];
-    const extra = [];
-    let balanced = true;
-    for (const k of allKeys) {
-        const l = left.total.get(k) ?? 0;
-        const r = right.total.get(k) ?? 0;
-        if (Math.abs(l - r) > 1e-9) {
-            balanced = false;
-            if (l < r)
-                missing.push(k);
-            else
-                extra.push(k);
+}/** 解析失败时的兜底结果：**绝不抛异常**。
+ *  为什么必须兜住：checkBalance 跑在 React 渲染里，一旦抛出去，整个 chem-input 的
+ *  shadow root 会渲染成空的（用户看到方程式输入框整块消失，还找不出原因 —— 真踩过）。 */
+function failed(message, hasArrow = false) {
+    return { balanced: false, hasArrow, left: new Map(), right: new Map(), missing: [], extra: [], message };
+}
+function checkBalance(equation) {
+    try {
+        const split = splitEquation(equation);
+        if (!split)
+            return failed('未检测到反应箭头（-> 或 =）');
+        const left = parseSide(split.left);
+        const right = parseSide(split.right);
+        const allKeys = new Set([...left.total.keys(), ...right.total.keys()]);
+        const missing = [];
+        const extra = [];
+        let balanced = true;
+        for (const k of allKeys) {
+            const l = left.total.get(k) ?? 0;
+            const r = right.total.get(k) ?? 0;
+            if (Math.abs(l - r) > 1e-9) {
+                balanced = false;
+                if (l < r)
+                    missing.push(k);
+                else
+                    extra.push(k);
+            }
         }
+        let message;
+        if (balanced)
+            message = '已配平';
+        else if (missing.length && extra.length)
+            message = `未配平：右侧多 ${missing.join(', ')}，左侧多 ${extra.join(', ')}`;
+        else if (missing.length)
+            message = `未配平：右侧多 ${missing.join(', ')}`;
+        else if (extra.length)
+            message = `未配平：左侧多 ${extra.join(', ')}`;
+        else
+            message = '未配平';
+        return { balanced, hasArrow: true, left: left.total, right: right.total, missing, extra, message };
     }
-    let message;
-    if (balanced)
-        message = '已配平';
-    else if (missing.length && extra.length)
-        message = `未配平：右侧多 ${missing.join(', ')}，左侧多 ${extra.join(', ')}`;
-    else if (missing.length)
-        message = `未配平：右侧多 ${missing.join(', ')}`;
-    else if (extra.length)
-        message = `未配平：左侧多 ${extra.join(', ')}`;
-    else
-        message = '未配平';
-    return { balanced, hasArrow: true, left: left.total, right: right.total, missing, extra, message };
+    catch {
+        return failed('式子暂时没法解析（检查括号是否配对）', true);
+    }
 }const STORAGE_KEY = 'chem-input:history';
 function loadHistory() {
     try {
@@ -24532,6 +25123,10 @@ function ChemInput({ value, defaultValue = '', placeholder = '输入化学方程
     const textareaRef = reactExports.useRef(null);
     const [history, setHistory] = reactExports.useState(() => loadHistory());
     const [showPanel, setShowPanel] = reactExports.useState(true);
+    /* 离子电荷输入：charge = 电荷数；caret = 光标位置（只服务预览，
+       真正插入时读的仍是 textarea 自己的 selectionStart） */
+    const [charge, setCharge] = reactExports.useState(1);
+    const [caret, setCaret] = reactExports.useState(0);
     const converted = reactExports.useMemo(() => smartConvert(raw), [raw]);
     const latex = reactExports.useMemo(() => toLatex(raw), [raw]);
     const balance = reactExports.useMemo(() => checkBalance(converted), [converted]);
@@ -24567,6 +25162,7 @@ function ChemInput({ value, defaultValue = '', placeholder = '输入化学方程
         const next = raw.slice(0, start) + token + raw.slice(end);
         setRaw(next);
         const pos = start + token.length;
+        setCaret(pos);
         requestAnimationFrame(() => {
             ta.focus();
             ta.setSelectionRange(pos, pos);
@@ -24575,6 +25171,16 @@ function ChemInput({ value, defaultValue = '', placeholder = '输入化学方程
     const applyCondition = reactExports.useCallback((cond) => {
         setRaw(replaceArrowWithCondition(raw, cond));
     }, [raw, setRaw]);
+    /* 离子电荷：插到光标处（`^3+` / `^+` / `^2-` / `^-`），排版由 mhchem 负责
+       —— 电荷会渲染成元素符号右上角、带正负号的上标。 */
+    const insertIon = reactExports.useCallback((sign) => {
+        insertAtCursor(ionChargeToken(charge, sign));
+    }, [charge, insertAtCursor]);
+    /* 预览要跟着光标走：光标挪到哪，就预览哪一段离子式 */
+    const syncCaret = reactExports.useCallback((el) => {
+        setCaret(el.selectionStart ?? 0);
+    }, []);
+    const ionTarget = reactExports.useMemo(() => ionPrefixAt(raw, caret), [raw, caret]);
     const pickHistory = reactExports.useCallback((item) => {
         setRaw(item);
         requestAnimationFrame(() => textareaRef.current?.focus());
@@ -24593,8 +25199,8 @@ function ChemInput({ value, defaultValue = '', placeholder = '输入化学方程
     const statusClass = balance.hasArrow
         ? balance.balanced ? 'chem-status-ok' : 'chem-status-err'
         : 'chem-status-idle';
-    return (jsxRuntimeExports.jsxs("div", { className: "chem-root", children: [jsxRuntimeExports.jsxs("div", { className: "chem-toolbar", children: [jsxRuntimeExports.jsx(ConditionBar, { onToken: insertAtCursor, onCondition: applyCondition }), jsxRuntimeExports.jsx("button", { type: "button", className: "chem-toggle-panel", onClick: () => setShowPanel(v => !v), title: showPanel ? '收起元素面板' : '展开元素面板', children: showPanel ? '⇆ 隐藏元素表' : '⇆ 显示元素表' })] }), jsxRuntimeExports.jsxs("div", { className: "chem-body", children: [jsxRuntimeExports.jsxs("div", { className: "chem-editor", children: [jsxRuntimeExports.jsx("textarea", { ref: textareaRef, className: "chem-textarea", value: raw, placeholder: placeholder, spellCheck: false, onChange: e => setRaw(e.target.value), rows: 3 }), jsxRuntimeExports.jsx(Preview, { latex: latex }), jsxRuntimeExports.jsxs("div", { className: "chem-status", children: [jsxRuntimeExports.jsx("span", { className: `chem-status-badge ${statusClass}`, children: balance.message }), jsxRuntimeExports.jsx("code", { className: "chem-latex-out", children: latex || '\\ce{...}' })] })] }), showPanel && (jsxRuntimeExports.jsxs("div", { className: "chem-aside", children: [jsxRuntimeExports.jsx(ElementPanel, { onPick: insertAtCursor }), jsxRuntimeExports.jsx(HistoryList, { items: history, onPick: pickHistory, onRemove: removeHistory, onClear: clearHistory })] }))] })] }));
-}const COMPONENT_CSS = ".chem-root {\r\n  --chem-bg: var(--surface-2, #ffffff);\r\n  --chem-surface: var(--surface-1, rgba(255, 255, 255, 0.62));\r\n  --chem-surface-2: var(--hover-soft, rgba(120, 132, 165, 0.11));\r\n  --chem-border: var(--line, rgba(96, 108, 145, 0.2));\r\n  --chem-border-strong: var(--line, rgba(96, 108, 145, 0.32));\r\n  --chem-text: var(--ink, #1a1f33);\r\n  --chem-muted: var(--ink-faint, #6f7893);\r\n  --chem-accent: var(--accent, #6a7bff);\r\n  --chem-accent-dim: var(--accent-soft, rgba(106, 123, 255, 0.12));\r\n  --el-color: var(--chem-accent);\r\n  --chem-ok: var(--ok, #2fb98a);\r\n  --chem-err: var(--danger, #ff6b81);\r\n  --chem-radius: var(--r-card, 12px);\r\n  --chem-font: \"Segoe UI Variable Display\", \"Segoe UI\", system-ui,\r\n    \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif;\r\n  --chem-mono: ui-monospace, \"Cascadia Mono\", \"SF Mono\", Consolas, monospace;\r\n\r\n  box-sizing: border-box;\r\n  width: 100%;\r\n  font-family: var(--chem-font);\r\n  color: var(--chem-text);\r\n  background: var(--chem-bg);\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  padding: 12px;\r\n  font-size: 13px;\r\n  line-height: 1.5;\r\n}\r\n\r\n.chem-root *,\r\n.chem-root *::before,\r\n.chem-root *::after { box-sizing: border-box; }\r\n\r\n.chem-toolbar {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  flex-wrap: wrap;\r\n  padding-bottom: 10px;\r\n  border-bottom: 1px solid var(--chem-border);\r\n  margin-bottom: 10px;\r\n}\r\n\r\n.chem-condition-bar {\r\n  display: flex;\r\n  gap: 4px;\r\n  flex-wrap: wrap;\r\n  flex: 1;\r\n}\r\n\r\n.chem-cond-btn {\r\n  appearance: none;\r\n  background: var(--chem-surface);\r\n  border: 1px solid var(--chem-border);\r\n  color: var(--chem-text);\r\n  border-radius: 6px;\r\n  padding: 4px 9px;\r\n  font-size: 12px;\r\n  font-family: var(--chem-font);\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  min-width: 30px;\r\n}\r\n.chem-cond-btn:hover {\r\n  background: var(--chem-accent-dim);\r\n  border-color: var(--chem-accent);\r\n  color: var(--chem-accent);\r\n  transform: translateY(-1px);\r\n}\r\n.chem-cond-btn:active { transform: translateY(0); }\r\n\r\n.chem-toggle-panel {\r\n  appearance: none;\r\n  background: transparent;\r\n  border: 1px solid var(--chem-border);\r\n  color: var(--chem-muted);\r\n  border-radius: 6px;\r\n  padding: 4px 10px;\r\n  font-size: 12px;\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  white-space: nowrap;\r\n}\r\n.chem-toggle-panel:hover {\r\n  color: var(--chem-accent);\r\n  border-color: var(--chem-accent);\r\n}\r\n\r\n.chem-body {\r\n  display: grid;\r\n  grid-template-columns: 1fr 320px;\r\n  gap: 12px;\r\n  align-items: start;\r\n}\r\n@media (max-width: 720px) {\r\n  .chem-body { grid-template-columns: 1fr; }\r\n}\r\n\r\n.chem-editor {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 10px;\r\n  min-width: 0;\r\n}\r\n\r\n.chem-textarea {\r\n  width: 100%;\r\n  background: var(--chem-surface);\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  color: var(--chem-text);\r\n  font-family: var(--chem-mono);\r\n  font-size: 14px;\r\n  padding: 10px 12px;\r\n  resize: vertical;\r\n  min-height: 64px;\r\n  outline: none;\r\n  transition: border-color 0.15s ease, box-shadow 0.15s ease;\r\n}\r\n.chem-textarea:focus {\r\n  border-color: var(--chem-accent);\r\n  box-shadow: 0 0 0 3px var(--chem-accent-dim);\r\n}\r\n.chem-textarea::placeholder { color: var(--chem-muted); }\r\n\r\n.chem-preview {\r\n  background: var(--chem-surface);\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  padding: 16px 12px;\r\n  min-height: 56px;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  overflow-x: auto;\r\n}\r\n.chem-preview .katex { font-size: 1.4em; color: var(--chem-text); }\r\n.chem-preview-empty {\r\n  color: var(--chem-muted);\r\n  font-size: 12px;\r\n  font-style: italic;\r\n}\r\n\r\n.chem-status {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 10px;\r\n  flex-wrap: wrap;\r\n}\r\n.chem-status-badge {\r\n  font-size: 11px;\r\n  padding: 2px 8px;\r\n  border-radius: 999px;\r\n  border: 1px solid var(--chem-border);\r\n  white-space: nowrap;\r\n}\r\n.chem-status-ok { color: var(--chem-ok); border-color: var(--chem-ok); background: rgba(126, 255, 157, 0.08); }\r\n.chem-status-err { color: var(--chem-err); border-color: var(--chem-err); background: rgba(255, 110, 110, 0.08); }\r\n.chem-status-idle { color: var(--chem-muted); }\r\n\r\n.chem-latex-out {\r\n  font-family: var(--chem-mono);\r\n  font-size: 11px;\r\n  color: var(--chem-muted);\r\n  background: var(--chem-surface);\r\n  padding: 2px 8px;\r\n  border-radius: 4px;\r\n  flex: 1;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.chem-aside {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 12px;\r\n  max-height: 520px;\r\n  overflow-y: auto;\r\n  padding-right: 2px;\r\n}\r\n.chem-aside::-webkit-scrollbar { width: 6px; }\r\n.chem-aside::-webkit-scrollbar-thumb { background: var(--chem-border-strong); border-radius: 3px; }\r\n\r\n.chem-element-panel {\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  padding: 8px;\r\n  background: var(--chem-surface);\r\n}\r\n\r\n.chem-element-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(18, 1fr);\r\n  grid-template-rows: repeat(7, 1fr);\r\n  gap: 2px;\r\n}\r\n.chem-element-row {\r\n  display: flex;\r\n  gap: 2px;\r\n  margin-top: 4px;\r\n  flex-wrap: wrap;\r\n}\r\n\r\n.chem-el {\r\n  appearance: none;\r\n  background: var(--chem-surface-2);\r\n  border: 1px solid var(--chem-border);\r\n  border-left: 2px solid var(--el-color, var(--chem-accent));\r\n  border-radius: 4px;\r\n  padding: 3px 0;\r\n  cursor: pointer;\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-height: 34px;\r\n  transition: all 0.12s ease;\r\n  position: relative;\r\n  overflow: hidden;\r\n}\r\n.chem-el:hover {\r\n  background: color-mix(in srgb, var(--el-color, var(--chem-accent)) 18%, transparent);\r\n  border-color: var(--el-color, var(--chem-accent));\r\n  transform: scale(1.08);\r\n  z-index: 2;\r\n  box-shadow: 0 0 12px color-mix(in srgb, var(--el-color, var(--chem-accent)) 40%, transparent);\r\n}\r\n.chem-el-z {\r\n  font-size: 7px;\r\n  color: var(--chem-muted);\r\n  line-height: 1;\r\n}\r\n.chem-el-sym {\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n  color: var(--chem-text);\r\n  line-height: 1.2;\r\n}\r\n.chem-el-name {\r\n  font-size: 7px;\r\n  color: var(--chem-muted);\r\n  line-height: 1;\r\n}\r\n.chem-element-row .chem-el { flex: 1; min-width: 30px; }\r\n\r\n.chem-history {\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  padding: 8px;\r\n  background: var(--chem-surface);\r\n}\r\n.chem-history-head {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 6px;\r\n}\r\n.chem-history-title {\r\n  font-size: 11px;\r\n  color: var(--chem-muted);\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n}\r\n.chem-history-clear {\r\n  appearance: none;\r\n  background: transparent;\r\n  border: none;\r\n  color: var(--chem-muted);\r\n  font-size: 11px;\r\n  cursor: pointer;\r\n}\r\n.chem-history-clear:hover { color: var(--chem-err); }\r\n.chem-history-empty {\r\n  font-size: 11px;\r\n  color: var(--chem-muted);\r\n  padding: 6px 2px;\r\n}\r\n.chem-history-list {\r\n  list-style: none;\r\n  margin: 0;\r\n  padding: 0;\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 3px;\r\n}\r\n.chem-history-item {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 4px;\r\n}\r\n.chem-history-pick {\r\n  flex: 1;\r\n  appearance: none;\r\n  background: var(--chem-surface-2);\r\n  border: 1px solid var(--chem-border);\r\n  color: var(--chem-text);\r\n  border-radius: 4px;\r\n  padding: 4px 8px;\r\n  font-family: var(--chem-mono);\r\n  font-size: 11px;\r\n  text-align: left;\r\n  cursor: pointer;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n  transition: all 0.12s ease;\r\n}\r\n.chem-history-pick:hover {\r\n  border-color: var(--chem-accent);\r\n  color: var(--chem-accent);\r\n}\r\n.chem-history-del {\r\n  appearance: none;\r\n  background: transparent;\r\n  border: 1px solid var(--chem-border);\r\n  color: var(--chem-muted);\r\n  border-radius: 4px;\r\n  width: 22px;\r\n  height: 22px;\r\n  cursor: pointer;\r\n  font-size: 12px;\r\n  line-height: 1;\r\n}\r\n.chem-history-del:hover { color: var(--chem-err); border-color: var(--chem-err); }";
+    return (jsxRuntimeExports.jsxs("div", { className: "chem-root", children: [jsxRuntimeExports.jsxs("div", { className: "chem-toolbar", children: [jsxRuntimeExports.jsx(ConditionBar, { onToken: insertAtCursor, onCondition: applyCondition }), jsxRuntimeExports.jsx(IonBar, { charge: charge, onCharge: setCharge, target: ionTarget, onInsert: insertIon }), jsxRuntimeExports.jsx("button", { type: "button", className: "chem-toggle-panel", onClick: () => setShowPanel(v => !v), title: showPanel ? '收起元素面板' : '展开元素面板', children: showPanel ? '⇆ 隐藏元素表' : '⇆ 显示元素表' })] }), jsxRuntimeExports.jsxs("div", { className: "chem-body", children: [jsxRuntimeExports.jsxs("div", { className: "chem-editor", children: [jsxRuntimeExports.jsx("textarea", { ref: textareaRef, className: "chem-textarea", value: raw, placeholder: placeholder, spellCheck: false, onChange: e => setRaw(e.target.value), onClick: e => syncCaret(e.currentTarget), onKeyUp: e => syncCaret(e.currentTarget), onSelect: e => syncCaret(e.currentTarget), rows: 3 }), jsxRuntimeExports.jsx(Preview, { latex: latex }), jsxRuntimeExports.jsxs("div", { className: "chem-status", children: [jsxRuntimeExports.jsx("span", { className: `chem-status-badge ${statusClass}`, children: balance.message }), jsxRuntimeExports.jsx("code", { className: "chem-latex-out", children: latex || '\\ce{...}' })] })] }), showPanel && (jsxRuntimeExports.jsxs("div", { className: "chem-aside", children: [jsxRuntimeExports.jsx(ElementPanel, { onPick: insertAtCursor }), jsxRuntimeExports.jsx(HistoryList, { items: history, onPick: pickHistory, onRemove: removeHistory, onClear: clearHistory })] }))] })] }));
+}const COMPONENT_CSS = ".chem-root {\r\n  --chem-bg: var(--surface-2, #ffffff);\r\n  --chem-surface: var(--surface-1, rgba(255, 255, 255, 0.62));\r\n  --chem-surface-2: var(--hover-soft, rgba(120, 132, 165, 0.11));\r\n  --chem-border: var(--line, rgba(96, 108, 145, 0.2));\r\n  --chem-border-strong: var(--line, rgba(96, 108, 145, 0.32));\r\n  --chem-text: var(--ink, #1a1f33);\r\n  --chem-muted: var(--ink-faint, #6f7893);\r\n  --chem-accent: var(--accent, #6a7bff);\r\n  --chem-accent-dim: var(--accent-soft, rgba(106, 123, 255, 0.12));\r\n  --el-color: var(--chem-accent);\r\n  --chem-ok: var(--ok, #2fb98a);\r\n  --chem-err: var(--danger, #ff6b81);\r\n  --chem-radius: var(--r-card, 12px);\r\n  --chem-font: \"Segoe UI Variable Display\", \"Segoe UI\", system-ui,\r\n    \"Microsoft YaHei UI\", \"PingFang SC\", sans-serif;\r\n  --chem-mono: ui-monospace, \"Cascadia Mono\", \"SF Mono\", Consolas, monospace;\r\n\r\n  box-sizing: border-box;\r\n  width: 100%;\r\n  font-family: var(--chem-font);\r\n  color: var(--chem-text);\r\n  background: var(--chem-bg);\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  padding: 12px;\r\n  font-size: 13px;\r\n  line-height: 1.5;\r\n}\r\n\r\n.chem-root *,\r\n.chem-root *::before,\r\n.chem-root *::after { box-sizing: border-box; }\r\n\r\n.chem-toolbar {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  flex-wrap: wrap;\r\n  padding-bottom: 10px;\r\n  border-bottom: 1px solid var(--chem-border);\r\n  margin-bottom: 10px;\r\n}\r\n\r\n.chem-condition-bar {\r\n  display: flex;\r\n  gap: 4px;\r\n  flex-wrap: wrap;\r\n  flex: 1;\r\n}\r\n\r\n.chem-cond-btn {\r\n  appearance: none;\r\n  background: var(--chem-surface);\r\n  border: 1px solid var(--chem-border);\r\n  color: var(--chem-text);\r\n  border-radius: 6px;\r\n  padding: 4px 9px;\r\n  font-size: 12px;\r\n  font-family: var(--chem-font);\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  min-width: 30px;\r\n}\r\n.chem-cond-btn:hover {\r\n  background: var(--chem-accent-dim);\r\n  border-color: var(--chem-accent);\r\n  color: var(--chem-accent);\r\n  transform: translateY(-1px);\r\n}\r\n.chem-cond-btn:active { transform: translateY(0); }\r\n\r\n.chem-toggle-panel {\r\n  appearance: none;\r\n  background: transparent;\r\n  border: 1px solid var(--chem-border);\r\n  color: var(--chem-muted);\r\n  border-radius: 6px;\r\n  padding: 4px 10px;\r\n  font-size: 12px;\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  white-space: nowrap;\r\n}\r\n.chem-toggle-panel:hover {\r\n  color: var(--chem-accent);\r\n  border-color: var(--chem-accent);\r\n}\r\n\r\n/* ---------- 离子电荷输入（右上角带正负号的电荷上标） ---------- */\r\n.chem-ion-bar {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  flex-wrap: wrap;\r\n  padding: 3px 7px;\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: 8px;\r\n  background: var(--chem-surface-2);\r\n  flex: none;\r\n}\r\n.chem-ion-label {\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n  color: var(--chem-muted);\r\n  letter-spacing: 0.04em;\r\n}\r\n.chem-ion-num {\r\n  width: 46px;\r\n  padding: 3px 6px;\r\n  text-align: center;\r\n  font: inherit;\r\n  font-size: 12px;\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: 6px;\r\n  background: var(--chem-bg);\r\n  color: var(--chem-text);\r\n  outline: none;\r\n}\r\n.chem-ion-num:focus {\r\n  border-color: var(--chem-accent);\r\n  box-shadow: 0 0 0 3px var(--chem-accent-dim);\r\n}\r\n.chem-ion-btn {\r\n  appearance: none;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n  min-height: 26px;\r\n  padding: 3px 8px;\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: 6px;\r\n  background: var(--chem-surface);\r\n  color: var(--chem-text);\r\n  font: inherit;\r\n  font-size: 12px;\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n}\r\n.chem-ion-btn:hover {\r\n  border-color: var(--chem-accent);\r\n  color: var(--chem-accent);\r\n}\r\n.chem-ion-btn:active { transform: scale(0.96); }\r\n.chem-ion-sign { font-weight: 700; }\r\n.chem-ion-preview {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-width: 26px;\r\n}\r\n/* 预览用的 KaTeX 要压小：这是工具条里的小标签，不是正文 */\r\n.chem-ion-preview .katex { font-size: 1.02em; }\r\n\r\n.chem-body {\r\n  display: grid;\r\n  grid-template-columns: 1fr 320px;\r\n  gap: 12px;\r\n  align-items: start;\r\n}\r\n@media (max-width: 720px) {\r\n  .chem-body { grid-template-columns: 1fr; }\r\n}\r\n\r\n.chem-editor {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 10px;\r\n  min-width: 0;\r\n}\r\n\r\n.chem-textarea {\r\n  width: 100%;\r\n  background: var(--chem-surface);\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  color: var(--chem-text);\r\n  font-family: var(--chem-mono);\r\n  font-size: 14px;\r\n  padding: 10px 12px;\r\n  resize: vertical;\r\n  min-height: 64px;\r\n  outline: none;\r\n  transition: border-color 0.15s ease, box-shadow 0.15s ease;\r\n}\r\n.chem-textarea:focus {\r\n  border-color: var(--chem-accent);\r\n  box-shadow: 0 0 0 3px var(--chem-accent-dim);\r\n}\r\n.chem-textarea::placeholder { color: var(--chem-muted); }\r\n\r\n.chem-preview {\r\n  background: var(--chem-surface);\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  padding: 16px 12px;\r\n  min-height: 56px;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  overflow-x: auto;\r\n}\r\n.chem-preview .katex { font-size: 1.4em; color: var(--chem-text); }\r\n.chem-preview-empty {\r\n  color: var(--chem-muted);\r\n  font-size: 12px;\r\n  font-style: italic;\r\n}\r\n\r\n.chem-status {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 10px;\r\n  flex-wrap: wrap;\r\n}\r\n.chem-status-badge {\r\n  font-size: 11px;\r\n  padding: 2px 8px;\r\n  border-radius: 999px;\r\n  border: 1px solid var(--chem-border);\r\n  white-space: nowrap;\r\n}\r\n.chem-status-ok { color: var(--chem-ok); border-color: var(--chem-ok); background: rgba(126, 255, 157, 0.08); }\r\n.chem-status-err { color: var(--chem-err); border-color: var(--chem-err); background: rgba(255, 110, 110, 0.08); }\r\n.chem-status-idle { color: var(--chem-muted); }\r\n\r\n.chem-latex-out {\r\n  font-family: var(--chem-mono);\r\n  font-size: 11px;\r\n  color: var(--chem-muted);\r\n  background: var(--chem-surface);\r\n  padding: 2px 8px;\r\n  border-radius: 4px;\r\n  flex: 1;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.chem-aside {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 12px;\r\n  max-height: 520px;\r\n  overflow-y: auto;\r\n  padding-right: 2px;\r\n}\r\n.chem-aside::-webkit-scrollbar { width: 6px; }\r\n.chem-aside::-webkit-scrollbar-thumb { background: var(--chem-border-strong); border-radius: 3px; }\r\n\r\n.chem-element-panel {\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  padding: 8px;\r\n  background: var(--chem-surface);\r\n}\r\n\r\n.chem-element-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(18, 1fr);\r\n  grid-template-rows: repeat(7, 1fr);\r\n  gap: 2px;\r\n}\r\n.chem-element-row {\r\n  display: flex;\r\n  gap: 2px;\r\n  margin-top: 4px;\r\n  flex-wrap: wrap;\r\n}\r\n\r\n.chem-el {\r\n  appearance: none;\r\n  background: var(--chem-surface-2);\r\n  border: 1px solid var(--chem-border);\r\n  border-left: 2px solid var(--el-color, var(--chem-accent));\r\n  border-radius: 4px;\r\n  padding: 3px 0;\r\n  cursor: pointer;\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-height: 34px;\r\n  transition: all 0.12s ease;\r\n  position: relative;\r\n  overflow: hidden;\r\n}\r\n.chem-el:hover {\r\n  background: color-mix(in srgb, var(--el-color, var(--chem-accent)) 18%, transparent);\r\n  border-color: var(--el-color, var(--chem-accent));\r\n  transform: scale(1.08);\r\n  z-index: 2;\r\n  box-shadow: 0 0 12px color-mix(in srgb, var(--el-color, var(--chem-accent)) 40%, transparent);\r\n}\r\n.chem-el-z {\r\n  font-size: 7px;\r\n  color: var(--chem-muted);\r\n  line-height: 1;\r\n}\r\n.chem-el-sym {\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n  color: var(--chem-text);\r\n  line-height: 1.2;\r\n}\r\n.chem-el-name {\r\n  font-size: 7px;\r\n  color: var(--chem-muted);\r\n  line-height: 1;\r\n}\r\n.chem-element-row .chem-el { flex: 1; min-width: 30px; }\r\n\r\n.chem-history {\r\n  border: 1px solid var(--chem-border);\r\n  border-radius: var(--chem-radius);\r\n  padding: 8px;\r\n  background: var(--chem-surface);\r\n}\r\n.chem-history-head {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 6px;\r\n}\r\n.chem-history-title {\r\n  font-size: 11px;\r\n  color: var(--chem-muted);\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n}\r\n.chem-history-clear {\r\n  appearance: none;\r\n  background: transparent;\r\n  border: none;\r\n  color: var(--chem-muted);\r\n  font-size: 11px;\r\n  cursor: pointer;\r\n}\r\n.chem-history-clear:hover { color: var(--chem-err); }\r\n.chem-history-empty {\r\n  font-size: 11px;\r\n  color: var(--chem-muted);\r\n  padding: 6px 2px;\r\n}\r\n.chem-history-list {\r\n  list-style: none;\r\n  margin: 0;\r\n  padding: 0;\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 3px;\r\n}\r\n.chem-history-item {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 4px;\r\n}\r\n.chem-history-pick {\r\n  flex: 1;\r\n  appearance: none;\r\n  background: var(--chem-surface-2);\r\n  border: 1px solid var(--chem-border);\r\n  color: var(--chem-text);\r\n  border-radius: 4px;\r\n  padding: 4px 8px;\r\n  font-family: var(--chem-mono);\r\n  font-size: 11px;\r\n  text-align: left;\r\n  cursor: pointer;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n  transition: all 0.12s ease;\r\n}\r\n.chem-history-pick:hover {\r\n  border-color: var(--chem-accent);\r\n  color: var(--chem-accent);\r\n}\r\n.chem-history-del {\r\n  appearance: none;\r\n  background: transparent;\r\n  border: 1px solid var(--chem-border);\r\n  color: var(--chem-muted);\r\n  border-radius: 4px;\r\n  width: 22px;\r\n  height: 22px;\r\n  cursor: pointer;\r\n  font-size: 12px;\r\n  line-height: 1;\r\n}\r\n.chem-history-del:hover { color: var(--chem-err); border-color: var(--chem-err); }";
 const KATEX_CSS = "@font-face{font-display:block;font-family:KaTeX_AMS;font-style:normal;font-weight:400;src:url(fonts/KaTeX_AMS-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_AMS-Regular.woff) format(\"woff\"),url(fonts/KaTeX_AMS-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Caligraphic;font-style:normal;font-weight:700;src:url(fonts/KaTeX_Caligraphic-Bold.woff2) format(\"woff2\"),url(fonts/KaTeX_Caligraphic-Bold.woff) format(\"woff\"),url(fonts/KaTeX_Caligraphic-Bold.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Caligraphic;font-style:normal;font-weight:400;src:url(fonts/KaTeX_Caligraphic-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_Caligraphic-Regular.woff) format(\"woff\"),url(fonts/KaTeX_Caligraphic-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Fraktur;font-style:normal;font-weight:700;src:url(fonts/KaTeX_Fraktur-Bold.woff2) format(\"woff2\"),url(fonts/KaTeX_Fraktur-Bold.woff) format(\"woff\"),url(fonts/KaTeX_Fraktur-Bold.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Fraktur;font-style:normal;font-weight:400;src:url(fonts/KaTeX_Fraktur-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_Fraktur-Regular.woff) format(\"woff\"),url(fonts/KaTeX_Fraktur-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:normal;font-weight:700;src:url(fonts/KaTeX_Main-Bold.woff2) format(\"woff2\"),url(fonts/KaTeX_Main-Bold.woff) format(\"woff\"),url(fonts/KaTeX_Main-Bold.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:italic;font-weight:700;src:url(fonts/KaTeX_Main-BoldItalic.woff2) format(\"woff2\"),url(fonts/KaTeX_Main-BoldItalic.woff) format(\"woff\"),url(fonts/KaTeX_Main-BoldItalic.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:italic;font-weight:400;src:url(fonts/KaTeX_Main-Italic.woff2) format(\"woff2\"),url(fonts/KaTeX_Main-Italic.woff) format(\"woff\"),url(fonts/KaTeX_Main-Italic.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Main;font-style:normal;font-weight:400;src:url(fonts/KaTeX_Main-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_Main-Regular.woff) format(\"woff\"),url(fonts/KaTeX_Main-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Math;font-style:italic;font-weight:700;src:url(fonts/KaTeX_Math-BoldItalic.woff2) format(\"woff2\"),url(fonts/KaTeX_Math-BoldItalic.woff) format(\"woff\"),url(fonts/KaTeX_Math-BoldItalic.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Math;font-style:italic;font-weight:400;src:url(fonts/KaTeX_Math-Italic.woff2) format(\"woff2\"),url(fonts/KaTeX_Math-Italic.woff) format(\"woff\"),url(fonts/KaTeX_Math-Italic.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:\"KaTeX_SansSerif\";font-style:normal;font-weight:700;src:url(fonts/KaTeX_SansSerif-Bold.woff2) format(\"woff2\"),url(fonts/KaTeX_SansSerif-Bold.woff) format(\"woff\"),url(fonts/KaTeX_SansSerif-Bold.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:\"KaTeX_SansSerif\";font-style:italic;font-weight:400;src:url(fonts/KaTeX_SansSerif-Italic.woff2) format(\"woff2\"),url(fonts/KaTeX_SansSerif-Italic.woff) format(\"woff\"),url(fonts/KaTeX_SansSerif-Italic.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:\"KaTeX_SansSerif\";font-style:normal;font-weight:400;src:url(fonts/KaTeX_SansSerif-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_SansSerif-Regular.woff) format(\"woff\"),url(fonts/KaTeX_SansSerif-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Script;font-style:normal;font-weight:400;src:url(fonts/KaTeX_Script-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_Script-Regular.woff) format(\"woff\"),url(fonts/KaTeX_Script-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Size1;font-style:normal;font-weight:400;src:url(fonts/KaTeX_Size1-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_Size1-Regular.woff) format(\"woff\"),url(fonts/KaTeX_Size1-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Size2;font-style:normal;font-weight:400;src:url(fonts/KaTeX_Size2-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_Size2-Regular.woff) format(\"woff\"),url(fonts/KaTeX_Size2-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Size3;font-style:normal;font-weight:400;src:url(fonts/KaTeX_Size3-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_Size3-Regular.woff) format(\"woff\"),url(fonts/KaTeX_Size3-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Size4;font-style:normal;font-weight:400;src:url(fonts/KaTeX_Size4-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_Size4-Regular.woff) format(\"woff\"),url(fonts/KaTeX_Size4-Regular.ttf) format(\"truetype\")}@font-face{font-display:block;font-family:KaTeX_Typewriter;font-style:normal;font-weight:400;src:url(fonts/KaTeX_Typewriter-Regular.woff2) format(\"woff2\"),url(fonts/KaTeX_Typewriter-Regular.woff) format(\"woff\"),url(fonts/KaTeX_Typewriter-Regular.ttf) format(\"truetype\")}.katex{font:normal 1.21em KaTeX_Main,Times New Roman,serif;line-height:1.2;position:relative;text-indent:0;text-rendering:auto}.katex *{-ms-high-contrast-adjust:none!important;border-color:currentColor}.katex .katex-version:after{content:\"0.16.47\"}.katex .katex-mathml{border:0;-webkit-clip-path:inset(50%);clip-path:inset(50%);height:1px;overflow:hidden;padding:0;position:absolute;width:1px}.katex .katex-html>.newline{display:block}.katex .base{position:relative;white-space:nowrap;width:-webkit-min-content;width:-moz-min-content;width:min-content}.katex .base,.katex .strut{display:inline-block}.katex .textbf{font-weight:700}.katex .textit{font-style:italic}.katex .textrm{font-family:KaTeX_Main}.katex .textsf{font-family:KaTeX_SansSerif}.katex .texttt{font-family:KaTeX_Typewriter}.katex .mathnormal{font-family:KaTeX_Math;font-style:italic}.katex .mathit{font-family:KaTeX_Main;font-style:italic}.katex .mathrm{font-style:normal}.katex .mathbf{font-family:KaTeX_Main;font-weight:700}.katex .boldsymbol{font-family:KaTeX_Math;font-style:italic;font-weight:700}.katex .amsrm,.katex .mathbb,.katex .textbb{font-family:KaTeX_AMS}.katex .mathcal{font-family:KaTeX_Caligraphic}.katex .mathfrak,.katex .textfrak{font-family:KaTeX_Fraktur}.katex .mathboldfrak,.katex .textboldfrak{font-family:KaTeX_Fraktur;font-weight:700}.katex .mathtt{font-family:KaTeX_Typewriter}.katex .mathscr,.katex .textscr{font-family:KaTeX_Script}.katex .mathsf,.katex .textsf{font-family:KaTeX_SansSerif}.katex .mathboldsf,.katex .textboldsf{font-family:KaTeX_SansSerif;font-weight:700}.katex .mathitsf,.katex .mathsfit,.katex .textitsf{font-family:KaTeX_SansSerif;font-style:italic}.katex .mainrm{font-family:KaTeX_Main;font-style:normal}.katex .vlist-t{border-collapse:collapse;display:inline-table;table-layout:fixed}.katex .vlist-r{display:table-row}.katex .vlist{display:table-cell;position:relative;vertical-align:bottom}.katex .vlist>span{display:block;height:0;position:relative}.katex .vlist>span>span{display:inline-block}.katex .vlist>span>.pstrut{overflow:hidden;width:0}.katex .vlist-t2{margin-right:-2px}.katex .vlist-s{display:table-cell;font-size:1px;min-width:2px;vertical-align:bottom;width:2px}.katex .vbox{align-items:baseline;display:inline-flex;flex-direction:column}.katex .hbox{width:100%}.katex .hbox,.katex .thinbox{display:inline-flex;flex-direction:row}.katex .thinbox{max-width:0;width:0}.katex .msupsub{text-align:left}.katex .mfrac>span>span{text-align:center}.katex .mfrac .frac-line{border-bottom-style:solid;display:inline-block;width:100%}.katex .hdashline,.katex .hline,.katex .mfrac .frac-line,.katex .overline .overline-line,.katex .rule,.katex .underline .underline-line{min-height:1px}.katex .mspace{display:inline-block}.katex .smash{display:inline;line-height:0}.katex .clap,.katex .llap,.katex .rlap{position:relative;width:0}.katex .clap>.inner,.katex .llap>.inner,.katex .rlap>.inner{position:absolute}.katex .clap>.fix,.katex .llap>.fix,.katex .rlap>.fix{display:inline-block}.katex .llap>.inner{right:0}.katex .clap>.inner,.katex .rlap>.inner{left:0}.katex .clap>.inner>span{margin-left:-50%;margin-right:50%}.katex .rule{border:0 solid;display:inline-block;position:relative}.katex .hline,.katex .overline .overline-line,.katex .underline .underline-line{border-bottom-style:solid;display:inline-block;width:100%}.katex .hdashline{border-bottom-style:dashed;display:inline-block;width:100%}.katex .sqrt>.root{margin-left:.2777777778em;margin-right:-.5555555556em}.katex .fontsize-ensurer.reset-size1.size1,.katex .sizing.reset-size1.size1{font-size:1em}.katex .fontsize-ensurer.reset-size1.size2,.katex .sizing.reset-size1.size2{font-size:1.2em}.katex .fontsize-ensurer.reset-size1.size3,.katex .sizing.reset-size1.size3{font-size:1.4em}.katex .fontsize-ensurer.reset-size1.size4,.katex .sizing.reset-size1.size4{font-size:1.6em}.katex .fontsize-ensurer.reset-size1.size5,.katex .sizing.reset-size1.size5{font-size:1.8em}.katex .fontsize-ensurer.reset-size1.size6,.katex .sizing.reset-size1.size6{font-size:2em}.katex .fontsize-ensurer.reset-size1.size7,.katex .sizing.reset-size1.size7{font-size:2.4em}.katex .fontsize-ensurer.reset-size1.size8,.katex .sizing.reset-size1.size8{font-size:2.88em}.katex .fontsize-ensurer.reset-size1.size9,.katex .sizing.reset-size1.size9{font-size:3.456em}.katex .fontsize-ensurer.reset-size1.size10,.katex .sizing.reset-size1.size10{font-size:4.148em}.katex .fontsize-ensurer.reset-size1.size11,.katex .sizing.reset-size1.size11{font-size:4.976em}.katex .fontsize-ensurer.reset-size2.size1,.katex .sizing.reset-size2.size1{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size2.size2,.katex .sizing.reset-size2.size2{font-size:1em}.katex .fontsize-ensurer.reset-size2.size3,.katex .sizing.reset-size2.size3{font-size:1.1666666667em}.katex .fontsize-ensurer.reset-size2.size4,.katex .sizing.reset-size2.size4{font-size:1.3333333333em}.katex .fontsize-ensurer.reset-size2.size5,.katex .sizing.reset-size2.size5{font-size:1.5em}.katex .fontsize-ensurer.reset-size2.size6,.katex .sizing.reset-size2.size6{font-size:1.6666666667em}.katex .fontsize-ensurer.reset-size2.size7,.katex .sizing.reset-size2.size7{font-size:2em}.katex .fontsize-ensurer.reset-size2.size8,.katex .sizing.reset-size2.size8{font-size:2.4em}.katex .fontsize-ensurer.reset-size2.size9,.katex .sizing.reset-size2.size9{font-size:2.88em}.katex .fontsize-ensurer.reset-size2.size10,.katex .sizing.reset-size2.size10{font-size:3.4566666667em}.katex .fontsize-ensurer.reset-size2.size11,.katex .sizing.reset-size2.size11{font-size:4.1466666667em}.katex .fontsize-ensurer.reset-size3.size1,.katex .sizing.reset-size3.size1{font-size:.7142857143em}.katex .fontsize-ensurer.reset-size3.size2,.katex .sizing.reset-size3.size2{font-size:.8571428571em}.katex .fontsize-ensurer.reset-size3.size3,.katex .sizing.reset-size3.size3{font-size:1em}.katex .fontsize-ensurer.reset-size3.size4,.katex .sizing.reset-size3.size4{font-size:1.1428571429em}.katex .fontsize-ensurer.reset-size3.size5,.katex .sizing.reset-size3.size5{font-size:1.2857142857em}.katex .fontsize-ensurer.reset-size3.size6,.katex .sizing.reset-size3.size6{font-size:1.4285714286em}.katex .fontsize-ensurer.reset-size3.size7,.katex .sizing.reset-size3.size7{font-size:1.7142857143em}.katex .fontsize-ensurer.reset-size3.size8,.katex .sizing.reset-size3.size8{font-size:2.0571428571em}.katex .fontsize-ensurer.reset-size3.size9,.katex .sizing.reset-size3.size9{font-size:2.4685714286em}.katex .fontsize-ensurer.reset-size3.size10,.katex .sizing.reset-size3.size10{font-size:2.9628571429em}.katex .fontsize-ensurer.reset-size3.size11,.katex .sizing.reset-size3.size11{font-size:3.5542857143em}.katex .fontsize-ensurer.reset-size4.size1,.katex .sizing.reset-size4.size1{font-size:.625em}.katex .fontsize-ensurer.reset-size4.size2,.katex .sizing.reset-size4.size2{font-size:.75em}.katex .fontsize-ensurer.reset-size4.size3,.katex .sizing.reset-size4.size3{font-size:.875em}.katex .fontsize-ensurer.reset-size4.size4,.katex .sizing.reset-size4.size4{font-size:1em}.katex .fontsize-ensurer.reset-size4.size5,.katex .sizing.reset-size4.size5{font-size:1.125em}.katex .fontsize-ensurer.reset-size4.size6,.katex .sizing.reset-size4.size6{font-size:1.25em}.katex .fontsize-ensurer.reset-size4.size7,.katex .sizing.reset-size4.size7{font-size:1.5em}.katex .fontsize-ensurer.reset-size4.size8,.katex .sizing.reset-size4.size8{font-size:1.8em}.katex .fontsize-ensurer.reset-size4.size9,.katex .sizing.reset-size4.size9{font-size:2.16em}.katex .fontsize-ensurer.reset-size4.size10,.katex .sizing.reset-size4.size10{font-size:2.5925em}.katex .fontsize-ensurer.reset-size4.size11,.katex .sizing.reset-size4.size11{font-size:3.11em}.katex .fontsize-ensurer.reset-size5.size1,.katex .sizing.reset-size5.size1{font-size:.5555555556em}.katex .fontsize-ensurer.reset-size5.size2,.katex .sizing.reset-size5.size2{font-size:.6666666667em}.katex .fontsize-ensurer.reset-size5.size3,.katex .sizing.reset-size5.size3{font-size:.7777777778em}.katex .fontsize-ensurer.reset-size5.size4,.katex .sizing.reset-size5.size4{font-size:.8888888889em}.katex .fontsize-ensurer.reset-size5.size5,.katex .sizing.reset-size5.size5{font-size:1em}.katex .fontsize-ensurer.reset-size5.size6,.katex .sizing.reset-size5.size6{font-size:1.1111111111em}.katex .fontsize-ensurer.reset-size5.size7,.katex .sizing.reset-size5.size7{font-size:1.3333333333em}.katex .fontsize-ensurer.reset-size5.size8,.katex .sizing.reset-size5.size8{font-size:1.6em}.katex .fontsize-ensurer.reset-size5.size9,.katex .sizing.reset-size5.size9{font-size:1.92em}.katex .fontsize-ensurer.reset-size5.size10,.katex .sizing.reset-size5.size10{font-size:2.3044444444em}.katex .fontsize-ensurer.reset-size5.size11,.katex .sizing.reset-size5.size11{font-size:2.7644444444em}.katex .fontsize-ensurer.reset-size6.size1,.katex .sizing.reset-size6.size1{font-size:.5em}.katex .fontsize-ensurer.reset-size6.size2,.katex .sizing.reset-size6.size2{font-size:.6em}.katex .fontsize-ensurer.reset-size6.size3,.katex .sizing.reset-size6.size3{font-size:.7em}.katex .fontsize-ensurer.reset-size6.size4,.katex .sizing.reset-size6.size4{font-size:.8em}.katex .fontsize-ensurer.reset-size6.size5,.katex .sizing.reset-size6.size5{font-size:.9em}.katex .fontsize-ensurer.reset-size6.size6,.katex .sizing.reset-size6.size6{font-size:1em}.katex .fontsize-ensurer.reset-size6.size7,.katex .sizing.reset-size6.size7{font-size:1.2em}.katex .fontsize-ensurer.reset-size6.size8,.katex .sizing.reset-size6.size8{font-size:1.44em}.katex .fontsize-ensurer.reset-size6.size9,.katex .sizing.reset-size6.size9{font-size:1.728em}.katex .fontsize-ensurer.reset-size6.size10,.katex .sizing.reset-size6.size10{font-size:2.074em}.katex .fontsize-ensurer.reset-size6.size11,.katex .sizing.reset-size6.size11{font-size:2.488em}.katex .fontsize-ensurer.reset-size7.size1,.katex .sizing.reset-size7.size1{font-size:.4166666667em}.katex .fontsize-ensurer.reset-size7.size2,.katex .sizing.reset-size7.size2{font-size:.5em}.katex .fontsize-ensurer.reset-size7.size3,.katex .sizing.reset-size7.size3{font-size:.5833333333em}.katex .fontsize-ensurer.reset-size7.size4,.katex .sizing.reset-size7.size4{font-size:.6666666667em}.katex .fontsize-ensurer.reset-size7.size5,.katex .sizing.reset-size7.size5{font-size:.75em}.katex .fontsize-ensurer.reset-size7.size6,.katex .sizing.reset-size7.size6{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size7.size7,.katex .sizing.reset-size7.size7{font-size:1em}.katex .fontsize-ensurer.reset-size7.size8,.katex .sizing.reset-size7.size8{font-size:1.2em}.katex .fontsize-ensurer.reset-size7.size9,.katex .sizing.reset-size7.size9{font-size:1.44em}.katex .fontsize-ensurer.reset-size7.size10,.katex .sizing.reset-size7.size10{font-size:1.7283333333em}.katex .fontsize-ensurer.reset-size7.size11,.katex .sizing.reset-size7.size11{font-size:2.0733333333em}.katex .fontsize-ensurer.reset-size8.size1,.katex .sizing.reset-size8.size1{font-size:.3472222222em}.katex .fontsize-ensurer.reset-size8.size2,.katex .sizing.reset-size8.size2{font-size:.4166666667em}.katex .fontsize-ensurer.reset-size8.size3,.katex .sizing.reset-size8.size3{font-size:.4861111111em}.katex .fontsize-ensurer.reset-size8.size4,.katex .sizing.reset-size8.size4{font-size:.5555555556em}.katex .fontsize-ensurer.reset-size8.size5,.katex .sizing.reset-size8.size5{font-size:.625em}.katex .fontsize-ensurer.reset-size8.size6,.katex .sizing.reset-size8.size6{font-size:.6944444444em}.katex .fontsize-ensurer.reset-size8.size7,.katex .sizing.reset-size8.size7{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size8.size8,.katex .sizing.reset-size8.size8{font-size:1em}.katex .fontsize-ensurer.reset-size8.size9,.katex .sizing.reset-size8.size9{font-size:1.2em}.katex .fontsize-ensurer.reset-size8.size10,.katex .sizing.reset-size8.size10{font-size:1.4402777778em}.katex .fontsize-ensurer.reset-size8.size11,.katex .sizing.reset-size8.size11{font-size:1.7277777778em}.katex .fontsize-ensurer.reset-size9.size1,.katex .sizing.reset-size9.size1{font-size:.2893518519em}.katex .fontsize-ensurer.reset-size9.size2,.katex .sizing.reset-size9.size2{font-size:.3472222222em}.katex .fontsize-ensurer.reset-size9.size3,.katex .sizing.reset-size9.size3{font-size:.4050925926em}.katex .fontsize-ensurer.reset-size9.size4,.katex .sizing.reset-size9.size4{font-size:.462962963em}.katex .fontsize-ensurer.reset-size9.size5,.katex .sizing.reset-size9.size5{font-size:.5208333333em}.katex .fontsize-ensurer.reset-size9.size6,.katex .sizing.reset-size9.size6{font-size:.5787037037em}.katex .fontsize-ensurer.reset-size9.size7,.katex .sizing.reset-size9.size7{font-size:.6944444444em}.katex .fontsize-ensurer.reset-size9.size8,.katex .sizing.reset-size9.size8{font-size:.8333333333em}.katex .fontsize-ensurer.reset-size9.size9,.katex .sizing.reset-size9.size9{font-size:1em}.katex .fontsize-ensurer.reset-size9.size10,.katex .sizing.reset-size9.size10{font-size:1.2002314815em}.katex .fontsize-ensurer.reset-size9.size11,.katex .sizing.reset-size9.size11{font-size:1.4398148148em}.katex .fontsize-ensurer.reset-size10.size1,.katex .sizing.reset-size10.size1{font-size:.2410800386em}.katex .fontsize-ensurer.reset-size10.size2,.katex .sizing.reset-size10.size2{font-size:.2892960463em}.katex .fontsize-ensurer.reset-size10.size3,.katex .sizing.reset-size10.size3{font-size:.337512054em}.katex .fontsize-ensurer.reset-size10.size4,.katex .sizing.reset-size10.size4{font-size:.3857280617em}.katex .fontsize-ensurer.reset-size10.size5,.katex .sizing.reset-size10.size5{font-size:.4339440694em}.katex .fontsize-ensurer.reset-size10.size6,.katex .sizing.reset-size10.size6{font-size:.4821600771em}.katex .fontsize-ensurer.reset-size10.size7,.katex .sizing.reset-size10.size7{font-size:.5785920926em}.katex .fontsize-ensurer.reset-size10.size8,.katex .sizing.reset-size10.size8{font-size:.6943105111em}.katex .fontsize-ensurer.reset-size10.size9,.katex .sizing.reset-size10.size9{font-size:.8331726133em}.katex .fontsize-ensurer.reset-size10.size10,.katex .sizing.reset-size10.size10{font-size:1em}.katex .fontsize-ensurer.reset-size10.size11,.katex .sizing.reset-size10.size11{font-size:1.1996142719em}.katex .fontsize-ensurer.reset-size11.size1,.katex .sizing.reset-size11.size1{font-size:.2009646302em}.katex .fontsize-ensurer.reset-size11.size2,.katex .sizing.reset-size11.size2{font-size:.2411575563em}.katex .fontsize-ensurer.reset-size11.size3,.katex .sizing.reset-size11.size3{font-size:.2813504823em}.katex .fontsize-ensurer.reset-size11.size4,.katex .sizing.reset-size11.size4{font-size:.3215434084em}.katex .fontsize-ensurer.reset-size11.size5,.katex .sizing.reset-size11.size5{font-size:.3617363344em}.katex .fontsize-ensurer.reset-size11.size6,.katex .sizing.reset-size11.size6{font-size:.4019292605em}.katex .fontsize-ensurer.reset-size11.size7,.katex .sizing.reset-size11.size7{font-size:.4823151125em}.katex .fontsize-ensurer.reset-size11.size8,.katex .sizing.reset-size11.size8{font-size:.578778135em}.katex .fontsize-ensurer.reset-size11.size9,.katex .sizing.reset-size11.size9{font-size:.6945337621em}.katex .fontsize-ensurer.reset-size11.size10,.katex .sizing.reset-size11.size10{font-size:.8336012862em}.katex .fontsize-ensurer.reset-size11.size11,.katex .sizing.reset-size11.size11{font-size:1em}.katex .delimsizing.size1{font-family:KaTeX_Size1}.katex .delimsizing.size2{font-family:KaTeX_Size2}.katex .delimsizing.size3{font-family:KaTeX_Size3}.katex .delimsizing.size4{font-family:KaTeX_Size4}.katex .delimsizing.mult .delim-size1>span{font-family:KaTeX_Size1}.katex .delimsizing.mult .delim-size4>span{font-family:KaTeX_Size4}.katex .nulldelimiter{display:inline-block;width:.12em}.katex .delimcenter,.katex .op-symbol{position:relative}.katex .op-symbol.small-op{font-family:KaTeX_Size1}.katex .op-symbol.large-op{font-family:KaTeX_Size2}.katex .accent>.vlist-t,.katex .op-limits>.vlist-t{text-align:center}.katex .accent .accent-body{position:relative}.katex .accent .accent-body:not(.accent-full){width:0}.katex .overlay{display:block}.katex .mtable .vertical-separator{display:inline-block;min-width:1px}.katex .mtable .arraycolsep{display:inline-block}.katex .mtable .col-align-c>.vlist-t{text-align:center}.katex .mtable .col-align-l>.vlist-t{text-align:left}.katex .mtable .col-align-r>.vlist-t{text-align:right}.katex .svg-align{text-align:left}.katex svg{fill:currentColor;stroke:currentColor;display:block;height:inherit;position:absolute;width:100%}.katex svg path{stroke:none}.katex svg{fill-rule:nonzero;fill-opacity:1;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1}.katex img{border-style:none;max-height:none;max-width:none;min-height:0;min-width:0}.katex .stretchy{display:block;overflow:hidden;position:relative;width:100%}.katex .stretchy:after,.katex .stretchy:before{content:\"\"}.katex .hide-tail{overflow:hidden;position:relative;width:100%}.katex .halfarrow-left{left:0;overflow:hidden;position:absolute;width:50.2%}.katex .halfarrow-right{overflow:hidden;position:absolute;right:0;width:50.2%}.katex .brace-left{left:0;overflow:hidden;position:absolute;width:25.1%}.katex .brace-center{left:25%;overflow:hidden;position:absolute;width:50%}.katex .brace-right{overflow:hidden;position:absolute;right:0;width:25.1%}.katex .x-arrow-pad{padding:0 .5em}.katex .cd-arrow-pad{padding:0 .55556em 0 .27778em}.katex .mover,.katex .munder,.katex .x-arrow{text-align:center}.katex .boxpad{padding:0 .3em}.katex .fbox,.katex .fcolorbox{border:.04em solid;box-sizing:border-box}.katex .cancel-pad{padding:0 .2em}.katex .cancel-lap{margin-left:-.2em;margin-right:-.2em}.katex .sout{border-bottom-style:solid;border-bottom-width:.08em}.katex .angl{border-right:.049em solid;border-top:.049em solid;box-sizing:border-box;margin-right:.03889em}.katex .anglpad{padding:0 .03889em}.katex .eqn-num:before{content:\"(\" counter(katexEqnNo) \")\";counter-increment:katexEqnNo}.katex .mml-eqn-num:before{content:\"(\" counter(mmlEqnNo) \")\";counter-increment:mmlEqnNo}.katex .mtr-glue{width:50%}.katex .cd-vert-arrow{display:inline-block;position:relative}.katex .cd-label-left{display:inline-block;position:absolute;right:calc(50% + .3em);text-align:left}.katex .cd-label-right{display:inline-block;left:calc(50% + .3em);position:absolute;text-align:right}.katex-display{display:block;margin:1em 0;text-align:center}.katex-display>.katex{display:block;text-align:center;white-space:nowrap}.katex-display>.katex>.katex-html{display:block;position:relative}.katex-display>.katex>.katex-html>.tag{position:absolute;right:0}.katex-display.leqno>.katex>.katex-html>.tag{left:0;right:auto}.katex-display.fleqn>.katex{padding-left:2em;text-align:left}body{counter-reset:katexEqnNo mmlEqnNo}\n";const FULL_CSS = COMPONENT_CSS + '\n' + KATEX_CSS;
 function injectStyles(root) {
     if (typeof CSSStyleSheet === 'function' && 'replaceSync' in CSSStyleSheet.prototype) {

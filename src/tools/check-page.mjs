@@ -30,6 +30,9 @@ if (!m) { console.error("FAIL: 未找到内联 script"); process.exit(1); }
 const code = m[1] + `
 ;globalThis.__app = { newExp, isValidExp, normalizeExp, normalizeStep, Store,
   buildLocalMarkdown, mdToHtml, mdInline, esc, has,
+  buildOfflineMarkdown, mdImageLines, utf8ByteLength, mediaCount, mdSafeInline, fmtSize,
+  exportDialogHTML, renderDialog, openExportDialog, closeExportDialog, expExportJSON, expExportMD,
+  download, blobToDataURL, Fit,
   parseHash, goTo, render, refreshTimer, viewHome, viewEdit, viewRecord, viewReport, viewSettings,
   REPORT_PROMPT, Media, state, ui, applyTheme, resolvedTheme, systemDark, KEYS,
   collectReportData, localReport, compressImage,
@@ -61,8 +64,16 @@ const mkEl = (id) => ({
 });
 const docEl = {
   attrs: {},
+  style: {
+    props: {},
+    setProperty(k, v) { this.props[k] = v; },
+    getPropertyValue(k) { return this.props[k] || ""; },
+    removeProperty(k) { delete this.props[k]; },
+  },
   setAttribute(k, v) { this.attrs[k] = v; },
   getAttribute(k) { return this.attrs[k]; },
+  hasAttribute(k) { return k in this.attrs; },
+  removeAttribute(k) { delete this.attrs[k]; },
 };
 globalThis.document = {
   getElementById: (id) => (store[id] || (store[id] = mkEl(id))),
@@ -361,9 +372,11 @@ const darkDecl = (html.match(/:root\[data-theme="dark"\]\s*\{([\s\S]*?)\}/) || [
 const tokenNames = (s) => [...s.matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((mm) => mm[1]);
 const lightTokens = new Set(tokenNames(rootDecl));
 const darkTokens = new Set(tokenNames(darkDecl));
-const SHAPE_EXEMPT = ["--r-window", "--r-card", "--ease", "--fast", "--mid", "--mono"];
-const notDark = [...lightTokens].filter((n) => !darkTokens.has(n) && !SHAPE_EXEMPT.includes(n));
-check("令牌：浅色令牌均有深色覆盖（形状/动效豁免）" + (notDark.length ? " 缺:" + notDark.join(",") : ""), notDark.length === 0);
+/* 与主题无关的令牌：形状 / 动效 / 运行时标量，浅色深色共用同一份，不需要深色覆盖。
+   --fit-s 是「溢出兜底缩放系数」，由 JS 在运行时改写（见页面「强制缩放以适应屏幕」一节）。 */
+const THEME_EXEMPT = ["--r-window", "--r-card", "--ease", "--fast", "--mid", "--mono", "--fit-s"];
+const notDark = [...lightTokens].filter((n) => !darkTokens.has(n) && !THEME_EXEMPT.includes(n));
+check("令牌：浅色令牌均有深色覆盖（形状/动效/运行时标量豁免）" + (notDark.length ? " 缺:" + notDark.join(",") : ""), notDark.length === 0);
 
 const allDeclared = new Set(tokenNames(html));
 const usedVars = new Set([...html.matchAll(/var\((--[a-z0-9-]+)/gi)].map((mm) => mm[1]));
@@ -1129,6 +1142,135 @@ A.LAN.online = false;
 A.LAN.files = [];
 A.LAN.base = "";
 globalThis.fetch = realFetch2;
+
+/* ---------------- 手机适配：响应式硬化 + 溢出兜底缩放 ----------------
+   为什么单独有一组「CSS 形状」断言：窄屏上「页面被裁」的根因就是网格轨道被内容的
+   min-content 撑宽（裸 1fr / 缺 min-width:0 / nowrap 的标题），而这些在 DOM 逻辑里看不出来。
+   真排版下的表现由 tools/check-mobile.mjs 用真浏览器逐档验证。 */
+check("手机适配：主壳/主区/卡片都写了 min-width:0（网格轨道不许被 min-content 撑宽）",
+  /\.main\s*\{[^}]*min-width:\s*0/.test(html) &&
+  /\.step-rail,\s*\.card\s*\{[^}]*min-width:\s*0/s.test(html) &&
+  /\.editor-main\s*\{[^}]*min-width:\s*0/.test(html));
+check("手机适配：编辑器轨道用 minmax(0,1fr)（窄屏档位同样）",
+  /\.editor-layout\s*\{[^}]*minmax\(0,\s*1fr\)/.test(html) &&
+  /@media \(max-width: 980px\)[\s\S]{0,220}\.editor-layout\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)/.test(html));
+check("手机适配：实验主壳的轨道也用 minmax(0,1fr)",
+  /grid-template-columns:\s*264px minmax\(0,\s*1fr\)/.test(html));
+check("手机适配：步骤名能压缩成省略号（flex:1 + min-width:0）",
+  /\.step-item-name\s*\{[^}]*flex:\s*1[^}]*min-width:\s*0/.test(html));
+check("手机适配：兜底缩放有两条路（zoom + transform 兜底），用 data-fit-tf 区分",
+  /html\[data-fit\]:not\(\[data-fit-tf\]\)\s*\{\s*zoom:\s*var\(--fit-s/.test(html) &&
+  /data-fit-tf/.test(appScript));
+check("手机适配：只有走 zoom 那条路时才做 100dvh 缩放补偿（transform 那条不需要）",
+  /html\[data-fit\]:not\(\[data-fit-tf\]\)\s*body\s*\{[^}]*calc\(100dvh \/ var\(--fit-s/.test(html) &&
+  /html\[data-fit\]:not\(\[data-fit-tf\]\)\s*\.frame\s*\{[^}]*calc\(100dvh \/ var\(--fit-s/.test(html));
+check("手机适配：zoom 是否生效是**实测**出来的（Android WebView 上 supports/computed 都骗人）",
+  /detectZoom\(\)/.test(appScript) && /zoomWorks/.test(appScript) &&
+  /getBoundingClientRect\(\)\.width < 90/.test(appScript));
+check("手机适配：transform 兜底放大内容区再缩，并用负 margin 收掉多余的布局高度",
+  /contentEl\(\)/.test(appScript) && /transform = "scale\("/.test(appScript) &&
+  /view\.style\.marginBottom/.test(appScript));
+check("手机适配：transform 兜底时关掉 .view 的入场动画（CSS 动画优先级高于内联 transform）",
+  /html\[data-fit-tf\]\s*#main\s*>\s*\.view\s*\{\s*animation:\s*none/.test(html));
+check("手机适配：提示条样式存在（缩放不静默发生）",
+  /\.fit-hint\.on\s*\{\s*display:\s*flex/.test(html) && /\.fit-hint-btn/.test(html));
+check("手机适配：弹窗宿主在 body 里（整页重绘不碰它）", /id="dialogHost"/.test(html));
+
+const Fit = A.Fit;
+check("兜底缩放：Fit 模块齐备（quickOverflow/overflow/apply/run/schedule/paintHint/reset）",
+  !!Fit && ["quickOverflow", "overflow", "apply", "run", "schedule", "paintHint", "reset"].every((k) => typeof Fit[k] === "function"));
+check("兜底缩放：有缩放下限（不至于小到没法读）", !!Fit && Fit.MIN > 0.4 && Fit.MIN < 0.9);
+check("兜底缩放：无溢出时不缩放（默认 100%）",
+  (() => { Fit.dismissed = false; Fit.run();
+    return Fit.scale === 1 && !globalThis.document.documentElement.hasAttribute("data-fit"); })());
+check("兜底缩放：开关写在 documentElement 上（CSS 的 html[data-fit] 才吃得到）",
+  (() => { Fit.apply(0.8);
+    const on = globalThis.document.documentElement.hasAttribute("data-fit") &&
+      globalThis.document.documentElement.style.getPropertyValue("--fit-s") !== "";
+    Fit.apply(1);
+    return on && !globalThis.document.documentElement.hasAttribute("data-fit"); })());
+check("兜底缩放：提示条文案说清「自动缩小」并给「按原尺寸看」的出口",
+  /已自动缩小到/.test(html) && /按原尺寸看/.test(html) && /case "fit-reset":\s*Fit\.reset\(\)/.test(appScript));
+check("兜底缩放：换页/换步骤后会重新量一次（render 里挂了 Fit.schedule）",
+  /Timer\.syncView\(state\.exp\);[\s\S]{0,320}Fit\.schedule\(\)/.test(appScript));
+
+/* ---------------- 导出：格式选择 + 离线 Markdown ---------------- */
+check("导出：卡片上的「导出」改为打开格式选择（不再直接下 JSON）",
+  /case "exp-export":\s*openExportDialog\(/.test(appScript));
+check("导出：旧的直下 JSON 函数已改名（不再有裸 expExport）", !/\bexpExport\b/.test(appScript));
+check("导出：三个动作都接上了（选择 md / 选择 json / 关闭）",
+  /case "exp-export-md":/.test(appScript) && /case "exp-export-json":/.test(appScript) && /case "exp-export-close":/.test(appScript));
+
+const expX = A.newExp("导出选择器实验", "chemistry");
+expX.steps[0].title = "第一步";
+expX.steps[0].equation = "2H2 + O2 -> 2H2O";
+A.Store.saveExp(expX);
+const dlgHtml = A.exportDialogHTML(expX.id);
+check("导出弹窗：两种格式都给出，并写明各自用途",
+  dlgHtml.indexOf("exp-export-md") >= 0 && dlgHtml.indexOf("exp-export-json") >= 0 &&
+  dlgHtml.indexOf("离线 Markdown") >= 0 && dlgHtml.indexOf("在线 JSON") >= 0);
+check("导出弹窗：标题带上实验名（不会导错对象）", dlgHtml.indexOf(A.esc(expX.name)) >= 0);
+check("导出弹窗：说明了图片内嵌与「不联网」", dlgHtml.indexOf("base64 内嵌") >= 0 && dlgHtml.indexOf("不联网") >= 0);
+check("导出弹窗：打开/关闭落在 #dialogHost 上",
+  (A.openExportDialog(expX.id), store.dialogHost.innerHTML.indexOf("dlg-mask") >= 0 &&
+    A.ui.exportId === expX.id && (A.closeExportDialog(), store.dialogHost.innerHTML === "" && A.ui.exportId === null)));
+check("导出弹窗：实验不存在时不开空弹窗",
+  (A.openExportDialog("exp_不存在"), A.ui.exportId === null && store.dialogHost.innerHTML === ""));
+
+const fakeImg = (ref) => Promise.resolve("data:image/png;base64,AAA" + (ref && ref.id ? ref.id : ""));
+/* 顶层 await：离线 MD 是异步的（要读 IndexedDB 里的图片 Blob），
+   必须等它跑完再打印结果，否则这几项会在「输出」之后才 push 进 results。 */
+await (async () => {
+  const e = A.newExp("离线导出实验", "chemistry");
+  e.desc = "把整个实验塞进一个 md。";
+  const s0 = A.normalizeStep({ id: "s_a" });
+  s0.title = "加试剂";
+  s0.text = "取 2 mL 溶液于试管中。";
+  s0.equation = "Fe^3+ + 3OH^- -> Fe(OH)3 v";
+  s0.tips = "戴护目镜。";
+  s0.images = [{ id: "m_1", kind: "image", name: "现象.png", store: "idb" }];
+  s0.record.note = "出现红褐色沉淀。";
+  s0.record.images = [{ id: "m_2", kind: "image", name: "记录.png", store: "idb" }];
+  s0.videos = [{ id: "m_3", kind: "video", name: "演示.mp4", store: "external" }];
+  s0.timer.mode = "countdown";
+  s0.timer.target = 120;
+  s0.timer.accumulated = 96000;
+  s0.timer.logs = [{ at: Date.UTC(2026, 9, 9, 10, 30), ms: 96000, step: 1 }];
+  const s1 = A.normalizeStep({ id: "s_b" });
+  s1.title = "过滤";
+  s1.images = [{ id: "m_4", kind: "image", name: "丢了.png", store: "idb" }];
+  e.steps = [s0, s1];
+  e.log.total = "全程顺利。";
+  A.Store.saveExp(e);
+
+  const r = await A.buildOfflineMarkdown(e, (ref) => (ref && ref.id === "m_4" ? Promise.resolve("") : fakeImg(ref)));
+  const md = r.md;
+  check("离线 MD：标题与元信息（学科/步骤数/不依赖 App）",
+    md.indexOf("# 离线导出实验") === 0 && md.indexOf("学科：化学") > 0 && md.indexOf("共 2 个步骤") > 0 &&
+    md.indexOf("不依赖 App 与网络") > 0);
+  check("离线 MD：含简介 / 方程式一览 / 步骤小标题",
+    md.indexOf("## 实验简介") > 0 && md.indexOf("## 反应方程式一览") > 0 && md.indexOf("## 步骤 1 · 加试剂") > 0);
+  check("离线 MD：每步写出正文 / 方程式 / 安全提示",
+    md.indexOf("取 2 mL 溶液于试管中。") > 0 && md.indexOf("`Fe^3+ + 3OH^- -> Fe(OH)3 v`") > 0 &&
+    md.indexOf("**安全小 TIPS**") > 0 && md.indexOf("> 戴护目镜。") > 0);
+  check("离线 MD：现象记录与计时（含目标时长与日志表）",
+    md.indexOf("**现象 / 数据**") > 0 && md.indexOf("出现红褐色沉淀。") > 0 &&
+    md.indexOf("**计时**") > 0 && md.indexOf("- 计时模式：倒计时") > 0 && md.indexOf("- 目标时长：02:00") > 0 &&
+    md.indexOf("| 记录时间 | 用时 |") > 0);
+  check("离线 MD：图片以 base64 data URL 内嵌（离线可读的关键）",
+    md.indexOf("![") > 0 && md.indexOf("](data:image/png;base64,AAAm_1)") > 0 && r.embedded === 2);
+  check("离线 MD：读不到的图片写占位，不静默丢图",
+    md.indexOf("未能内嵌") > 0 && r.missing === 1);
+  check("离线 MD：视频只登记文件名（不假装内嵌）",
+    md.indexOf("仅登记文件名") > 0 && md.indexOf("演示.mp4") > 0 && r.videos === 1);
+  check("离线 MD：结尾有总记录与导出标记",
+    md.indexOf("## 总记录") > 0 && md.indexOf("全程顺利。") > 0 && md.indexOf("<!-- 由「实验助手") > 0);
+  check("离线 MD：字节数按 UTF-8 算（中文不会被少算）",
+    r.bytes === Buffer.byteLength(md, "utf8") && r.bytes > md.length);
+  check("离线 MD：内容里没有残留的 undefined / [object Object]",
+    md.indexOf("undefined") < 0 && md.indexOf("[object Object]") < 0);
+  A.Store.removeExp(e.id);
+})();
 
 /* ---------------- 输出 ---------------- */
 

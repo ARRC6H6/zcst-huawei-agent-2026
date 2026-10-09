@@ -73,29 +73,43 @@ python lan-server.py        # 或双击 start-lan.bat（Windows）/ ./start-lan.
 
 ```bash
 node src/tools/check-syntax.mjs  src/index.html   #   2 项 内联脚本语法
-node src/tools/check-page.mjs    src/index.html   # 263 项 页面与数据层（另 8 项依赖 Tauri 工程，本仓库自动跳过 → 合计 271）
+node src/tools/check-page.mjs    src/index.html   # 298 项 页面与数据层（另 8 项依赖 Tauri 工程，本仓库自动跳过 → 合计 306）
 node src/tools/check-isotope.mjs src/index.html   #  25 项 化学式同位素左上标
+node src/tools/check-ion.mjs     src/index.html   #  64 项 离子电荷（右上角带正负号）
 node src/tools/check-lan.mjs     src/index.html   #  44 项 互传端到端（自动改用同目录 lan-server.py）
+node src/tools/check-mobile.mjs  src/index.html   #  75 项 手机视口（320/360/412）真浏览器：有没有被裁 + 兜底缩放
+node src/tools/check-chem-ui.mjs src/index.html   #  18 项 离子输入真浏览器交互（shadow DOM 里真点、真写回数据）
+node src/tools/e2e-headless.mjs                   #  65 项 真浏览器端到端（真渲染 / 真点击 / 真下载并读回离线 MD）
 ```
 
 - `check-syntax.mjs`：内联的两段 `<script>` 能不能被解析（改完最容易踩的低级坑）。
-- `check-page.mjs`（**271 项**）：脚本可执行 / 数据模型与持久化 / **「仪器摆放」已删干净的反向断言** /
+- `check-page.mjs`（**306 项**）：脚本可执行 / 数据模型与持久化 / **「仪器摆放」已删干净的反向断言** /
   各视图渲染 / 本地报告与 markdown 渲染 / 注入防护 / 媒体与视频占位 / LLM 约定 / 主题三态 / 令牌完整性 /
   路由回落 / 单文件零外链形态 / AI 页 / 局域网互传页 /
   **计时器（每步独立 + 自由计时器、预设、到点写记录、报告逐条列出）** /
-  **下载即导入（格式识别、去重、报错、非 .json 不处理）** / 手机端缩放声明。
+  **下载即导入（格式识别、去重、报错、非 .json 不处理）** / 手机端缩放声明 /
+  **导出格式选择（离线 MD / 在线 JSON）** / **离线 MD 内容与图片内嵌** / **手机溢出兜底（`Fit`）**。
   其中 8 项断言同时要看 Tauri 工程（`src-tauri/` 的 Rust 与配置、`gen/android` 的 MainActivity），
   本仓库只放 Web 作品，缺这些文件时它们会显示为 `SKIP` 而不是 `FAIL`。
 - `check-isotope.mjs`：抽出内联的 chem-input 库，真跑 `smartConvert` 与 KaTeX 渲染，
   断言「质量数一律落在元素符号左上角」（`^18O`、`O^18`、`H2O^18`、`C^14O2`），且不误伤 `Fe^3+` / `SO4^2-` 电荷。
+- `check-ion.mjs`（64 项）：离子电荷的两层断言 —— ① 纯函数（`^3+` / `^+` / `^2-` / `^-` 的生成与范围夹取）；
+  ② **真渲染结构**：电荷必须落在元素符号**右侧**的上标块（`msupsub`）里、**带正负号**，
+  且没有走 KaTeX 的 `llap`（那是左上标/质量数的排法）。
+- `check-mobile.mjs` / `check-chem-ui.mjs`：**真浏览器**里用同源 iframe 造手机视口
+  （headless 窗口有 ~504px 最小宽度，`--window-size=360` 拿不到真视口），前者逐页量「有没有元素画到屏幕右边之外」，
+  后者在 shadow DOM 里真点离子按钮并检查 `step.equation` 是否写对。
 - `check-lan.mjs`：真启动服务端（默认 Rust 内置服务端；本仓库没有 `src-tauri` 时自动退回同目录的
   `lan-server.py`，两者 1:1 对齐同一套契约），跑通初始化 / 分片 / 状态 / 合并 / 列表 / 下载 / 秒传 /
   断点续传 / 空文件 / 文本互传 / 删除 / 路径穿越 / CORS。
 - `check-lan-edge.mjs`（34 项）：边界 / 异常 / 重启恢复。
-- `e2e-headless.mjs`（44 项）：**真浏览器**（headless Edge/Chrome）端到端 —— 真渲染 + 真点击 +
-  真滚动位置断言，验的是 DOM 桩验不到的东西（尤其「点按钮不许把页面顶回最上」）。
+- `e2e-headless.mjs`（65 项）：**真浏览器**（headless Edge/Chrome）端到端 —— 真渲染 + 真点击 +
+  真滚动位置断言 + **真下载并读回离线 Markdown**，验的是 DOM 桩验不到的东西（尤其「点按钮不许把页面顶回最上」）。
 - `app-html.mjs`：单文件页面的定位（候选名 `原型.html` / `实验助手*.html` / `index.html` + mtime 兜底），
   上面几个脚本共用；**页面文件改名时只改这里**（本仓库里真源叫 `src/index.html`）。
+- `inline-chem.mjs`：把方程式输入组件（独立工程 `chem-input`）的构建产物重新内联进 `src/index.html`
+  的 `<script id="chem-input-lib">`；`--check` 只比对不写盘。本仓库没有组件工程源码，
+  它找不到产物时会打印指引并以退出码 2 结束（**正常现象**，不是本仓库的校验项）。
 
 **必须全部 `失败 0` 才算没跑偏。** 这条同时是蓝图 §11 第 10 项验收标准。
 
@@ -129,6 +143,8 @@ newExp('x','chemistry').steps[0].timer.mode  // -> 'stopwatch'（每步自带一
 **十天之后的追加批次**（均已交付）：AI 生成实验步骤页 · 化学方程式输入器 · 局域网互传页 +
 「下载即导入」· 实验卡片一键分享 · 记录模式计时器（每步独立 + 自由计时器）· Tauri 双端打包
 （Windows exe / Android apk）· 图标统一为 ∞ 模板 · 设置页外链修复与教学卡折叠 · 版本 0.5.0。
+**0.5.1 追加**：手机端「页面被裁」根因修复 + 真溢出才整页缩小的兜底 · 导出可选「离线 Markdown /
+在线 JSON」（离线 MD 图片 base64 内嵌）· 方程式输入加「离子电荷」（`^3+` / `^+` / `^2-`，右上角带正负号）。
 
 ---
 
