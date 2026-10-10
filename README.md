@@ -5,6 +5,10 @@
 
 **作品一句话**：把一次生化实验做成一份**可编辑、可播放、可分享的流程文件**，并自动整理成实验报告参考版。
 
+**当前版本：0.5.1**（2026-10-09）· 最近一批：手机端「页面被裁」根因修复 + 真溢出才整页缩小的兜底 ·
+导出可选**离线 Markdown / 在线 JSON** · 方程式输入支持**离子电荷**（右上角带正负号）。
+（版本源在工程侧 `src-tauri/tauri.conf.json` / `Cargo.toml`；本仓库只放 Web 作品源码，故这里手工登记。）
+
 **⏰ 报名截止 2026-10-23（周五）** —— 倒计时与阶段安排见 [`docs/作战计划.md`](docs/作战计划.md)。
 
 ---
@@ -27,11 +31,14 @@ start src/index.html          # Windows
 
 ```bash
 node src/tools/check-syntax.mjs   src/index.html   # 内联脚本语法：2 项
-node src/tools/check-page.mjs     src/index.html   # 页面与数据层：271 项（263 通过 + 8 项依赖 Tauri 工程，本仓库不含时自动 SKIP）
+node src/tools/check-page.mjs     src/index.html   # 页面与数据层：306 项（298 通过 + 8 项依赖 Tauri 工程，本仓库不含时自动 SKIP）
 node src/tools/check-isotope.mjs  src/index.html   # 化学式同位素左上标：25 项
+node src/tools/check-ion.mjs      src/index.html   # 离子电荷（右上角带正负号）+ 电荷归一化回归：64 项
 node src/tools/check-lan.mjs      src/index.html   # 局域网互传端到端：44 项（本仓库自动改用 Python 服务端跑同一套契约）
 node src/tools/check-lan-edge.mjs src/index.html   # 边界 / 异常 / 重启恢复：34 项（Python 服务端下有 3 项 Rust 专属行为自动 SKIP）
-node src/tools/e2e-headless.mjs                    # 真浏览器（headless Edge/Chrome）端到端：44 项
+node src/tools/check-mobile.mjs   src/index.html   # 手机视口（320/360/412）真浏览器：75 项（有没有被裁 + 溢出兜底缩放）
+node src/tools/check-chem-ui.mjs  src/index.html   # 离子输入真浏览器交互：18 项（shadow DOM 里真点、真写回数据）
+node src/tools/e2e-headless.mjs                    # 真浏览器（headless Edge/Chrome）端到端：65 项（真渲染 + 真点击 + 真下载并读回离线 MD）
 # 全部都必须「失败 0」（跳过的项是与 Tauri 工程或 Rust 专属行为相关的断言，不是失败）
 ```
 
@@ -84,12 +91,17 @@ python src/lan-server.py          # 或双击 src/start-lan.bat
    ├─ 局域网互传-使用说明.md    # 互传功能的使用说明、存储位置、接口表、安全边界
    ├─ tools/app-html.mjs      # 单文件页面的定位（候选名 + mtime 兜底），构建 / 校验脚本共用
    ├─ tools/check-syntax.mjs  # 2 项内联脚本语法校验
-   ├─ tools/check-page.mjs    # 271 项页面与数据层自动校验（263 通过 + 8 项 Tauri 相关断言在本仓库自动 SKIP）
+   ├─ tools/check-page.mjs    # 306 项页面与数据层自动校验（298 通过 + 8 项 Tauri 相关断言在本仓库自动 SKIP）
    ├─ tools/check-isotope.mjs # 25 项化学式同位素角标（左上标）校验
+   ├─ tools/check-ion.mjs     # 64 项离子电荷（右上角带正负号）+ 电荷归一化回归校验
+   ├─ tools/check-mobile.mjs  # 75 项手机视口真浏览器校验（320/360/412：有没有被裁 + 溢出兜底缩放两条路）
+   ├─ tools/check-chem-ui.mjs # 18 项离子输入真浏览器交互（shadow DOM 里真点按钮 + 真写回数据）
    ├─ tools/check-lan.mjs     # 44 项互传端到端校验（真启动服务 + 真跑接口；本仓库自动用 Python 服务端）
    ├─ tools/check-lan-edge.mjs # 34 项边界 / 异常 / 重启恢复（Python 服务端下 3 项 Rust 专属行为自动 SKIP）
-   ├─ tools/e2e-headless.mjs  # 44 项真浏览器（headless Edge/Chrome）端到端：真渲染 + 真点击 + 真滚动断言
+   ├─ tools/e2e-headless.mjs  # 65 项真浏览器（headless Edge/Chrome）端到端：真渲染 + 真点击 + 真下载并读回离线 MD
    ├─ tools/check-timer-cdp.js # 真机（CDP）自测脚本：计时器（每步 + 自由）+ 下载即导入（配桌面 App 用）
+   ├─ tools/check-v051-cdp.js # 真机（CDP）自测脚本：手机适配 / 导出双格式 / 离子电荷（配 Android App 用）
+   ├─ tools/inline-chem.mjs   # 方程式组件（独立工程）构建产物 → 单文件页面的重新内联（--check 只比对）
    ├─ tools/gen-icons.py      # 图标生成：从「新图标模板.png」重采样出桌面 15 个 + Android 20 图 + 3 个 XML
    ├─ 新图标模板.png           # 图标素材（透明底 ∞）；换图标只改它再跑上面的脚本
    └─ README.md               # 源码说明：区段分工、自检命令、目标对照
@@ -102,6 +114,7 @@ python src/lan-server.py          # 或双击 src/start-lan.bat
 | 项目 | 内容 |
 | --- | --- |
 | 作品名称 | 实验助手 Lab Studio |
+| 当前版本 | **0.5.1**（2026-10-09） |
 | 参赛组别 | 非专业组 |
 | 队伍名称 | 吃白饭的大肥鱼 |
 | 队伍成员 | 待补 |
@@ -112,15 +125,16 @@ python src/lan-server.py          # 或双击 src/start-lan.bat
 
 **核心功能**（详见 [`docs/作品说明.md`](docs/作品说明.md)）：
 
-1. 多实验管理：新建 / 复制 / 删除 / 导入 / 导出，导出即得可分享的 `.json` 实验文件
+1. 多实验管理：新建 / 复制 / 删除 / 导入 / 导出；导出时可选**可分享的 `.json` 实验文件**（可再导入、可互传）或**离线 Markdown**（完整实验含图片 base64 内嵌，脱离 App 也能读、能打印）
 2. AI 生成实验步骤：把课件（`.ppt/.pptx/.doc/.docx/.txt/.md`）交给大模型生成实验文件；也支持「复制提示词 → 粘贴 JSON」的离线通路
-3. 编辑模式：每步五要素（文字 / 图片 / 视频 / 反应方程式 / 安全 TIPS）+ 仪器摆放画布（拖拽 / 缩放 / 旋转 / 连线）；
-   反应方程式带所见即所得输入器（元素周期表点选、配平校验、KaTeX + mhchem 渲染，同位素质量数按规范显示在元素**左上角**）
-4. 记录模式：逐步只读播放 + 分步记录 + 总记录；内置**整场实验计时器**（编辑模式预设定时，记录模式手动开始 / 暂停 / 归零 / 记一次，倒计时到点响铃并把用时自动写进当前步骤记录）
+3. 编辑模式：每步五要素（文字 / 图片 / 视频 / 反应方程式 / 安全 TIPS）；
+   反应方程式带所见即所得输入器（元素周期表点选、**离子电荷插入**、配平校验、KaTeX + mhchem 渲染，同位素质量数按规范显示在元素**左上角**、离子电荷显示在元素**右上角并带正负号**）
+4. 记录模式：逐步只读播放 + 分步记录 + 总记录；**每个步骤各有一个独立计时器**（编辑模式预置模式与时长，记录模式手动开始 / 暂停 / 归零 / 记一次，倒计时到点响铃并把用时写进**这一步**的记录），另有一条**不绑定步骤的自由计时器**，多条可同时运行
 5. 实验报告：LLM（OpenAI 兼容，用户自配）生成，无 API 时本地 markdown 表格兜底（用过计时器时报告自动带「计时」章节）
 6. 局域网互传：同一 Wifi 下手机 / 电脑互传文件与文本，大文件分片 + 断点续传 + 同文件秒传，数据不经云端（可选配套零依赖服务端）；**手机端支持双指缩放**放大看清单与地址
 7. **下载即导入**：在共享文件列表里点「下载」时，若该文件是实验 `.json`（实验包 / 全部备份 / 大模型生成的实验 JSON），会**同时自动加进「我的实验」**；谁下载谁导入，电脑与手机（接收端）同样生效；图片 / 文档等其它类型不受影响，认不出的 `.json` 会在互传页、首页横幅与提示条三处明确报错；**不做任何后台监听与轮询**，点下载才是触发键
-8. 三端自适应 + 浅色 / 深色 / 跟随系统三态
+8. 三端自适应 + 浅色 / 深色 / 跟随系统三态；**手机端**窄屏布局自适应 + 真溢出时的整页缩小兜底（左下角提示，可一键按原尺寸查看）
+   > ⛔ 早期版本的「仪器摆放画布 + 36 件仪器库」已按需求**整体移除**（2026-10-07），不再是本作品的功能。
 
 ---
 
