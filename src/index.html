@@ -24874,12 +24874,21 @@ function ionPrefixAt(raw, caret) {
     const end = Math.max(0, Math.min(Number(caret) || 0, s.length));
     const m = s.slice(0, end).match(/[A-Za-z0-9()[\]·.]{1,14}$/);
     return m ? m[0] : '';
-}const ARROW_RE = /(<=>|<->|->|=>)/g;
+}/* 箭头本体：`<=>` 可逆 / `<->` 可逆（另一种写法）/ `->` 单向 / `=>` 口语写法。
+   ⚠️ 全局归一化时**必须连紧贴其后的条件方括号一起吃掉**（见 ARROW_COND_RE）：
+   mhchem 只把**紧贴**箭头的 `[...]` 当作「箭头上方/下方的条件」，
+   一旦在 `->` 和 `[` 之间插进一个空格，它就把条件渲染成字面量 `[Δ]` 摆在箭头旁边。 */
+const ARROW_COND_RE$1 = /(<=>|<->|->|=>)((?:\[[^\]]*\]){0,2})/;
+const ARROW_COND_RE_G = /(<=>|<->|->|=>)((?:\[[^\]]*\]){0,2})/g;
 function smartConvert(input) {
+    /* 0) 可逆写法统一。**这两步的顺序不能反**：
+       `=>` 先被吃成 `->`（此时 `<=>` 会短暂变成 `<->`），随后 `<->` 再归一成 `<=>`。
+       反过来写（先归 `<=>`、再吃 `=>`）会把 `<=>` 拆成 `<->`，后面 `\s*->\s*` 再把它
+       劈成 `< ->` —— 界面上就成了「小于号 + 普通箭头」（用户报的「可逆符号不对」）。 */
     let s = input
-        .replace(/<=>|<->/g, '<=>')
-        .replace(/=>/g, '->');
-    // 0) 电荷先「趁紧挨着」粘成花括号写法：Fe^3+ → Fe^{3+}、Na^+ → Na^{+}、SO4^2- → SO4^{2-}。
+        .replace(/=>/g, '->')
+        .replace(/<->/g, '<=>');
+    // 1) 电荷先「趁紧挨着」粘成花括号写法：Fe^3+ → Fe^{3+}、Na^+ → Na^{+}、SO4^2- → SO4^{2-}。
     //    为什么必须在下面的空格归一化**之前**做：mhchem 只在 `^3+` 紧挨着时把 +/- 并进右上角上标，
     //    一旦被 `\s*\+\s*` 拆成 `Fe^3 + `，渲染出来就是「右上角只有 3、+ 掉到外面」（Fe³ +）。
     //    ⚠️ 只在**符号紧挨着**（^ 紧贴前面的原子、符号紧贴数字/^）时才算电荷。
@@ -24887,7 +24896,8 @@ function smartConvert(input) {
     //       绝不能被当成电荷 —— 曾经把它吃成 `^{...}`，`parseFormula` 直接崩、整个输入框空白。
     s = s.replace(/(\S)\^(\d*)([+\-])(?![A-Za-z0-9])/g, (_m, pre, n, sign) => `${pre}^{${n}${sign}}`);
     s = s.replace(/([A-Za-z0-9\)\]\}])\s*=\s*(?=[A-Za-z0-9(])/g, '$1 -> ');
-    s = s.replace(ARROW_RE, ' $1 ');
+    /* 箭头 + 紧贴的条件方括号整块留白，**不拆开**（拆开 = 条件变成字面量 `[Δ]`）。 */
+    s = s.replace(ARROW_COND_RE_G, (_m, arrow, cond) => ` ${arrow}${cond || ''} `);
     s = s.replace(/\s*([+\-])\s*(?=[A-Za-z0-9(])/g, (m, sign) => {
         if (sign === '-')
             return m;
@@ -24903,10 +24913,12 @@ function smartConvert(input) {
     s = s.replace(/([A-Z][a-z]?)\^\{?(\d+)\}?(?![0-9+\-])/g, (_m, el, n) => `^{${n}}${el}`);
     // 3) 质量数写在元素符号「前面」时（^18O / 6^18O2），mhchem 原生按左上标渲染，只规范成 ^{18}。
     s = s.replace(/\^\{?(\d+)\}?\s*(?=[A-Z][a-z]?)/g, '^{$1}');
-    s = s.replace(/\s*->\s*/g, ' -> ');
-    s = s.replace(/\s*<=>\s*/g, ' <=> ');
+    /* 4) 箭头两侧留白，但**条件方括号紧贴时不许动**（`(?!\[)`）：
+       否则这里的 `\s*->\s*` 会把上一步刚保住的 `->[\Delta]` 又拆成 `-> [\Delta]`。 */
+    s = s.replace(/\s*->(?!\[)\s*/g, ' -> ');
+    s = s.replace(/\s*<=>(?!\[)\s*/g, ' <=> ');
     s = s.replace(/\s*\+\s*/g, ' + ');
-    // 4) 末尾收尾：把第 0 步粘好的花括号电荷、又被上面的 `\s*\+\s*` 拆开的情况重新粘紧
+    // 5) 末尾收尾：把第 1 步粘好的花括号电荷、又被上面的 `\s*\+\s*` 拆开的情况重新粘紧
     //    （`^{3 + }` → `^{3+}`）。这里只认**花括号**形态，所以不会再误吃反应式的 `+` 分隔符。
     s = s.replace(/\^\{\s*(\d*)\s*([+\-])\s*\}/g, (_m, n, sign) => `^{${n}${sign}}`);
     return s;
@@ -24917,12 +24929,26 @@ function toLatex(raw) {
         return '';
     return `\\ce{${converted}}`;
 }
-function replaceArrowWithCondition(text, condition) {
-    const m = text.match(/(<=>|<->|->|=>)/);
-    if (!m)
-        return text;
-    const arrow = m[1] === '<=>' || m[1] === '<->' ? '<=>' : '->';
-    return text.replace(/(<=>|<->|->|=>)/, `${arrow}[${condition}]`);
+/** 把「反应条件」贴到反应箭头上：`A -> B` 点加热 → `A ->[\Delta] B`。
+ *
+ *  · 已经有箭头：替换**箭头本身 + 紧贴它的条件方括号**（`ARROW_COND_RE` 带条件组），
+ *    所以换条件会换掉旧的，再点同一个也不会叠成 `->[\Delta][\Delta]`；
+ *    可逆箭头同样支持：`<=>[\Delta]`，mhchem 一样把条件排在箭头上下方。
+ *  · **还没有箭头**：在光标处补一个带条件的箭头。以前这里直接原样返回，
+ *    用户点了「加热 / 催化」什么都不会发生 —— 就是「加热催化符号用不了」的另一半原因。
+ */
+function replaceArrowWithCondition(text, condition, caret) {
+    const cond = condition ? `[${condition}]` : '';
+    const hit = ARROW_COND_RE$1.exec(text);
+    if (hit) {
+        const arrow = hit[1] === '<=>' || hit[1] === '<->' ? '<=>' : '->';
+        return text.replace(ARROW_COND_RE$1, `${arrow}${cond}`);
+    }
+    const token = `->${cond}`;
+    const at = Math.max(0, Math.min(caret == null ? text.length : Number(caret) || 0, text.length));
+    const head = text.slice(0, at).replace(/\s+$/, '');
+    const rest = text.slice(at).replace(/^\s+/, '');
+    return (head ? `${head} ` : '') + token + (rest ? ` ${rest}` : ' ');
 }/** 一个电荷的迷你预览：把「离子式 + 电荷」真的用 mhchem 渲染一遍。
  *  两个按钮各自渲染自己那一个 —— 点下去之前就看得到「右上角带正负号」的结果。 */
 function IonPreview({ formula, charge, sign }) {
@@ -24944,7 +24970,37 @@ function IonPreview({ formula, charge, sign }) {
  *  负号用半角 `-`（与历史数据、smartConvert 的用例一致），渲染出来是右上角的 −。 */
 function IonBar({ charge, onCharge, target, onInsert }) {
     const n = clampCharge(charge);
-    return (jsxRuntimeExports.jsxs("div", { className: "chem-ion-bar", children: [jsxRuntimeExports.jsx("span", { className: "chem-ion-label", children: "\u79BB\u5B50\u7535\u8377" }), jsxRuntimeExports.jsx("input", { className: "chem-ion-num", type: "number", min: 1, max: ION_MAX_CHARGE, step: 1, value: n, title: `电荷数（1~${ION_MAX_CHARGE}）：1 时省略数字，只写 ＋ / －`, onChange: e => onCharge(clampCharge(Number(e.target.value))) }), jsxRuntimeExports.jsxs("button", { type: "button", className: "chem-ion-btn chem-ion-btn-plus", title: "\u63D2\u5165\u6B63\u7535\u8377\uFF1A\u5143\u7D20\u7B26\u53F7\u53F3\u4E0A\u89D2\u5E26 + \u53F7\uFF0C\u5982 Fe^3+ \u2192 Fe\u00B3\u207A", onClick: () => onInsert('+'), children: [jsxRuntimeExports.jsx("span", { className: "chem-ion-sign", children: "\uFF0B" }), jsxRuntimeExports.jsx(IonPreview, { formula: target, charge: n, sign: "+" })] }), jsxRuntimeExports.jsxs("button", { type: "button", className: "chem-ion-btn chem-ion-btn-minus", title: "\u63D2\u5165\u8D1F\u7535\u8377\uFF1A\u5143\u7D20\u7B26\u53F7\u53F3\u4E0A\u89D2\u5E26 \u2212 \u53F7\uFF0C\u5982 SO4^2- \u2192 SO\u2084\u00B2\u207B", onClick: () => onInsert('-'), children: [jsxRuntimeExports.jsx("span", { className: "chem-ion-sign", children: "\uFF0D" }), jsxRuntimeExports.jsx(IonPreview, { formula: target, charge: n, sign: "-" })] })] }));
+    /* 数字框的**草稿文本**：不能直接把 charge 塞进 value。
+       以前是 `type="number"` + `value={clampCharge(Number(v))}`，于是：
+         · 框里是 1，点进去敲 3 → "13" → 夹成 **9**（用户想要 3 价，拿到 9 价）；
+         · 退格清空 → Number('') = 0 → 立刻弹回 **1**，根本没法重新输入；
+         · `type="number"` 在 Chromium 上不支持 select()/setSelectionRange，
+           所以「聚焦时全选」这条路也走不通（setSelectionRange 直接抛错）。
+       现在：草稿允许清空，超范围立刻夹紧并回显，失焦回到生效值。 */
+    const [draft, setDraft] = reactExports.useState(String(n));
+    reactExports.useEffect(() => { setDraft(String(n)); }, [n]);
+    const editCharge = (raw) => {
+        if (raw.trim() === '') {
+            setDraft('');
+            return;
+        } // 清空后可以接着敲，不硬塞回 1
+        const k = Number(raw);
+        if (!Number.isFinite(k)) {
+            setDraft('');
+            return;
+        }
+        const c = clampCharge(k);
+        if (c !== n)
+            onCharge(c);
+        setDraft(String(c)); // 回显生效值（99 → 9）
+    };
+    return (jsxRuntimeExports.jsxs("div", { className: "chem-ion-bar", children: [jsxRuntimeExports.jsx("span", { className: "chem-ion-label", children: "\u79BB\u5B50\u7535\u8377" }), jsxRuntimeExports.jsx("input", { className: "chem-ion-num", 
+                /* ⚠️ 必须是 text + inputMode：`type="number"` 选不中内容，键盘一敲就是「追加」，
+                   3 会变成 9（见上面的注释）。inputMode 保证手机上仍然弹数字键盘。 */
+                type: "text", inputMode: "numeric", pattern: "[1-9]", autoComplete: "off", value: draft, "aria-label": `电荷数（1~${ION_MAX_CHARGE}）`, title: `电荷数（1~${ION_MAX_CHARGE}）：1 时省略数字，只写 ＋ / －`, 
+                /* 点一下就全选：直接敲数字就是「改成这个数」，不会变成在后面追加。
+                   onFocus 之外还要 onClick —— 鼠标抬起时浏览器会把选区收回成光标。 */
+                onFocus: e => e.currentTarget.select(), onClick: e => e.currentTarget.select(), onChange: e => editCharge(e.currentTarget.value), onBlur: () => setDraft(String(n)) }), jsxRuntimeExports.jsxs("button", { type: "button", className: "chem-ion-btn chem-ion-btn-plus", title: "\u63D2\u5165\u6B63\u7535\u8377\uFF1A\u5143\u7D20\u7B26\u53F7\u53F3\u4E0A\u89D2\u5E26 + \u53F7\uFF0C\u5982 Fe^3+ \u2192 Fe\u00B3\u207A", onClick: () => onInsert('+'), children: [jsxRuntimeExports.jsx("span", { className: "chem-ion-sign", children: "\uFF0B" }), jsxRuntimeExports.jsx(IonPreview, { formula: target, charge: n, sign: "+" })] }), jsxRuntimeExports.jsxs("button", { type: "button", className: "chem-ion-btn chem-ion-btn-minus", title: "\u63D2\u5165\u8D1F\u7535\u8377\uFF1A\u5143\u7D20\u7B26\u53F7\u53F3\u4E0A\u89D2\u5E26 \u2212 \u53F7\uFF0C\u5982 SO4^2- \u2192 SO\u2084\u00B2\u207B", onClick: () => onInsert('-'), children: [jsxRuntimeExports.jsx("span", { className: "chem-ion-sign", children: "\uFF0D" }), jsxRuntimeExports.jsx(IonPreview, { formula: target, charge: n, sign: "-" })] })] }));
 }function HistoryList({ items, onPick, onRemove, onClear }) {
     return (jsxRuntimeExports.jsxs("div", { className: "chem-history", children: [jsxRuntimeExports.jsxs("div", { className: "chem-history-head", children: [jsxRuntimeExports.jsx("span", { className: "chem-history-title", children: "\u5386\u53F2\u8BB0\u5F55" }), items.length > 0 && (jsxRuntimeExports.jsx("button", { type: "button", className: "chem-history-clear", onClick: onClear, children: "\u6E05\u7A7A" }))] }), items.length === 0 ? (jsxRuntimeExports.jsx("div", { className: "chem-history-empty", children: "\u6682\u65E0\u8BB0\u5F55\uFF0C\u914D\u5E73\u6210\u529F\u540E\u5C06\u81EA\u52A8\u4FDD\u5B58" })) : (jsxRuntimeExports.jsx("ul", { className: "chem-history-list", children: items.map((item, i) => (jsxRuntimeExports.jsxs("li", { className: "chem-history-item", children: [jsxRuntimeExports.jsx("button", { type: "button", className: "chem-history-pick", onClick: () => onPick(item), children: item }), jsxRuntimeExports.jsx("button", { type: "button", className: "chem-history-del", onClick: () => onRemove(i), title: "\u5220\u9664", children: "\u00D7" })] }, `${i}-${item}`))) }))] }));
 }const OPEN = '([{';
@@ -25060,9 +25116,15 @@ function splitEquation(raw) {
 function failed(message, hasArrow = false) {
     return { balanced: false, hasArrow, left: new Map(), right: new Map(), missing: [], extra: [], message };
 }
+/* 箭头上下方的**反应条件**（`->[\Delta]` / `<=>[催化剂]`）不是反应物的一部分。
+   不脱掉的话 `\Delta` 会被 parseFormula 当成元素 De 去配平，
+   凡是标了条件的式子一律显示「未配平」（用户点完加热/催化看到的就是这句）。
+   只脱**紧贴**箭头的方括号：`-> [Cu(NH3)4]SO4`（空格写法）这种配合物不受影响；
+   而紧贴写法本来就与 mhchem 的语义一致（它同样把紧贴的 `[...]` 当条件），保持一致即可。 */
+const ARROW_COND_RE = /(<=>|<->|->|=>)(?:\[[^\]]*\]){1,2}/g;
 function checkBalance(equation) {
     try {
-        const split = splitEquation(equation);
+        const split = splitEquation(String(equation == null ? '' : equation).replace(ARROW_COND_RE, '$1'));
         if (!split)
             return failed('未检测到反应箭头（-> 或 =）');
         const left = parseSide(split.left);
@@ -25168,8 +25230,22 @@ function ChemInput({ value, defaultValue = '', placeholder = '输入化学方程
             ta.setSelectionRange(pos, pos);
         });
     }, [raw, setRaw]);
+    /* 反应条件（加热 Δ / 点燃 / 催化 / 通电 / 高温 / 高压）：贴到反应箭头上，
+       可逆箭头也行（`<=>[\Delta]`）。式子还没有箭头时，在光标处补一个带条件的箭头，
+       否则点了按钮什么都不会发生（用户报的「加热催化符号用不了」）。
+       落好条件后把光标放到条件的右后方，接着敲产物即可。 */
     const applyCondition = reactExports.useCallback((cond) => {
-        setRaw(replaceArrowWithCondition(raw, cond));
+        const ta = textareaRef.current;
+        const caret = ta?.selectionStart ?? raw.length;
+        const next = replaceArrowWithCondition(raw, cond, caret);
+        setRaw(next);
+        const marker = `[${cond}]`;
+        const at = next.indexOf(marker);
+        const pos = at >= 0 ? at + marker.length : Math.min(caret, next.length);
+        requestAnimationFrame(() => {
+            ta?.focus();
+            ta?.setSelectionRange(pos, pos);
+        });
     }, [raw, setRaw]);
     /* 离子电荷：插到光标处（`^3+` / `^+` / `^2-` / `^-`），排版由 mhchem 负责
        —— 电荷会渲染成元素符号右上角、带正负号的上标。 */

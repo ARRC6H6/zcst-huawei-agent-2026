@@ -96,7 +96,7 @@ for (const [n, sign, want, why] of tokens) {
   const got = ion.ionChargeToken(n, sign);
   check("电荷片段：" + why + " → " + JSON.stringify(got), got === want, "期望 " + JSON.stringify(want));
 }
-check("电荷片段：ION_MAX_CHARGE 是 9（输入框的 max 与它同源）", ion.ION_MAX_CHARGE === 9);
+check("电荷片段：ION_MAX_CHARGE 是 9（数字框的上下限与它同源）", ion.ION_MAX_CHARGE === 9);
 check("离子片段：SO4 + 2 负 = SO4^2-", ion.ionSnippet("SO4", 2, "-") === "SO4^2-");
 check("离子片段：空格/空串不会产生怪写法", ion.ionSnippet("", 1, "+") === "^+" && ion.ionSnippet("Ba", 2, "+") === "Ba^2+");
 
@@ -271,7 +271,9 @@ check("界面：中文标签「离子电荷」在产物里（不是只有样式�
 check("界面：两个按钮各自的预览都走 mhchem 渲染（chem-ion-preview）", /chem-ion-preview/.test(html));
 check("界面：离子条排在条件条之后、元素表开关之前",
   html.indexOf("chem-condition-bar") < html.indexOf("chem-ion-bar"));
-check("界面：输入框限了范围（min/max 来自 ION_MAX_CHARGE）", /chem-ion-num[\s\S]{0,200}max:\s*ION_MAX_CHARGE/.test(html));
+check("界面：电荷数字框用 text + inputMode=numeric（type=number 选不中内容，一敲就变成追加）",
+  /chem-ion-num[\s\S]{0,420}inputMode:\s*"numeric"/.test(html) &&
+  /chem-ion-num[\s\S]{0,420}ION_MAX_CHARGE/.test(html));
 
 const pass = results.filter(([ok]) => ok).length;
 console.log("\n共 " + results.length + " 项，通过 " + pass + "，失败 " + (results.length - pass));

@@ -124,8 +124,10 @@ const childProbe = function () {
       const minus = sr.querySelector(".chem-ion-btn-minus");
       log("有数字框 + ＋ / － 两个按钮", !!num && !!plus && !!minus);
       log("默认电荷数是 1（±1 时省略数字）", num && String(num.value) === "1", num && num.value);
-      log("输入框限了 1~9 的范围", num && Number(num.min) === 1 && Number(num.max) === 9,
-        num && num.min + "~" + num.max);
+      log("电荷数字框是 text + inputMode=numeric（手机弹数字键盘，且能全选）",
+        num && num.type === "text" && num.inputMode === "numeric",
+        num && num.type + " / " + num.inputMode);
+      log("数字框标题写明 1~9 的范围", num && /1~9/.test(num.title || ""), num && num.title);
 
       /* 预览：两个按钮里各有一份真 KaTeX 渲染 */
       const previews = sr.querySelectorAll(".chem-ion-preview .katex");
@@ -180,6 +182,41 @@ const childProbe = function () {
       await sleep(40);
       R.clamped = num.value;
       log("电荷数超范围夹到 9", String(num.value) === "9", String(num.value));
+
+      /* ⭐ 真点 + 真敲：点一下数字框应当**全选**，直接敲 3 就是「改成 3」，
+         而不是在 "1" 后面追加成 "13" 再被夹成 9（用户报的「离子电荷数不正常」）。 */
+      setNativeValue(num, "1");
+      await sleep(40);
+      num.click();
+      await sleep(60);
+      R.numSelection = [num.selectionStart, num.selectionEnd];
+      const typed = String(num.value).slice(0, num.selectionStart) + "3" + String(num.value).slice(num.selectionEnd);
+      setNativeValue(num, typed);
+      await sleep(60);
+      R.afterClickType3 = String(num.value);
+      log("点一下数字框再敲 3 → 电荷数是 3（不是 9）", String(num.value) === "3",
+        "选区=" + JSON.stringify(R.numSelection) + " 敲出的值=" + JSON.stringify(typed) + " 现在=" + num.value);
+
+      /* 清空后能接着输入（以前 Number('') = 0 → 立刻弹回 1，根本没法重新输） */
+      setNativeValue(num, "");
+      await sleep(60);
+      R.afterClear = String(num.value);
+      log("退格清空后不弹回 1（可以继续输入）", String(num.value) === "", String(num.value));
+      setNativeValue(num, "2");
+      await sleep(60);
+      R.afterClearType2 = String(num.value);
+      log("清空后敲 2 → 电荷数是 2", String(num.value) === "2", String(num.value));
+
+      /* 电荷数变了，插到 Fe 上的上标也要跟着变 */
+      setNativeValue(num, "3");
+      await sleep(40);
+      setNativeValue(ta, "Fe");
+      await sleep(40);
+      ta.focus();
+      ta.selectionStart = 2; ta.selectionEnd = 2;
+      plus.click();
+      await sleep(160);
+      log("改完电荷数再点 ＋ → Fe^3+", host.value === "Fe^3+", JSON.stringify(host.value));
     } catch (err) {
       R.error = String((err && err.stack) || err);
     }

@@ -9,8 +9,8 @@ description: >
   凡是要写、改、查、解释这个项目的代码，必须先读本文件，并遵守其中全部铁律，
   接口签名一律不许私自改。本文件是原 `shishi-protocol`（拾事 Shishi）的替代版（旧版已作废）。
   ⛔ 注意：「仪器摆放」画布与仪器库已于 2026-10-07 整体移除，§3.4 / §3.5 仅为历史留档。
-version: 3.3.0
-updated: 2026-10-08
+version: 3.3.1
+updated: 2026-10-14
 applies_to: 实验助手 Lab Studio（单文件 HTML · 零依赖 · 桌面/平板/手机三端自适应）
 ---
 
@@ -86,7 +86,7 @@ DeepSeek 网页版没有系统提示词入口，用法二选一：
 | 9 | ~~仪器一律先追加 `INST_LIB` 条目~~ → **已作废**：仪器库与画布已于 2026-10-07 整体移除（§3.4 / §3.5）。现在**不许再引用** `INST_LIB` / `canvasAct` / `cv-*` | 功能已删，残留引用会被 `check-page.mjs` 的反向断言判死 |
 | 10 | **不许私自改动 §3 的任何签名、字段名、枚举值、key、token 名** | 接口是唯一能让多人并行不返工的东西 |
 | 11 | 存储层**永不抛异常**（返回 `false` / `null` / `fallback`）；只有网络层允许 `throw` | 单文件应用抛异常就是白屏，用户没有任何恢复手段 |
-| 12 | 改完必须跑校验，**全绿（失败 0 / 跳过项不算失败）**才许提交：`check-syntax`（2）、`check-page`（303：本仓库 295 项 + 8 项依赖 Tauri 工程的自动 SKIP）、`check-isotope`（25）、`check-ion`（57）、`check-mobile`（69，真浏览器手机视口）、`check-chem-ui`（15，真浏览器离子输入）、`check-lan`（44）、`check-lan-edge`（34）、`e2e-headless`（65，真浏览器） | 这是唯一能挡住「我这边是好的」的机器校验 |
+| 12 | 改完必须跑校验，**全绿（失败 0 / 跳过项不算失败）**才许提交：`check-syntax`（2）、`check-page`（306：本仓库 298 项 + 8 项依赖 Tauri 工程的自动 SKIP）、`check-isotope`（25）、`check-ion`（64）、`check-equation`（46，可逆符号 / 加热·催化条件 / 条件配平）、`check-chem-ui`（23，真浏览器离子输入与电荷数字框）、`check-mobile`（75，真浏览器手机视口）、`check-lan`（44）、`check-lan-edge`（34）、`e2e-headless`（65，真浏览器） | 这是唯一能挡住「我这边是好的」的机器校验 |
 
 ---
 
@@ -713,6 +713,10 @@ exp.timer = { ...同上 }      // ★ 自由计时器（不绑定任何步骤）
 | 电荷写法（冻结） | 插到光标处的片段为 `^3+` / `^+`（±1 省略数字）/ `^2-` / `^-`；纯函数 `ionChargeToken(n, sign)`、`ionSnippet(formula, n, sign)`、`ionPrefixAt(raw, caret)` |
 | 电荷渲染（冻结） | `smartConvert()` 必须把电荷粘成 `^{3+}` / `^{2-}`，且**必须在 `\s*\+\s* → ' + '` 空格归一化之前做**（归一化会把 `^3+` 拆成 `^3 + `，mhchem 于是只把 `3` 放进右上角、`+` 掉到外面变成独立一项）。只认**紧挨着**的形态：`^` 紧贴前面的原子、符号紧贴数字/`^`。末尾可再兜一次**花括号**形态（`^{3 + }` → `^{3+}`） |
 | ⚠️ 电荷归一化的红线 | **绝不许**把「气体/沉淀记号后面的加号」当电荷：`5Cl2 ^ + 8H2O` 里那个 `^ +` 是「↑ + 反应物分隔符」，被吃成 `5Cl2 ^{+} 8H2O` 会让 `parseFormula` 崩、`chem-input` 的 shadow root 渲染成空 div（**方程式输入框整块消失**）。历史上真发生过，且桌面校验全绿、只有真机才抓到 —— 所以 `check-ion.mjs` 专门有「气体/沉淀记号后的 + 是分隔符」两项，别再放宽这条正则 |
+| 可逆符号（冻结） | `<=>`（或 `<->`）必须**原样活到 mhchem**，渲染成 ⇌（`\rightleftharpoons`）。**可逆归一化的顺序不能反**：先 `=> → ->`、再 `<-> → <=>`；反过来（先归 `<=>` 再吃 `=>`）会把 `<=>` 拆成 `<->`，随后 `\s*->\s*` 再劈成 `< ->` —— 界面上就成了「小于号 + 普通箭头」。`check-equation.mjs` 从「纯函数 + 真渲染结构（`halfarrow-left`）」两侧锁死 |
+| 反应条件（冻结） | 加热 `\Delta` / 点燃 / 催化 / 通电 / 高温 / 高压 → 写成 `->[\Delta]`、`<=>[\Delta]`。**方括号必须紧贴箭头**：`-> [\Delta]` 会被 mhchem 当**字面量**排在箭头旁边（用户看到的「加热催化符号用不了」）。`replaceArrowWithCondition(text, cond, caret)` 负责贴条件；**式子还没有箭头时要在光标处补一个带条件的箭头**，不许原样返回（原样返回 = 点按钮什么都不发生）；换条件替换旧条件，不叠成 `->[Δ][高温]` |
+| 条件与配平（冻结） | 箭头上下的条件方括号**不是反应物**：`checkBalance()` 先脱掉紧贴箭头的 `->[...]` / `<=>[...]` 再配平 —— 否则 `\Delta` 被当成元素 `De`，凡是标了条件的式子一律显示「未配平」 |
+| 电荷数字框（冻结） | `.chem-ion-num` 必须 `type="text" inputMode="numeric"`（手机上仍弹数字键盘）+ 聚焦/点击全选 + 草稿文本，范围 1~`ION_MAX_CHARGE`、超范围立即夹紧：`type="number"` 上 `select()` 无效（`setSelectionRange` 直接抛 `InvalidStateError`），点进去键盘一敲就是**追加**（「1」后敲 3 → `"13"` → 夹成 **9**），退格清空又被 `Number('')=0` 弹回 1 —— 这就是「离子电荷数不正常」 |
 | 解析容错（冻结） | `parseFormula()` / `checkBalance()` **永远不许抛异常**（它们跑在 React 渲染里，抛出去就是整个组件白屏式消失）：多余的右括号、只有括号、空箭头等畸形输入一律返回可读提示 |
 
 ### 3.14 手机端适配与溢出兜底（2026-10-09 新增）
@@ -820,6 +824,7 @@ exp.timer = { ...同上 }      // ★ 自由计时器（不绑定任何步骤）
 | 3.1.0 | 2026-10-05 | **补齐 v3.0.0 之后落地的三个能力，并修正与现实不符的条款**：① 新增 §3.11「AI 生成实验步骤页」；② 新增 §3.10「局域网互传」（`#/lan` + 可选 `src/lan-server.py`，含存储 key `zhbit-lab-lan`、10 个 HTTP 接口、分片/秒传/续传/局部重绘/5 秒轮询约定、无鉴权安全边界）；③ §3.7 视图表补 `aigen`/`lan`，`BARE_VIEWS` 明确为 4 个，动作清单补 `ai-*` / `lan-*` 与 `lan-` 前缀转发；④ 铁律 2 由「只有 `callLLM()` 能发请求」改为「`callLLM()` + `#/lan` 互传模块两处收口」；⑤ 铁律 5 / 红线① 补记**已内联并登记**的 React 18.3.1 / KaTeX / mhchem；⑥ 铁律 12 由「`check-page` 88 项」改为**三套校验**（153/155 + 25 + 33）；⑦ §7 补「G. 局域网互传」坑表。**`EXP_VERSION` 仍为 1**（`Exp` 数据结构未变），互传只新增独立 storage key | — |
 | **3.2.0** | **2026-10-08** | **① 计时器改为「每步一个 + 自由计时器」**（新增 §3.12）：`step.timer` 每步独立，`exp.timer` 变为不绑定步骤的**自由计时器**；§3.2 的 `Step` 结构补 `timer` 字段；§3.7 动作清单补 8 个 `timer-*` / `go-edit-timer`；新增 **`data-timer-src` 动作路由**（`resolveTimer()`）与 `data-timer-host` / `data-timer-owner` / `data-timer-clock` 标记约定；`migrateTimers()` 幂等迁移旧数据。② **「仪器摆放」整体移除**：§3.4（画布 `CanvasItem`/`Link`）与 §3.5（`INST_LIB` 仪器库）标为 ⛔ 仅留档，其数据结构、运行时、13 个 `cv-*` 动作、`cv-` 前缀转发、`step.canvas` 字段全部作废；§3.2 去掉 `canvas` 字段；§3.7 的 `default` 只保留 `lan-` 前缀转发。③ 命名铁律第 9 条（先追加 `INST_LIB`）作废；`i_` / `l_` id 规则作废。④ **铁律 12 的校验基线更新**为 2 / 271（本仓库 263 + 8 SKIP）/ 25 / 44 / 34 / 44。⑤ 新增折叠卡存储 key `zhbit-lab-fold`。**`EXP_VERSION` 仍为 1**（旧字段只增不改：`step.timer` 为新增；旧 `exp.timer` 语义变更但字段名沿用，旧数据由 `migrateTimers()` 兼容） | — |
 | **3.3.0** | **2026-10-09** | **① 导出改为格式二选一**：`exp-export` 打开格式选择弹窗（新动作 `exp-export-md` / `exp-export-json` / `exp-export-close`，宿主 `#dialogHost`，状态 `ui.exportId`）；新增 **离线 Markdown**（`buildOfflineMarkdown()` + `Media.dataURL()`，图片 base64 内嵌，读不到图写占位）——JSON 包结构与导入规则**一字未改**。② **新增 §3.13「方程式输入 `chem-input`」**：补记元素属性/事件契约、`tools/inline-chem.mjs` 重新内联流程、离子电荷写法（`^3+` / `^+` / `^2-` / `^-`）与 **`smartConvert()` 必须把电荷粘成 `^{3+}`** 的冻结规则（否则 mhchem 把 +/− 挤出右上角上标）。③ **新增 §3.14「手机端适配与溢出兜底」**：`minmax(0,1fr)` / `min-width:0` 硬化约定、`<html data-fit>` + `--fit-s` + `zoom` 兜底、`calc(100dvh / var(--fit-s))` 高度补偿、`.fit-hint` + `fit-reset`。④ **铁律 12 校验基线**更新为 2 / 306（本仓库 298 + 8 SKIP）/ 25 / 64 / 75 / 18 / 65 / 44 / 34。⑤ **兜底缩放改两条路，运行时实测选一条**：`zoom` 与 `transform: scale()`（只缩 `#main > .view`，多出的布局高度用负 margin 收掉）；**不能只看 `CSS.supports("zoom")`** —— Android WebView（Chrome/113）上 `zoom` 假生效（supports 与 computed 都报 0.5，元素一个像素没缩），必须用 100px 探针实测（`Fit.detectZoom()`）。走 transform 那条时还要 `html[data-fit-tf] #main > .view { animation: none }`（CSS 动画优先级高于内联 `transform`）。⑥ §3.13 补两条红线：电荷归一化**只在紧挨着时**生效且必须在空格归一化之前（否则吃掉 `5Cl2 ^ + 8H2O` 的 `+`，`chem-input` 直接渲染成空 div）；`parseFormula` / `checkBalance` **永不抛异常**。**`EXP_VERSION` 仍为 1**（`Exp` / `Step` 数据结构未变：只新增导出格式与 UI） | — |
+| **3.3.1** | **2026-10-14** | **修三个用户报的方程式输入缺陷（改的是 `chem-input` 组件，页面内联副本已同步重建）**：① **可逆符号 `<=>` 显示成「小于号 + 箭头」** —— `smartConvert()` 里 `<=>|<-> → <=>` 与 `=> → ->` 两步**顺序写反**，`<=>` 被拆成 `<->`，随后 `\s*->\s*` 再劈成 `< ->`；改为「先吃 `=>`、再归 `<->`」，并让箭头留白正则避开紧贴的条件方括号。② **加热 / 点燃 / 催化 / 通电 / 高温 / 高压点了没反应，或显示成字面量 `[Δ]`** —— 箭头留白把 `->[\Delta]` 拆成 `-> [\Delta]`（mhchem 只认紧贴写法）；且式子还没有箭头时 `replaceArrowWithCondition()` 原样返回、什么都不发生。现在条件整块紧贴保留，没有箭头就在光标处补 `->[\Delta]` 并把光标落到条件后面，换条件会替换旧条件。③ **`checkBalance()` 把条件方括号当反应物** —— `\Delta` 被解析成元素 `De`，标了条件的式子一律判「未配平」；改为先脱掉紧贴箭头的 `[...]` 再配平（空格写法的配合物 `-> [Cu(NH3)4]SO4` 不受影响）。④ **离子电荷数「不正常」** —— `.chem-ion-num` 由 `type="number"` 改为 `text + inputMode="numeric"` + 聚焦/点击全选 + 草稿文本：原来「1」后面敲 3 会得到 **9**、退格清空立刻弹回 1（`type="number"` 上 `select()` 无效、`setSelectionRange` 抛错）。⑤ **新增校验 `tools/check-equation.mjs`**（46 项：可逆符号纯函数 + 真渲染 `halfarrow-left`、六个条件的贴法与渲染、条件配平）；`check-chem-ui.mjs` 补 5 项真浏览器数字框键入断言（18 → 23 项）。⑥ **铁律 12 校验基线**更新为 2 / 306 / 25 / 64 / 46 / 23 / 75 / 65 / 44 / 34。**`EXP_VERSION` 仍为 1**（`Exp` / `Step` 数据结构未变） | — |
 
 ---
 

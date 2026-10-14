@@ -94,7 +94,7 @@
     const num = sr.querySelector(".chem-ion-num");
     const plus = sr.querySelector(".chem-ion-btn-plus");
     const minus = sr.querySelector(".chem-ion-btn-minus");
-    out.chem_range = String(num.min) + "~" + num.max;
+    out.chem_inputType = String(num.type) + "/" + String(num.inputMode);
     out.chem_previews = sr.querySelectorAll(".chem-ion-preview .katex").length;
     /* 受控组件改值：走原生 setter + input 事件 */
     const setVal = (el, v) => {
